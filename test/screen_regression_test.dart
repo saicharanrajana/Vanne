@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:m3e_core/m3e_core.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -15,6 +14,7 @@ import 'package:wallpaper_app/features/settings/application/settings_controller.
 import 'package:wallpaper_app/features/settings/presentation/settings_screen.dart';
 import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import 'package:wallpaper_app/features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
+import 'package:wallpaper_app/features/wallpaper_detail/presentation/widgets/wallpaper_action_bar.dart';
 
 /// Regression probes for two device-only breakages observed on hardware:
 /// 1. the Settings tab rendering blank,
@@ -127,12 +127,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Detail now uses M3EHorizontalFloatingToolbar with vibrant labels and Material icons.
-      // Verify toolbar is present and no ErrorWidget in tree.
-      expect(find.byType(M3EHorizontalFloatingToolbar), findsOneWidget);
-      expect(find.byIcon(Icons.download_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.wallpaper_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.open_in_new_outlined), findsOneWidget);
+      // Detail now uses the expressive WallpaperActionBar group with
+      // Material icons. Verify it is present and no ErrorWidget in tree.
+      expect(find.byType(WallpaperActionBar), findsOneWidget);
+      expect(find.byIcon(Icons.download), findsOneWidget);
+      expect(find.byIcon(Icons.wallpaper), findsOneWidget);
+      expect(find.byIcon(Icons.open_in_new), findsOneWidget);
+      expect(find.text('Set'), findsOneWidget);
       expect(
         find.byWidgetPredicate((w) => w is ErrorWidget),
         findsNothing,

@@ -23,12 +23,5 @@ final class UrlLauncherService {
     return false;
   }
 
-  /// Legacy external browser launch — kept for fallback/testing.
-  /// Prefer [openInApp] for user-facing links.
-  Future<bool> openExternal(Uri url) async {
-    if (await canLaunchUrl(url)) {
-      return launchUrl(url, mode: LaunchMode.externalApplication);
-    }
-    return false;
-  }
 }
+

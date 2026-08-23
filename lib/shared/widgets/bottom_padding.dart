@@ -1,5 +1,5 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
-// runs on the material_ui widget tree — see progressive_fade.dart for the full note.
+// runs on the material_ui widget tree.
 import 'package:material_ui/material_ui.dart';
 
 /// Breathing room at the bottom of scrollable content.
@@ -22,23 +22,6 @@ class BottomPadding extends StatelessWidget {
     double minimum = 16,
   }) {
     final double viewPadding = MediaQuery.viewPaddingOf(context).bottom;
-    final double height = viewPadding > minimum ? viewPadding : minimum;
-    return height;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final double height = of(context);
-    return SizedBox(height: height);
-  }
-}
-
-/// Top breathing room counterpart; rarely needed but symmetric.
-class TopPadding extends StatelessWidget {
-  const TopPadding({super.key});
-
-  static double of(BuildContext context, {double minimum = 0}) {
-    final double viewPadding = MediaQuery.viewPaddingOf(context).top;
     final double height = viewPadding > minimum ? viewPadding : minimum;
     return height;
   }

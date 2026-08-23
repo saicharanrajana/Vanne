@@ -1,6 +1,6 @@
 import 'package:wallhaven_client/wallhaven_client.dart';
 
-/// User-facing feed configuration shared by Discover, Search and Category
+/// User-facing feed configuration shared by Discover, Search and collection
 /// exploration. Pure value object — no request types leak into UI.
 ///
 /// Portrait-only and purity are intentionally NOT part of this object:

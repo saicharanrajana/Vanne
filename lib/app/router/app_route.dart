@@ -64,9 +64,6 @@ class CollectionsTab extends AppRoute {
       );
 }
 
-/// Legacy alias — redirect handled in parseRouteFromUri.
-typedef CategoriesTab = CollectionsTab;
-
 class FavoritesTab extends AppRoute {
   @override
   Type get layout => MainShell;
@@ -208,20 +205,6 @@ class CollectionExploreRoute extends AppRoute {
       );
 }
 
-/// Legacy — kept for deep-link redirect only.
-class CategoryExploreRoute extends AppRoute {
-  final String categoryId;
-
-  CategoryExploreRoute(this.categoryId);
-
-  @override
-  Uri toUri() => Uri.parse('/categories/$categoryId');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      CollectionsTab().build(coordinator, context);
-}
-
 class WallpaperDetailRoute extends AppRoute with RouteTransition {
   final String wallpaperId;
   final Wallpaper? initial;
@@ -233,12 +216,17 @@ class WallpaperDetailRoute extends AppRoute with RouteTransition {
     this.heroScope = '',
   });
 
+  /// Created once per route instance; rebuilding the route must not spawn
+  /// a fresh controller (and re-fire `/w/{id}`) on every build. The screen's
+  /// [State.dispose] releases it when the route is popped.
+  WallpaperDetailController? _controller;
+
   @override
   Uri toUri() => Uri.parse('/wallpaper/$wallpaperId');
 
   @override
   Widget build(AppCoordinator coordinator, BuildContext context) {
-    final controller = locator<WallpaperDetailController>(
+    final controller = _controller ??= locator<WallpaperDetailController>(
       param1: wallpaperId,
       param2: initial,
     );
@@ -286,34 +274,16 @@ final class AppCoordinator extends Coordinator<AppRoute> {
   @override
   List<StackPath> get paths => [...super.paths, tabs];
 
-  static const _categoryToSeed = <String, String>{
-    'anime': 'seed-anime',
-    'nature': 'seed-nature',
-    'space': 'seed-anime',
-    'abstract': 'seed-abstract',
-    'minimal': 'seed-minimal',
-    'architecture': 'seed-architecture',
-    'cars': 'seed-dark',
-    'games': 'seed-dark',
-    'technology': 'seed-dark',
-    'animals': 'seed-animals',
-    'dark': 'seed-dark',
-    'amoled': 'seed-dark',
-  };
-
   @override
   AppRoute parseRouteFromUri(Uri uri) => switch (uri.pathSegments) {
         [] || ['discover'] => DiscoverTab(),
         ['collections'] => CollectionsTab(),
-        ['categories'] => CollectionsTab(),
         ['favorites'] => FavoritesTab(),
         ['settings'] => SettingsTab(),
         ['settings', 'api-key'] => ApiKeySettingsRoute(),
         ['search'] => SearchRoute(),
         ['wallpaper', final id] => WallpaperDetailRoute(wallpaperId: id),
         ['collections', final id] => CollectionExploreRoute(collectionId: id),
-        ['categories', final id] =>
-          CollectionExploreRoute(collectionId: _categoryToSeed[id] ?? 'seed-anime'),
         _ => DiscoverTab(),
       };
 }

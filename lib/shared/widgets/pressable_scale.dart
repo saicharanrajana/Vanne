@@ -1,5 +1,5 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
-// runs on the material_ui widget tree — see progressive_fade.dart for the full note.
+// runs on the material_ui widget tree.
 import 'package:material_ui/material_ui.dart';
 import 'package:motor/motor.dart';
 

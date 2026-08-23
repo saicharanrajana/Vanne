@@ -7,7 +7,7 @@
 ///
 /// ```dart
 /// SizedBox(height: AppSpacing.lg)
-/// AppSpacing.lg.gap                 // via shared/extensions/num_extensions
+/// AppSpacing.lg.gap                 // via shared/extensions/gap_extensions
 /// EdgeInsets.all(AppSpacing.lg)
 /// ```
 ///

@@ -5,12 +5,10 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Centralized image cache control replacing `extended_image_library` helpers.
+/// Centralized image cache control.
 ///
-/// Previously `settings_screen.dart` imported `extended_image` for
-/// `getCachedSizeBytes()`, `clearDiskCachedImages()`, `clearMemoryImageCache()`.
-/// This service delegates to `flutter_cache_manager` (`DefaultCacheManager`)
-/// + `PaintingBinding.imageCache` and handles orphaned legacy dirs.
+/// Delegates to `flutter_cache_manager` (`DefaultCacheManager`) +
+/// `PaintingBinding.imageCache` and handles orphaned legacy dirs.
 abstract final class ImageCacheService {
   const ImageCacheService._();
 

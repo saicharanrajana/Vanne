@@ -4,7 +4,6 @@ import 'package:signals/signals_flutter.dart';
 
 import '../../../app/theme/app_shapes.dart';
 import '../../../app/dependencies.dart';
-import '../../../core/services/url_launcher_service.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../application/settings_controller.dart';
@@ -148,7 +147,6 @@ final class SettingsScreen extends StatelessWidget {
                       title: 'Open source',
                       subtitle: 'Free & open — contributions welcome.',
                     ),
-                    _AboutGithubTile(),
                   ],
                 ),
               ],
@@ -580,65 +578,3 @@ final class _CacheTileState extends State<_CacheTile> {
     );
   }
 }
-/// GitHub stub tile — tappable link to raise queries & feature requests.
-final class _AboutGithubTile extends StatelessWidget {
-  const _AboutGithubTile();
-
-  static final _githubUrl = Uri.parse('https://github.com/placeholder/wallpaper_app');
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLarge),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => locator<UrlLauncherService>().openInApp(_githubUrl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(Icons.bug_report_outlined, size: 22, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('GitHub', style: textTheme.titleSmall?.copyWith(height: 1.2)),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Raise queries & feature requests',
-                        style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.2),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'github.com/placeholder/wallpaper_app',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: scheme.primary,
-                          decoration: TextDecoration.underline,
-                          decorationColor: scheme.primary,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.open_in_new, size: 18, color: scheme.onSurfaceVariant),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-

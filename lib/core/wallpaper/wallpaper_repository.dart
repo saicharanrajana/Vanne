@@ -23,8 +23,6 @@ class WallpaperRepository {
     required this.settingsStore,
   });
 
-  AuthenticationState get authState => client.authState;
-
   /// Whether an API key is currently active.
   bool get isAuthenticated => client.apiKeyManager.isAuthenticated;
 

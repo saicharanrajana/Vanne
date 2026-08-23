@@ -1,6 +1,6 @@
 import 'package:wallhaven_client/wallhaven_client.dart';
 
-/// Maps package exceptions to short, user-facing strings for the smoke UI.
+/// Maps package exceptions to short, user-facing strings.
 ///
 /// Kept in one place so the presentation layer never needs to know the
 /// exception taxonomy. Messages are safe to display: the package already

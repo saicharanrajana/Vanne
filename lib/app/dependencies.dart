@@ -5,7 +5,6 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../core/collections/collection_entry.dart';
 import '../core/collections/collections_repository.dart';
 import '../core/collections/seed_collections.dart';
-import '../core/domain/app_category.dart';
 import '../core/downloads/download_service.dart';
 import '../core/favorites/favorites_repository.dart';
 import '../core/security/api_key_store.dart';
@@ -13,7 +12,6 @@ import '../core/services/url_launcher_service.dart';
 import '../core/services/wallpaper_applier.dart';
 import '../core/storage/settings_store.dart';
 import '../core/wallpaper/wallpaper_repository.dart';
-import '../features/categories/application/category_explore_controller.dart';
 import '../features/collections/application/collection_explore_controller.dart';
 import '../features/collections/application/collections_controller.dart';
 import '../features/discover/application/discover_controller.dart';
@@ -40,9 +38,7 @@ Future<void> bootstrap() async {
   final collectionsRepository = CollectionsRepository();
   await collectionsRepository.open();
   if ((await collectionsRepository.getAll()).isEmpty) {
-    for (final e in seedCollections) {
-      await collectionsRepository.add(e);
-    }
+    await collectionsRepository.addAll(seedCollections);
   }
 
   final repository = WallpaperRepository(
@@ -83,10 +79,6 @@ Future<void> bootstrap() async {
     )
     ..registerFactoryParam<CollectionExploreController, CollectionEntry, void>(
       (entry, _) => CollectionExploreController(entry, repository),
-    )
-    // Category exploration feeds are per-navigation instances (kept for legacy redirect).
-    ..registerFactoryParam<CategoryExploreController, AppCategory, void>(
-      (category, _) => CategoryExploreController(category, repository),
     )
     // Detail controllers are per-screen instances; [initial] carries the
     // listing entry for an instant Hero, or null on cold deep links.

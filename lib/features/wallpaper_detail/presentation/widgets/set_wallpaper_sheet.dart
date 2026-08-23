@@ -7,20 +7,11 @@ import '../../../../core/services/wallpaper_applier.dart';
 import '../../../../shared/widgets/app_snack.dart';
 import '../../application/wallpaper_detail_controller.dart';
 
-/// Opens the "Set wallpaper" popup (Dialog) — home / lock / both.
+/// Opens the "Set wallpaper" dialog — home / lock / both.
 ///
-/// Previously a smooth_sheets bottom sheet with a preselected `home` and an
-/// extra Apply button. Now a lightweight dialog where tapping an option
-/// directly applies (no preselect, no extra tap). The controller downloads
-/// a local copy; `async_wallpaper` applies it and per-target results drive
-/// the snackbar.
-Future<void> showSetWallpaperSheet(
-  BuildContext context, {
-  required WallpaperDetailController controller,
-}) {
-  return showSetWallpaperPopup(context, controller: controller);
-}
-
+/// Tapping an option applies it directly (no preselect, no extra tap).
+/// The controller downloads a local copy; `async_wallpaper` applies it and
+/// per-target results drive the snackbar.
 Future<void> showSetWallpaperPopup(
   BuildContext context, {
   required WallpaperDetailController controller,

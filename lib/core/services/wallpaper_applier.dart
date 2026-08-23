@@ -57,12 +57,6 @@ final class ApplyOutcome {
 
   factory ApplyOutcome.failure(String message) =>
       ApplyOutcome._(ApplyStatus.failed, message);
-
-  /// Some targets applied, others failed (only possible for "both").
-  factory ApplyOutcome.partialFailure(String targets) => ApplyOutcome._(
-    ApplyStatus.partiallyApplied,
-    'Could not set the wallpaper for $targets.',
-  );
 }
 
-enum ApplyStatus { applied, partiallyApplied, failed }
+enum ApplyStatus { applied, failed }

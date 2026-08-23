@@ -1,0 +1,11 @@
+{
+  "data": [],
+  "meta": {
+    "current_page": 3,
+    "last_page": 2,
+    "per_page": 24,
+    "total": 41,
+    "query": "nonexistent-tag-xyz",
+    "seed": null
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "data": {
+    "thumb_size": "orig",
+    "per_page": "24",
+    "purity": ["sfw", "sketchy", "nsfw"],
+    "categories": ["general", "anime", "people"],
+    "resolutions": ["1920x1080", "2560x1440"],
+    "aspect_ratios": ["16x9"],
+    "toplist_range": "6M",
+    "tag_blacklist": ["blacklist tag", "another"],
+    "user_blacklist": [""]
+  }
+}

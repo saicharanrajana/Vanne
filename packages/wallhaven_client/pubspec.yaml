@@ -1,0 +1,19 @@
+name: wallhaven_client
+description: A Dart-only client for the Wallhaven API v1. Strongly typed models, optional API-key auth, rate limiting, pagination, and typed errors.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.1
+
+resolution: workspace
+
+dependencies:
+  compute: ^1.0.2
+  dio: ^5.11.0
+  meta: ^1.16.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  mocktail: ^1.0.5
+  test: ^1.25.0

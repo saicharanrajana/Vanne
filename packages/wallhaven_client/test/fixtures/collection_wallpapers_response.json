@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "e7v8qz",
+      "url": "https://wallhaven.cc/w/e7v8qz",
+      "short_url": "http://whvn.cc/e7v8qz",
+      "views": 3,
+      "favorites": 1,
+      "source": "",
+      "purity": "sfw",
+      "category": "people",
+      "dimension_x": 3840,
+      "dimension_y": 2160,
+      "resolution": "3840x2160",
+      "ratio": "1.78",
+      "file_size": 2201359,
+      "file_type": "image/jpeg",
+      "created_at": "2019-01-12 09:44:37",
+      "colors": ["#66cccc", "#ffffff"],
+      "path": "https://w.wallhaven.cc/full/e7/wallhaven-e7v8qz.jpg",
+      "thumbs": {
+        "large": "https://th.wallhaven.cc/lg/e7/e7v8qz.jpg",
+        "original": "https://th.wallhaven.cc/orig/e7/e7v8qz.jpg",
+        "small": "https://th.wallhaven.cc/small/e7/e7v8qz.jpg"
+      }
+    }
+  ],
+  "meta": {
+    "current_page": 2,
+    "last_page": 5,
+    "per_page": 24,
+    "total": 97,
+    "query": null,
+    "seed": "xyz789"
+  }
+}

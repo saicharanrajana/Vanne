@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "id": 15, "label": "Default", "views": 38, "public": 1, "count": 10 },
+    { "id": 17, "label": "This is another collection", "views": 6, "public": 0, "count": 7 }
+  ]
+}

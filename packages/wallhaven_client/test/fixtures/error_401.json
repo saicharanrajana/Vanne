@@ -1,0 +1,4 @@
+{
+  "status": 401,
+  "error": "Unauthorized: invalid or missing API key."
+}

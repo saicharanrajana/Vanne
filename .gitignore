@@ -52,3 +52,6 @@ app.*.map.json
 .env.*
 *.env
 .env.local
+
+# Flutter build artifacts (any package)
+build/

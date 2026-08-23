@@ -37,7 +37,7 @@ abstract final class AppTheme {
     // stay black instead of being shifted by harmonization.
     final harmonized = base.harmonized();
     final effective = pitchBlack && brightness == Brightness.dark
-        ? _toPitchBlack(harmonized)
+        ? toPitchBlack(harmonized)
         : harmonized;
     const noSplash = ButtonStyle(
       overlayColor: WidgetStatePropertyAll(Colors.transparent),
@@ -135,7 +135,10 @@ abstract final class AppTheme {
   /// reads on AMOLED panels:
   /// lowest `#000000` → low `#050505` → container `#0A0A0A` → high
   /// `#101010` → highest `#161616`.
-  static ColorScheme _toPitchBlack(ColorScheme dark) => dark.copyWith(
+  ///
+  /// Public so wallpaper-derived schemes (detail sheet) can honor
+  /// pitch-black mode without duplicating the ladder.
+  static ColorScheme toPitchBlack(ColorScheme dark) => dark.copyWith(
         surface: const Color(0xFF000000),
         surfaceDim: const Color(0xFF000000),
         surfaceContainerLowest: const Color(0xFF000000),

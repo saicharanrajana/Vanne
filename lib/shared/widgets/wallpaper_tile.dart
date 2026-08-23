@@ -5,6 +5,7 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 import 'pressable_scale.dart';
 import 'smart_network_image.dart';
+import '../utils/hex_color.dart';
 
 /// A single wallpaper card for staggered grids.
 ///
@@ -63,7 +64,7 @@ final class WallpaperTile extends StatelessWidget {
 
   Color? get _placeholderColor {
     if (wallpaper.colors.isEmpty) return null;
-    return _colorFromHex(wallpaper.colors.first);
+    return parseHexColor(wallpaper.colors.first);
   }
 
   @override
@@ -131,17 +132,6 @@ final class WallpaperTile extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-Color? _colorFromHex(String hex) {
-  try {
-    var h = hex.replaceFirst('#', '').trim();
-    if (h.length == 6) h = 'FF$h';
-    if (h.length == 8) return Color(int.parse(h, radix: 16));
-    return null;
-  } catch (_) {
-    return null;
   }
 }
 

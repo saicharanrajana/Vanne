@@ -274,14 +274,8 @@ final class _ColorChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    Color display;
-    try {
-      var hex = color.hex.replaceFirst('#', '').trim();
-      if (hex.length == 6) hex = 'FF$hex';
-      display = Color(int.parse(hex, radix: 16));
-    } catch (_) {
-      display = scheme.onSurfaceVariant;
-    }
+    // Wire hex is a validated 6-digit value from the enum itself.
+    final display = Color(color.colorValue);
     return Semantics(
       button: true,
       selected: selected,

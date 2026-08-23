@@ -26,6 +26,9 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
   final _keyField = TextEditingController();
   bool _obscured = true;
 
+  /// True while the user is entering a replacement for an existing key.
+  bool _replacing = false;
+
   @override
   void dispose() {
     // Drop the plaintext from memory as soon as the screen leaves.
@@ -38,17 +41,17 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
     if (key.isEmpty) return;
     await settings.saveApiKey(key);
     if (!mounted) return;
+    // Signal-driven rebuild handles the UI; just drop the plaintext.
     _keyField.clear();
     FocusScope.of(context).unfocus();
     AppSnack.show(context, 'API key saved securely.');
-    setState(() {});
   }
 
   Future<void> _remove() async {
     await settings.removeApiKey();
     if (!mounted) return;
+    setState(() => _replacing = false);
     AppSnack.show(context, 'API key removed.');
-    setState(() {});
   }
 
   @override
@@ -101,10 +104,11 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
           SignalBuilder(
             builder: (context) {
               final hasKey = settings.hasApiKey.value;
+              final showField = !hasKey || _replacing;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (hasKey)
+                  if (hasKey && !_replacing)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: ShapeDecoration(
@@ -149,7 +153,7 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                       obscureText: _obscured,
                       onChanged: (_) => setState(() {}),
                     ),
-                  if (!hasKey) ...[
+                  if (showField) ...[
                     const SizedBox(height: 4),
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
@@ -164,10 +168,10 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  if (hasKey) ...[
-                    M3EButton(style: M3EButtonStyle.filled, 
+                  if (hasKey && !_replacing) ...[
+                    M3EButton(style: M3EButtonStyle.filled,
                       size: M3EButtonSize.lg,
-                      onPressed: onOpenKeyEntry,
+                      onPressed: () => setState(() => _replacing = true),
                       child: const Text('Replace key'),
                     ),
                     const SizedBox(height: 10),
@@ -177,10 +181,10 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                       child: const Text('Remove key'),
                     ),
                   ] else
-                    M3EButton(style: M3EButtonStyle.filled, 
+                    M3EButton(style: M3EButtonStyle.filled,
                       size: M3EButtonSize.lg,
                       onPressed: _keyField.text.trim().isEmpty ? null : _save,
-                      child: const Text('Save key'),
+                      child: Text(_replacing && hasKey ? 'Save new key' : 'Save key'),
                     ),
                 ],
               );
@@ -190,6 +194,4 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
       ),
     );
   }
-
-  void onOpenKeyEntry() => setState(() {});
 }

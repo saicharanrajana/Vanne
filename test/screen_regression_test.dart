@@ -16,8 +16,7 @@ import 'package:wallpaper_app/features/settings/presentation/settings_screen.dar
 import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import 'package:wallpaper_app/features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
 
-/// Regression probes for two device-only breakages reported in
-/// docs/status.md:
+/// Regression probes for two device-only breakages observed on hardware:
 /// 1. the Settings tab rendering blank,
 /// 2. the download arch action on the detail screen rendering Flutter's
 ///    error widget.
@@ -95,11 +94,10 @@ void main() {
     // Scroll to reveal About footer (CustomScrollView with SliverAppBar — was ListView).
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
     await tester.pumpAndSettle();
-    // About footer — wallhaven source, open source, GitHub stub.
+    // About footer — wallhaven source, open source.
     expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('Source'), findsOneWidget);
     expect(find.text('Open source'), findsOneWidget);
-    expect(find.text('GitHub'), findsOneWidget);
     // Back to top for NSFW tap
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 800));
     await tester.pumpAndSettle();

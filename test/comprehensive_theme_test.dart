@@ -31,9 +31,6 @@ class _StubRepository implements WallpaperRepository {
     return SearchOutcome(
       page: PaginatedResult<Wallpaper>(
         items: const [],
-        currentPage: 1,
-        lastPage: 1,
-        perPage: 24,
         meta: const SearchMeta(currentPage: 1, lastPage: 1, perPage: 24),
       ),
       nsfwClamped: false,

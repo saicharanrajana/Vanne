@@ -69,11 +69,7 @@ Wallpaper _wallpaper(String id) => Wallpaper(
 PaginatedResult<Wallpaper> _page(int number, List<String> ids) =>
     PaginatedResult<Wallpaper>(
       items: [for (final id in ids) _wallpaper(id)],
-      currentPage: number,
-      lastPage: 2,
-      perPage: 24,
-      total: null,
-      meta: const SearchMeta(currentPage: 1, lastPage: 2, perPage: 24),
+      meta: SearchMeta(currentPage: number, lastPage: 2, perPage: 24),
     );
 
 void main() {

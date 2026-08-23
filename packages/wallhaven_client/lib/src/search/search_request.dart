@@ -123,25 +123,21 @@ final class WallhavenSearchRequest {
 
   /// Convenience copy helper returning a request targeting [newPage],
   /// preserving every other parameter (including an explicit random seed).
-  WallhavenSearchRequest withPage(int newPage) => WallhavenSearchRequest(
-        query: query,
-        structuredQuery: structuredQuery,
-        categories: categories,
-        purity: purity,
-        sorting: sorting,
-        order: order,
-        topRange: topRange,
-        minResolution: minResolution,
-        resolutions: resolutions,
-        ratios: ratios,
-        colors: colors,
-        page: newPage,
-        seed: seed,
-      );
+  WallhavenSearchRequest withPage(int newPage) => _copy(page: newPage);
 
   /// Convenience copy helper returning the same request with [newSeed]
   /// (pass `null` to drop an existing seed).
-  WallhavenSearchRequest withSeed(String? newSeed) => WallhavenSearchRequest(
+  WallhavenSearchRequest withSeed(String? newSeed) =>
+      _copy(seed: newSeed, replaceSeed: true);
+
+  /// Single copy implementation so a newly added field can never be
+  /// silently dropped by one of the copy helpers. [replaceSeed] selects
+  /// between keeping the current seed and using [seed].
+  WallhavenSearchRequest _copy({
+    int? page,
+    String? seed,
+    bool replaceSeed = false,
+  }) => WallhavenSearchRequest(
         query: query,
         structuredQuery: structuredQuery,
         categories: categories,
@@ -153,8 +149,8 @@ final class WallhavenSearchRequest {
         resolutions: resolutions,
         ratios: ratios,
         colors: colors,
-        page: page,
-        seed: newSeed,
+        page: page ?? this.page,
+        seed: replaceSeed ? seed : this.seed,
       );
 
   /// Wire-format query parameters. Null/empty/default-noop entries are

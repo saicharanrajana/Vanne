@@ -26,16 +26,20 @@ final class CacheInterceptor extends Interceptor {
   /// Key = `GET <path>?<sorted encoded query>` — sorted so that parameter
   /// order never splits cache entries. The API key never participates: it
   /// travels in a header (see [ApiKeyInterceptor]), not the URL.
-  String cacheKey(RequestOptions options) {
-    // Re-sort the query pairs so `?a=1&b=2` and `?b=2&a=1` share an entry.
-    final pairs = options.queryParameters.entries.toList()
+  String cacheKey(RequestOptions options) =>
+      '${options.method} ${options.path}?${normalizedQuery(options.queryParameters)}';
+
+  /// Canonical form of a query map: keys sorted, every key and value
+  /// percent-encoded so semantically different queries never collide
+  /// (`a=1&b` vs `a=1%26b`) and order never matters.
+  static String normalizedQuery(Map<String, Object?> query) {
+    final pairs = query.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
-    final normalizedQuery = pairs
+    return pairs
         .map((e) =>
             '${Uri.encodeQueryComponent(e.key)}='
             '${Uri.encodeQueryComponent('${e.value}')}')
         .join('&');
-    return '${options.method} ${options.path}?$normalizedQuery';
   }
 
   bool _isCacheable(RequestOptions options) =>

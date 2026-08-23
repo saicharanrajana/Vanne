@@ -9,6 +9,12 @@ import 'package:dio/dio.dart';
 /// shared future is removed, so later requests start fresh. This prevents
 /// duplicate simultaneous requests when widgets rebuild while a fetch is
 /// still running — without ever caching stale results.
+///
+/// Known trade-off: waiters share one [CancelToken]-less future, so if any
+/// caller cancels its token, every waiter on the same key fails with a
+/// cancellation — including callers that never cancelled. Acceptable here
+/// because deduped callers are always the same logical fetch within one
+/// screen; callers needing independent cancellation should not share keys.
 final class RequestDeduper {
   final Map<String, Future<Response<dynamic>>> _inFlight = {};
 
@@ -32,9 +38,4 @@ final class RequestDeduper {
     _inFlight[key] = future;
     return future;
   }
-
-  /// Whether a request for [key] is currently in flight (test hook).
-  bool isInFlight(String key) => _inFlight.containsKey(key);
-
-  int get trackedRequests => _inFlight.length;
 }

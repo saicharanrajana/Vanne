@@ -104,7 +104,7 @@ enum WallhavenFileType {
   final String wireName;
 }
 
-/// The 30 documented search colors (6-digit hex, no leading `#`).
+/// The 29 documented search colors (6-digit hex, no leading `#`).
 enum WallhavenColor {
   maroon660000('660000'),
   darkRed990000('990000'),
@@ -140,17 +140,4 @@ enum WallhavenColor {
 
   /// 6-digit hex without `#`.
   final String hex;
-
-  /// Normalizes user input (`#FF0000`) into wire form (`ff0000`).
-  ///
-  /// Throws [ArgumentError] if [hex] is not a 6-digit hex color after
-  /// stripping an optional leading `#`.
-  static String normalizeHex(String hex) {
-    var value = hex.trim().toLowerCase();
-    if (value.startsWith('#')) value = value.substring(1);
-    if (!RegExp(r'^[0-9a-f]{6}$').hasMatch(value)) {
-      throw ArgumentError.value(hex, 'hex', 'must be a 6-digit hex color');
-    }
-    return value;
-  }
 }

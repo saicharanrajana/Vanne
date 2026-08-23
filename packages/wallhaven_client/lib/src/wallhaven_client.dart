@@ -9,11 +9,16 @@ import 'auth/authentication_state.dart';
 import 'config/wallhaven_config.dart';
 import 'domain/domain.dart';
 import 'errors/wallhaven_exception.dart';
+import 'http/cache/cache_interceptor.dart';
 import 'http/cache/cache_store.dart';
 import 'http/dio_factory.dart';
 import 'http/error_mapper.dart';
 import 'http/request_deduper.dart';
-import 'models/models.dart';
+import 'models/collection_dto.dart';
+import 'models/search_meta_dto.dart';
+import 'models/settings_dto.dart';
+import 'models/tag_dto.dart';
+import 'models/wallpaper_dto.dart';
 import 'search/search_request.dart';
 
 /// The Wallhaven API v1 client.
@@ -34,28 +39,46 @@ final class WallhavenClient {
 
   /// Injectable clock, forwarded to rate limiting/caching (tests).
   final DateTime Function() clock;
-  final Dio _dio;
+  late final Dio _dio;
   final RequestDeduper _deduper = RequestDeduper();
 
   /// Creates a client. When [dio] is omitted one is built from [config]
   /// with the standard interceptor chain.
-  WallhavenClient({
-    required this.apiKeyManager,
-    this.config = const WallhavenConfig(),
+  ///
+  /// When [cache] is omitted a single [InMemoryCacheStore] is created and
+  /// used for both [cacheStore] and the transport interceptor, so callers
+  /// inspecting/clearing [cacheStore] see exactly what the transport caches.
+  factory WallhavenClient({
+    required ApiKeyManager apiKeyManager,
+    WallhavenConfig config = const WallhavenConfig(),
     CacheStore? cache,
     Dio? dio,
     DateTime Function()? clock,
     Future<void> Function(Duration)? delay,
-  })  : cacheStore = cache ?? InMemoryCacheStore(),
-        clock = clock ?? (() => DateTime.now().toUtc()),
-        _dio = dio ??
-            buildDio(
-              config,
-              apiKeyManager: apiKeyManager,
-              cacheStore: cache ?? InMemoryCacheStore(),
-              clock: clock,
-              delay: delay,
-            );
+  }) {
+    final effectiveClock = clock ?? (() => DateTime.now().toUtc());
+    final effectiveCache = cache ?? InMemoryCacheStore();
+    return WallhavenClient._(
+      apiKeyManager: apiKeyManager,
+      config: config,
+      cacheStore: effectiveCache,
+      clock: effectiveClock,
+    ).._dio = dio ??
+        buildDio(
+          config,
+          apiKeyManager: apiKeyManager,
+          cacheStore: effectiveCache,
+          clock: effectiveClock,
+          delay: delay,
+        );
+  }
+
+  WallhavenClient._({
+    required this.apiKeyManager,
+    required this.config,
+    required this.cacheStore,
+    required this.clock,
+  });
 
   AuthenticationState get authState => apiKeyManager.state;
 
@@ -173,8 +196,12 @@ final class WallhavenClient {
     return _parseListing(data);
   }
 
-  /// Releases the underlying HTTP resources.
-  void close() => _dio.close(force: true);
+  /// Releases the underlying HTTP resources and drops all cached
+  /// responses.
+  void close() {
+    _dio.close(force: true);
+    cacheStore.clear();
+  }
 
   // -------------------------------------------------------------------------
   // Internals
@@ -233,7 +260,14 @@ final class WallhavenClient {
       final response = await _dedupeGet(path, query, cancelToken);
       body = response.data;
     } on DioException catch (error) {
-      throw mapDioError(error);
+      throw mapDioError(error, clock: clock);
+    } on Exception catch (error) {
+      // Transport/adapter/isolate failures must not leak raw exceptions;
+      // the client's contract is typed errors only.
+      throw WallhavenNetworkException(
+        'Request failed: $error',
+        uri: _uri(path),
+      );
     }
     if (body is String && body.isNotEmpty) {
       // dio leaves undecodable bodies as raw strings instead of throwing;
@@ -289,10 +323,6 @@ final class WallhavenClient {
     ];
     return PaginatedResult<Wallpaper>(
       items: items,
-      currentPage: metaDto.currentPage,
-      lastPage: metaDto.lastPage,
-      perPage: metaDto.perPage,
-      total: metaDto.total,
       meta: searchMetaFromDto(metaDto),
     );
   }
@@ -307,10 +337,8 @@ final class WallhavenClient {
 
   Uri _uri(String path) => Uri.parse('${config.baseUrl}$path');
 
-  static String _normalizedQuery(Map<String, String> query) {
-    final keys = query.keys.toList()..sort();
-    return [for (final key in keys) '$key=${query[key]}'].join('&');
-  }
+  static String _normalizedQuery(Map<String, String> query) =>
+      CacheInterceptor.normalizedQuery(query);
 }
 
 Map<String, dynamic> _castObject(Object? value) {

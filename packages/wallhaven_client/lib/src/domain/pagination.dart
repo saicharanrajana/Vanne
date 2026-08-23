@@ -7,22 +7,23 @@ library;
 /// [currentPage]/[hasNextPage]; nothing ever crawls ahead automatically.
 class PaginatedResult<T> {
   final List<T> items;
-  final int currentPage;
-  final int lastPage;
-  final int perPage;
-  final int? total;
 
-  /// Full metadata, including any random-search seed.
+  /// Full metadata: page counters, query echo and any random-search seed.
+  ///
+  /// The convenience getters below delegate here so there is a single
+  /// source of truth for pagination state.
   final SearchMeta meta;
 
-  const PaginatedResult({
-    required this.items,
-    required this.currentPage,
-    required this.lastPage,
-    required this.perPage,
-    this.total,
-    required this.meta,
-  });
+  const PaginatedResult({required this.items, required this.meta});
+
+  int get currentPage => meta.currentPage;
+
+  int get lastPage => meta.lastPage;
+
+  int get perPage => meta.perPage;
+
+  /// Absent from collection listings.
+  int? get total => meta.total;
 
   /// Whether another page can be requested. An empty result set is always
   /// terminal regardless of metadata.

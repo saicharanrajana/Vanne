@@ -20,19 +20,6 @@ import 'rate_limit_interceptor.dart';
 /// 3. [RateLimitInterceptor] — gates actual network sends.
 /// 4. Logging — added LAST per dio's own guidance, so it observes what
 ///    earlier interceptors produced (including redaction of the key).
-/// Builds the single [Dio] instance used by a [WallhavenClient].
-///
-/// This is the ONLY place in the package where a Dio instance is
-/// constructed, so transport configuration (timeouts, interceptor order)
-/// stays auditable. Tests inject their own Dio instead.
-///
-/// Interceptor order is load-bearing:
-/// 1. [ApiKeyInterceptor] — header present before any other logic runs.
-/// 2. [CacheInterceptor] — may short-circuit before the rate limiter so a
-///    cache hit does not consume rate budget.
-/// 3. [RateLimitInterceptor] — gates actual network sends.
-/// 4. Logging — added LAST per dio's own guidance, so it observes what
-///    earlier interceptors produced (including redaction of the key).
 Dio buildDio(
   WallhavenConfig config, {
   required ApiKeyManager apiKeyManager,

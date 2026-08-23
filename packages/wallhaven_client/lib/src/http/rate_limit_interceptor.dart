@@ -1,6 +1,5 @@
 import 'dart:collection';
 import 'package:dio/dio.dart';
-import 'package:meta/meta.dart';
 
 /// Client-side request throttling to stay under Wallhaven's documented
 /// limit of 45 requests/minute.
@@ -56,17 +55,17 @@ final class RateLimitInterceptor extends Interceptor {
       _sentAt.addLast(now);
       handler.next(options);
     } catch (error, stackTrace) {
+      // Deliberately NOT `requestCancelled`: cancellation means *the caller*
+      // aborted, whereas a limiter failure is an internal error and must
+      // surface as a network-type exception after error mapping.
       handler.reject(
-        DioException.requestCancelled(
+        DioException(
           requestOptions: options,
-          reason: 'Rate limiter failed: $error',
+          type: DioExceptionType.unknown,
+          error: 'Rate limiter failed: $error',
           stackTrace: stackTrace,
         ),
       );
     }
   }
-
-  /// Number of requests currently counted inside the window (test hook).
-  @visibleForTesting
-  int get trackedRequests => _sentAt.length;
 }

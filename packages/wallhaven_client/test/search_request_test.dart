@@ -171,10 +171,5 @@ void main() {
       expect(updated.seed, 'xyz789');
       expect(updated.toQueryParameters()['seed'], 'xyz789');
     });
-
-    test('color normalization validates hex input', () {
-      expect(WallhavenColor.normalizeHex('#FF0000'), 'ff0000');
-      expect(() => WallhavenColor.normalizeHex('#ff'), throwsArgumentError);
-    });
   });
 }

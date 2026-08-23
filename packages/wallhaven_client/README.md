@@ -91,18 +91,20 @@ Exception text never contains API keys.
 ## Caching
 
 GET responses are cached in memory under a normalized key
-(`method + path + sorted query`) with a configurable TTL
-(`WallhavenConfig.cacheTtl`, default 5 minutes). The cache lives behind the
-`CacheStore` interface, so a persistent implementation can be swapped in
-without touching client code. Per-request bypass:
-`Options(extra: {'wallhaven_cache': false})`. Keys are derived from URLs,
-and auth travels in headers — API keys can never enter the cache.
+(`method + path + percent-encoded sorted query`) with a configurable TTL
+(`WallhavenConfig.cacheTtl`, default 5 minutes). The default
+`InMemoryCacheStore` is LRU-capped (100 entries) so long sessions cannot
+grow without bound; `close()` releases the transport and drops every cached
+response. The cache lives behind the `CacheStore` interface, so a persistent
+implementation can be swapped in without touching client code. Keys are
+derived from URLs, and auth travels in headers — API keys can never enter
+the cache.
 
 ## Testing
 
 ```bash
 cd packages/wallhaven_client
-dart test          # 80 offline unit tests (fixtures + fake HTTP adapter)
+flutter test        # 88 offline unit tests (fixtures + fake HTTP adapter)
 ```
 
 ### Live integration tests (opt-in)
@@ -126,4 +128,4 @@ mechanism of your choice; CI must inject secrets, never store them.
 - No automatic retries by design.
 - No download management — the package surfaces image URLs; persistence is
   an application concern.
-- `WallhavenColor` covers the 30 documented search colors.
+- `WallhavenColor` covers the 29 documented search colors.

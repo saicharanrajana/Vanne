@@ -6,8 +6,6 @@
 /// [CacheInterceptor].
 library;
 
-import 'dart:collection';
-
 /// A cached response payload with its expiry instant.
 final class CacheEntry {
   final int statusCode;
@@ -38,25 +36,42 @@ abstract interface class CacheStore {
   Future<void> clear();
 }
 
-/// Thread-unsafe-by-design simple in-memory store; dio calls within one
-/// isolate are serialized by the event loop between awaits.
+/// Default cap on distinct cached responses; guards long sessions against
+/// unbounded growth.
+const int _defaultMaxEntries = 100;
+
+/// Simple in-memory store; dio calls within one isolate are serialized by
+/// the event loop between awaits.
+///
+/// Entries expire lazily (on [get]) and the store holds at most
+/// [maxEntries] entries — when full, the least-recently-used entry is
+/// evicted to make room.
 final class InMemoryCacheStore implements CacheStore {
-  // LinkedHashMap preserves insertion order; we evict expired entries lazily.
-  final Map<String, CacheEntry> _entries = HashMap<String, CacheEntry>();
+  InMemoryCacheStore({int maxEntries = _defaultMaxEntries})
+      : maxEntries = maxEntries < 1 ? 1 : maxEntries;
+
+  /// Maximum number of entries retained; LRU-evicted beyond this.
+  final int maxEntries;
+
+  // Insertion-ordered map used as an LRU: reads re-insert the key at the
+  // end, so the first key is always the least recently used.
+  final Map<String, CacheEntry> _entries = <String, CacheEntry>{};
 
   @override
   Future<CacheEntry?> get(String key, {required DateTime now}) async {
-    final entry = _entries[key];
+    final entry = _entries.remove(key);
     if (entry == null) return null;
-    if (entry.isExpiredAt(now)) {
-      _entries.remove(key);
-      return null;
-    }
+    if (entry.isExpiredAt(now)) return null;
+    _entries[key] = entry; // touch → most recently used position
     return entry;
   }
 
   @override
   Future<void> put(String key, CacheEntry entry) async {
+    _entries.remove(key);
+    while (_entries.length >= maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
     _entries[key] = entry;
   }
 

@@ -6,16 +6,24 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../app/dependencies.dart';
 import '../../../app/theme/app_motion.dart';
 import '../../../app/theme/app_shapes.dart';
+import '../../../app/theme/app_spacing.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/app_typography.dart';
-import '../../../core/services/url_launcher_service.dart';
-import '../../../shared/widgets/app_snack.dart';
+import '../../../features/settings/application/settings_controller.dart';
+import '../../../shared/extensions/gap_extensions.dart';
+import '../../../shared/widgets/bottom_padding.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/smart_network_image.dart';
 import '../../../shared/utils/hex_color.dart';
 import '../../favorites/application/favorites_controller.dart';
 
 import '../application/wallpaper_detail_controller.dart';
-import 'widgets/set_wallpaper_sheet.dart';
+import '../application/wallpaper_metadata.dart';
+import 'widgets/wallpaper_action_bar.dart';
+import 'widgets/wallpaper_color_palette.dart';
+import 'widgets/wallpaper_info_card.dart';
+import 'widgets/wallpaper_tags_section.dart';
+
 /// Wallpaper detail: a full-bleed hero image that extends under the status
 /// bar, with the rounded info panel floating ON TOP of it near the bottom.
 ///
@@ -78,10 +86,28 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
     return SignalBuilder(
       builder: (context) {
         final wallpaper = widget.controller.wallpaper.value;
-        final key = Object.hash(wallpaper.id, brightness, wallpaper.colors);
+        // isRegistered (not a bare get): the detail screen must render
+        // even in hosts that never registered Settings (e.g. focused
+        // widget tests).
+        final settings = locator.isRegistered<SettingsController>()
+            ? locator<SettingsController>()
+            : null;
+        final pitchBlack =
+            (settings?.pitchBlack.value ?? false) &&
+            brightness == Brightness.dark;
+        final key = Object.hash(
+          wallpaper.id,
+          brightness,
+          wallpaper.colors,
+          pitchBlack,
+        );
         if (key != _schemeKey || _cachedScheme == null) {
-          _cachedScheme =
-              _wallpaperScheme(wallpaper, brightness, baseTheme.colorScheme);
+          _cachedScheme = _wallpaperScheme(
+            wallpaper,
+            brightness,
+            baseTheme.colorScheme,
+            pitchBlack,
+          );
           _schemeKey = key;
         }
         final scheme = _cachedScheme!;
@@ -120,12 +146,14 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                               onPressed: widget.onBack,
                               tooltip: 'Back',
                               style: IconButton.styleFrom(
-                                backgroundColor:
-                                    wallpaperTheme.colorScheme.surfaceContainerHighest,
+                                backgroundColor: wallpaperTheme
+                                    .colorScheme
+                                    .surfaceContainerHighest,
                               ),
                               icon: Icon(
                                 Icons.arrow_back,
-                                color: wallpaperTheme.colorScheme.onSurfaceVariant,
+                                color:
+                                    wallpaperTheme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -139,16 +167,16 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                     ),
                   ),
                 ),
-                // Draggable info sheet — collapsable to 0.08 peek, perfect height
-                // 0.32 (≈ content + handle + bottom padding), max 0.32 so no
-                // white-space overshoot beyond content. Snap 0.08 ↔ 0.32.
-                // Uses native DraggableScrollableSheet for consistency.
+                // Draggable info sheet — collapses to a 0.08 peek and
+                // expands to 0.9 for the full metadata / colors / tags /
+                // actions content; content scrolls once expanded. Uses
+                // native DraggableScrollableSheet for consistency.
                 DraggableScrollableSheet(
-                  initialChildSize: 0.32,
-                  minChildSize: 0.08,
-                  maxChildSize: 0.32,
+                  initialChildSize: 0.3,
+                  minChildSize: 0.1,
+                  maxChildSize: 0.8,
                   snap: true,
-                  snapSizes: const [0.08, 0.32],
+                  snapSizes: const [0.1, 0.3, 0.8],
                   builder: (context, scrollController) {
                     return ClipRRect(
                       borderRadius: const BorderRadius.vertical(
@@ -170,11 +198,11 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   }
 }
 
-/// Draggable, scrollable info sheet over the wallpaper: a 2×2 metadata
-/// grid with prefix icons and the [ Download | Set | Open ] action group.
-/// Colors are derived from the wallpaper's dominant colors for a vibrant
-/// but readable look in both light/dark. Shows a centered contained loading
-/// indicator until details are fetched.
+/// Draggable, scrollable info sheet over the wallpaper: a 2×3 metadata
+/// card grid, Colors and Tags sections, and the action group. Colors are
+/// derived from the wallpaper's dominant colors for a vibrant but readable
+/// look in both light/dark. Shows a centered contained loading indicator
+/// until details are fetched.
 ///
 /// The outer [DraggableScrollableSheet] in the screen owns the sheet height;
 /// this widget provides the wallpaper-derived surface, drag handle, and
@@ -233,7 +261,7 @@ final class _DraggableInfoSheet extends StatelessWidget {
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                   sliver: SliverToBoxAdapter(
                     child: Center(
                       child: ConstrainedBox(
@@ -242,9 +270,14 @@ final class _DraggableInfoSheet extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _MetadataGrid(wallpaper: wallpaper, colorScheme: scheme),
-                            const SizedBox(height: 16),
-                            Center(child: _ActionRow(controller: controller, colorScheme: scheme)),
+                            _MetadataGrid(wallpaper: wallpaper),
+                            AppSpacing.lg.gap,
+                            WallpaperColorPalette(controller: controller),
+                            AppSpacing.lg.gap,
+                            WallpaperTagsSection(controller: controller),
+                            AppSpacing.lg.gap,
+                            WallpaperActionBar(controller: controller),
+                            BottomPadding(),
                           ],
                         ),
                       ),
@@ -291,16 +324,19 @@ final class _FullBleedImage extends StatelessWidget {
 
         return Hero(
           tag: 'wallpaper-$heroScope${wallpaper.id}',
-          flightShuttleBuilder: (flightContext, animation, direction,
-              fromHeroContext, toHeroContext) {
-            final hero = direction == HeroFlightDirection.push
-                ? toHeroContext.widget as Hero
-                : fromHeroContext.widget as Hero;
-            return Material(
-              color: Colors.transparent,
-              child: hero.child,
-            );
-          },
+          flightShuttleBuilder:
+              (
+                flightContext,
+                animation,
+                direction,
+                fromHeroContext,
+                toHeroContext,
+              ) {
+                final hero = direction == HeroFlightDirection.push
+                    ? toHeroContext.widget as Hero
+                    : fromHeroContext.widget as Hero;
+                return Material(color: Colors.transparent, child: hero.child);
+              },
           placeholderBuilder: (context, size, child) =>
               SizedBox.fromSize(size: size, child: child),
           child: ColoredBox(
@@ -332,6 +368,7 @@ ColorScheme _wallpaperScheme(
   Wallpaper wallpaper,
   Brightness brightness,
   ColorScheme fallback,
+  bool pitchBlack,
 ) {
   if (wallpaper.colors.isEmpty) return fallback;
 
@@ -369,10 +406,16 @@ ColorScheme _wallpaperScheme(
   // secondary (app's blue) and only overrides surfaces — which is why
   // variety wallpapers still looked blue. Passing null makes primary,
   // primaryContainer, secondary etc come from the wallpaper seed.
-  return M3EColorScheme.generate(
+  final scheme = M3EColorScheme.generate(
     seedColor: chosen.toColor(),
     brightness: brightness,
   );
+
+  // Pitch-black mode: collapse surfaces to the true-black ladder while the
+  // wallpaper-derived accents (primary, containers) stay intact.
+  return pitchBlack && brightness == Brightness.dark
+      ? AppTheme.toPitchBlack(scheme)
+      : scheme;
 }
 
 /// Robust wallpaper-derived ThemeData. Wrapping the detail screen with
@@ -397,7 +440,9 @@ ThemeData _wallpaperTheme(ColorScheme scheme, ThemeData base) {
       showCheckmark: true,
     ),
     iconTheme: base.iconTheme.copyWith(color: scheme.onSurfaceVariant),
-    primaryIconTheme: base.primaryIconTheme.copyWith(color: scheme.onSurfaceVariant),
+    primaryIconTheme: base.primaryIconTheme.copyWith(
+      color: scheme.onSurfaceVariant,
+    ),
     appBarTheme: base.appBarTheme.copyWith(
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,
@@ -407,33 +452,40 @@ ThemeData _wallpaperTheme(ColorScheme scheme, ThemeData base) {
   );
 }
 
-/// 2×2 grid: Resolution · File size · Uploader · Favorites.
-/// Uses the wallpaper-derived [colorScheme] for vibrant but readable text.
+/// 2-column metadata grid: Resolution · File size / Aspect ratio ·
+/// Favorites / Uploader · Uploaded. Values come from the pure
+/// [WallpaperMetadata] formatters; cards render with the ambient
+/// wallpaper-derived theme.
 final class _MetadataGrid extends StatelessWidget {
   final Wallpaper wallpaper;
-  final ColorScheme colorScheme;
-  const _MetadataGrid({required this.wallpaper, required this.colorScheme});
+
+  const _MetadataGrid({required this.wallpaper});
 
   @override
   Widget build(BuildContext context) {
-    String? sizeLabel;
-    if (wallpaper.fileSizeBytes > 0) {
-      final mb = wallpaper.fileSizeBytes / (1024 * 1024);
-      sizeLabel = mb >= 1
-          ? '${mb.toStringAsFixed(1)} MB'
-          : '${(wallpaper.fileSizeBytes / 1024).round()} KB';
-    }
+    final size = WallpaperMetadata.fileSize(wallpaper.fileSizeBytes);
+    final uploaded = WallpaperMetadata.uploadedDate(wallpaper.createdAt);
 
-    final cells = <_MetadataCellData>[
+    final cells = <({IconData icon, String label, String value})>[
       (
         icon: Icons.aspect_ratio,
         label: 'Resolution',
         value: wallpaper.resolution.isNotEmpty ? wallpaper.resolution : '—',
       ),
       (
-        icon: Icons.sd_storage_outlined,
+        icon: Icons.insert_drive_file_outlined,
         label: 'File size',
-        value: sizeLabel ?? '—',
+        value: size ?? '—',
+      ),
+      (
+        icon: Icons.crop_free,
+        label: 'Aspect ratio',
+        value: WallpaperMetadata.aspectRatio(wallpaper),
+      ),
+      (
+        icon: Icons.favorite_border,
+        label: 'Favorites',
+        value: '${wallpaper.favorites}',
       ),
       (
         icon: Icons.person_outline,
@@ -441,182 +493,37 @@ final class _MetadataGrid extends StatelessWidget {
         value: wallpaper.uploader?.username ?? '—',
       ),
       (
-        icon: Icons.favorite_border,
-        label: 'Favorites',
-        value: '${wallpaper.favorites}',
+        icon: Icons.calendar_month_outlined,
+        label: 'Uploaded',
+        value: uploaded ?? '—',
       ),
     ];
 
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        for (var row = 0; row < cells.length; row += 2)
-          Padding(
-            padding: EdgeInsets.only(bottom: row + 2 < cells.length ? 12 : 0),
+        for (var row = 0; row < cells.length; row += 2) ...[
+          if (row > 0) const SizedBox(height: AppSpacing.md),
+          // IntrinsicHeight equalizes the two cards' heights without
+          // stretching into the scroll view's unbounded constraints.
+          IntrinsicHeight(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: _MetadataCell(
-                    data: cells[row],
-                    colorScheme: colorScheme,
-                  ),
-                ),
-                if (row + 1 < cells.length) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MetadataCell(
-                      data: cells[row + 1],
-                      colorScheme: colorScheme,
-                    ),
-                  ),
-                ],
+                Expanded(child: cells[row].toCard()),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: cells[row + 1].toCard()),
               ],
             ),
           ),
+        ],
       ],
     );
   }
 }
 
-typedef _MetadataCellData = ({IconData icon, String label, String value});
-
-final class _MetadataCell extends StatelessWidget {
-  final _MetadataCellData data;
-  final ColorScheme colorScheme;
-
-  const _MetadataCell({required this.data, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(data.icon, size: 20, color: colorScheme.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                data.value,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                data.label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Floating toolbar for wallpaper actions — vibrant, centered, expressive.
-final class _ActionRow extends StatelessWidget {
-  final ColorScheme colorScheme;
-  final WallpaperDetailController controller;
-
-  const _ActionRow({required this.colorScheme, required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return SignalBuilder(
-      builder: (context) {
-        final download = controller.download.value;
-        final isBusy = download.isBusy;
-
-        return M3EHorizontalFloatingToolbar(
-          expanded: true,
-          decoration: M3EFloatingToolbarDecoration(
-            colors: M3EFloatingToolbarColors(
-              toolbarContainerColor: colorScheme.primaryContainer,
-              toolbarContentColor: colorScheme.onPrimaryContainer,
-              fabContainerColor: colorScheme.primaryContainer,
-              fabContentColor: colorScheme.onPrimaryContainer,
-            ),
-          ),
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isBusy)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: M3ECircularProgressIndicator(
-                    size: 24,
-                    strokeWidth: 2.5,
-                  ),
-                )
-              else
-                IconButton(
-                  tooltip: 'Download to gallery',
-                  icon: const Icon(Icons.download_outlined),
-                  onPressed: () => _download(context, controller),
-                ),
-              IconButton(
-                tooltip: 'Set as wallpaper',
-                icon: const Icon(Icons.wallpaper_outlined),
-                onPressed: () =>
-                    showSetWallpaperPopup(context, controller: controller),
-              ),
-              IconButton(
-                tooltip: 'Open on Wallhaven',
-                icon: const Icon(Icons.open_in_new_outlined),
-                onPressed: () => _openSource(context, controller),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// Runs the gallery download and reports the terminal outcome. All
-  /// failures are caught: anything escaping here would surface as an
-  /// unhandled zone error instead of user feedback.
-  static Future<void> _download(
-    BuildContext context,
-    WallpaperDetailController controller,
-  ) async {
-    try {
-      await controller.downloadToGallery();
-    } catch (_) {
-      // downloadToGallery already maps known failures; this guards against
-      // unexpected errors becoming unhandled zone exceptions.
-      if (!context.mounted) return;
-      AppSnack.show(context, 'Download failed. Please try again.', error: true);
-      return;
-    }
-    final state = controller.download.peek();
-    if (!context.mounted) return;
-    if (state.done) {
-      AppSnack.show(context, 'Wallpaper saved to your gallery');
-    } else if (state.error != null) {
-      AppSnack.show(context, state.error!, error: true);
-    }
-  }
-
-  static Future<void> _openSource(
-    BuildContext context,
-    WallpaperDetailController controller,
-  ) async {
-    final url = Uri.parse(controller.wallpaper.peek().url);
-    final ok = await locator<UrlLauncherService>().openInApp(url);
-    if (!ok && context.mounted) {
-      AppSnack.show(context, 'No browser available.', error: true);
-    }
-  }
+extension on ({IconData icon, String label, String value}) {
+  WallpaperInfoCard toCard() =>
+      WallpaperInfoCard(icon: icon, label: label, value: value);
 }
 
 /// Heart toggle overlaid on the hero image; mirrors the grid tile style.

@@ -2,15 +2,15 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 // Prefer material_ui over package:flutter/material.dart: the app runs on the
 // material_ui widget tree — flutter-material Theme.of lookups here would
-// silently fall back to the default light theme. See progressive_fade.dart.
+// silently fall back to the default light theme.
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme/app_motion.dart';
 
 /// Disk-cached, smoothly fading network image.
 ///
-/// Replaces `extended_image` + `image_fade` with `cached_network_image`
-/// (flutter_cache_manager, `libCachedImageData`) + `flutter_blurhash`.
+/// Backed by `cached_network_image` (flutter_cache_manager,
+/// `libCachedImageData`) + `flutter_blurhash`.
 /// While loading, a blurhash (if provided) or tonal/derived color box is
 /// shown instead of a spinner; on failure a muted broken-image icon appears.
 /// Fade is 320ms emphasized-decelerate ([AppMotion]); disabled entirely
@@ -62,8 +62,10 @@ class SmartNetworkImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
+      // Decode at cell size for RAM, but keep the FULL-SIZE original on
+      // disk: the detail screen requests the same URL uncropped and must
+      // hit the disk cache instead of re-downloading.
       memCacheWidth: memCacheWidth,
-      maxWidthDiskCache: memCacheWidth,
       fadeInDuration: reduceMotion ? Duration.zero : AppMotion.transition,
       fadeInCurve: AppMotion.arrivalCurve,
       fadeOutDuration: reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
@@ -91,17 +93,6 @@ class SmartNetworkImage extends StatelessWidget {
     );
   }
 }
-
-/// Provider-only variant for use inside [Image] or [DecorationImage].
-CachedNetworkImageProvider smartImageProvider(String url) =>
-    CachedNetworkImageProvider(url);
-
-/// Provider with optional maxWidth for parity with widget's memCacheWidth.
-CachedNetworkImageProvider smartImageProviderWithWidth(
-  String url, {
-  int? maxWidth,
-}) =>
-    CachedNetworkImageProvider(url, maxWidth: maxWidth);
 
 class _BlurPlaceholder extends StatelessWidget {
   const _BlurPlaceholder({

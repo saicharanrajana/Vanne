@@ -11,6 +11,7 @@ import '../../../core/services/url_launcher_service.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/smart_network_image.dart';
+import '../../../shared/utils/hex_color.dart';
 import '../../favorites/application/favorites_controller.dart';
 
 import '../application/wallpaper_detail_controller.dart';
@@ -43,6 +44,11 @@ final class WallpaperDetailScreen extends StatefulWidget {
 }
 
 final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
+  /// Memoized wallpaper-derived scheme; [M3EColorScheme.generate] is too
+  /// expensive to re-run on every signal tick.
+  ColorScheme? _cachedScheme;
+  Object? _schemeKey;
+
   @override
   void initState() {
     super.initState();
@@ -72,7 +78,13 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
     return SignalBuilder(
       builder: (context) {
         final wallpaper = widget.controller.wallpaper.value;
-        final scheme = _wallpaperScheme(wallpaper, brightness, baseTheme.colorScheme);
+        final key = Object.hash(wallpaper.id, brightness, wallpaper.colors);
+        if (key != _schemeKey || _cachedScheme == null) {
+          _cachedScheme =
+              _wallpaperScheme(wallpaper, brightness, baseTheme.colorScheme);
+          _schemeKey = key;
+        }
+        final scheme = _cachedScheme!;
         final wallpaperTheme = _wallpaperTheme(scheme, baseTheme);
         return AnimatedTheme(
           data: wallpaperTheme,
@@ -158,12 +170,16 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   }
 }
 
-/// Wrapper that makes the existing [_InfoPanel] draggable + scrollable.
+/// Draggable, scrollable info sheet over the wallpaper: a 2×2 metadata
+/// grid with prefix icons and the [ Download | Set | Open ] action group.
+/// Colors are derived from the wallpaper's dominant colors for a vibrant
+/// but readable look in both light/dark. Shows a centered contained loading
+/// indicator until details are fetched.
 ///
-/// The outer [DraggableScrollableSheet] owns the sheet height; this widget
-/// provides the wallpaper-derived surface, drag handle, and scrollable
-/// content using the sheet's [scrollController] so drag and scroll are
-/// unified (native iOS/Android physics).
+/// The outer [DraggableScrollableSheet] in the screen owns the sheet height;
+/// this widget provides the wallpaper-derived surface, drag handle, and
+/// scrollable content using the sheet's [scrollController] so drag and
+/// scroll are unified (native iOS/Android physics).
 final class _DraggableInfoSheet extends StatelessWidget {
   final WallpaperDetailController controller;
   final ScrollController scrollController;
@@ -255,6 +271,14 @@ final class _FullBleedImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Decode the original at native screen resolution, NOT its full
+    // sensor size: a 4K+ wallpaper decoded uncropped costs ~30 MB of RAM
+    // and a couple of those evict every grid tile from the image cache
+    // (mass placeholder reloads on back). Clamped to the device's physical
+    // pixels it stays visually lossless on this screen.
+    final size = MediaQuery.sizeOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final decodeWidth = (size.shortestSide * dpr).round().clamp(720, 2160);
 
     return SignalBuilder(
       builder: (context) {
@@ -292,82 +316,11 @@ final class _FullBleedImage extends StatelessWidget {
                 : SmartNetworkImage(
                     url,
                     fit: BoxFit.cover,
+                    memCacheWidth: decodeWidth,
                     placeholderColor: wallpaper.colors.isNotEmpty
-                        ? _parseWallpaperHex(wallpaper.colors.first)
+                        ? parseHexColor(wallpaper.colors.first)
                         : null,
                   ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Rounded information panel floating over the wallpaper: a 2×2 metadata
-/// grid with prefix icons and the [ Download | Set | Open ] action group
-/// inside the same container. Colors are derived from the wallpaper's
-/// dominant colors for a vibrant but readable look in both light/dark.
-/// Shows a centered contained loading indicator until details are fetched.
-final class _InfoPanel extends StatelessWidget {
-  final WallpaperDetailController controller;
-
-  const _InfoPanel({required this.controller});
-
-  static const _topRadius = 28.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final baseTheme = Theme.of(context);
-    final brightness = Theme.of(context).brightness;
-
-    return SignalBuilder(
-      builder: (context) {
-        final wallpaper = controller.wallpaper.value;
-        final isLoading =
-            !wallpaper.hasDetails &&
-            controller.details.value == null &&
-            controller.detailsError.value == null;
-
-        // Derive vibrant but readable scheme from wallpaper colors.
-        final scheme = _wallpaperScheme(
-          wallpaper,
-          brightness,
-          baseTheme.colorScheme,
-        );
-
-        if (isLoading) {
-          return Container(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(_topRadius),
-              ),
-            ),
-            child: const Center(child: M3EContainedLoadingIndicator()),
-          );
-        }
-
-        return Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(_topRadius),
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _MetadataGrid(wallpaper: wallpaper, colorScheme: scheme),
-                  const SizedBox(height: 16),
-                  Center(child: _ActionRow(controller: controller, colorScheme: scheme)),
-                ],
-              ),
-            ),
           ),
         );
       },
@@ -390,17 +343,17 @@ ColorScheme _wallpaperScheme(
   HSLColor? best;
   HSLColor? bestAny;
   for (final hex in wallpaper.colors) {
-    try {
-      final hsl = HSLColor.fromColor(_parseWallpaperHex(hex));
-      if (bestAny == null || hsl.saturation > bestAny.saturation) {
-        bestAny = hsl;
-      }
-      final inWindow =
-          hsl.lightness >= minLightness && hsl.lightness <= maxLightness;
-      if (inWindow && (best == null || hsl.saturation > best.saturation)) {
-        best = hsl;
-      }
-    } catch (_) {}
+    final color = parseHexColor(hex);
+    if (color == null) continue;
+    final hsl = HSLColor.fromColor(color);
+    if (bestAny == null || hsl.saturation > bestAny.saturation) {
+      bestAny = hsl;
+    }
+    final inWindow =
+        hsl.lightness >= minLightness && hsl.lightness <= maxLightness;
+    if (inWindow && (best == null || hsl.saturation > best.saturation)) {
+      best = hsl;
+    }
   }
 
   var chosen = best ?? bestAny;
@@ -420,13 +373,6 @@ ColorScheme _wallpaperScheme(
     seedColor: chosen.toColor(),
     brightness: brightness,
   );
-}
-
-Color _parseWallpaperHex(String hex) {
-  var h = hex.replaceFirst('#', '').trim();
-  if (h.length == 6) h = 'FF$h';
-  if (h.length == 3) h = h.split('').map((c) => '$c$c').join('FF');
-  return Color(int.parse(h, radix: 16));
 }
 
 /// Robust wallpaper-derived ThemeData. Wrapping the detail screen with
@@ -579,13 +525,12 @@ final class _MetadataCell extends StatelessWidget {
 /// Floating toolbar for wallpaper actions — vibrant, centered, expressive.
 final class _ActionRow extends StatelessWidget {
   final ColorScheme colorScheme;
-  final WallpaperDetailController? controller;
+  final WallpaperDetailController controller;
 
-  const _ActionRow({required this.colorScheme, this.controller});
+  const _ActionRow({required this.colorScheme, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final controller = this.controller ?? _controller(context);
     return SignalBuilder(
       builder: (context) {
         final download = controller.download.value;
@@ -623,7 +568,7 @@ final class _ActionRow extends StatelessWidget {
                 tooltip: 'Set as wallpaper',
                 icon: const Icon(Icons.wallpaper_outlined),
                 onPressed: () =>
-                    showSetWallpaperSheet(context, controller: controller),
+                    showSetWallpaperPopup(context, controller: controller),
               ),
               IconButton(
                 tooltip: 'Open on Wallhaven',
@@ -637,14 +582,22 @@ final class _ActionRow extends StatelessWidget {
     );
   }
 
-  static WallpaperDetailController _controller(BuildContext context) =>
-      (context.findAncestorWidgetOfExactType<_InfoPanel>()!.controller);
-
-  static void _download(
+  /// Runs the gallery download and reports the terminal outcome. All
+  /// failures are caught: anything escaping here would surface as an
+  /// unhandled zone error instead of user feedback.
+  static Future<void> _download(
     BuildContext context,
     WallpaperDetailController controller,
   ) async {
-    await controller.downloadToGallery();
+    try {
+      await controller.downloadToGallery();
+    } catch (_) {
+      // downloadToGallery already maps known failures; this guards against
+      // unexpected errors becoming unhandled zone exceptions.
+      if (!context.mounted) return;
+      AppSnack.show(context, 'Download failed. Please try again.', error: true);
+      return;
+    }
     final state = controller.download.peek();
     if (!context.mounted) return;
     if (state.done) {

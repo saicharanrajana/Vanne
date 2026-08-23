@@ -20,8 +20,9 @@ API-key storage.
   deletion with optimistic updates.
 - **Favorites** — persisted snapshots that render fully offline, even if the
   wallpaper disappears from Wallhaven.
-- **Detail** — full-bleed hero, draggable info sheet, metadata grid,
-  download to gallery, set as home/lock/both wallpaper, open source page.
+- **Detail** — full-bleed hero, draggable info sheet with metadata cards,
+  dominant-color palette (tap to copy hex), expandable tags, download to
+  gallery, set as home/lock/both wallpaper, open source page.
 - **Settings** — Material You / custom themes (teal seed + pitch-black
   ladder), cache management, optional Wallhaven API key stored in platform
   secure storage.

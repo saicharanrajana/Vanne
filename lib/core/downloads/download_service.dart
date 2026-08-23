@@ -34,11 +34,14 @@ final class DownloadService {
   /// Downloads [wallpaper]'s full image into [destination] (a cache path).
   ///
   /// Throws [DownloadException] with a user-facing message on failure.
-  /// Progress is reported through [onProgress] as 0.0–1.0.
+  /// Progress is reported through [onProgress] as 0.0–1.0. Pass a
+  /// [cancelToken] to abort the transfer (e.g. when leaving the screen);
+  /// cancellation surfaces as [DownloadException] with a neutral message.
   Future<void> downloadToFile(
     Wallpaper wallpaper,
     File destination, {
     void Function(double progress)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     final url = wallpaper.path;
     if (url.isEmpty) {
@@ -52,8 +55,12 @@ final class DownloadService {
         destination.path,
         onReceiveProgress: (received, total) =>
             total > 0 ? onProgress?.call(received / total) : null,
+        cancelToken: cancelToken,
       );
     } on DioException catch (error) {
+      if (error.type == DioExceptionType.cancel) {
+        throw const DownloadException('Download cancelled.');
+      }
       throw DownloadException(
         error.type == DioExceptionType.connectionError
             ? 'Network unavailable — check your connection.'
@@ -66,12 +73,18 @@ final class DownloadService {
   Future<void> saveToGallery(
     Wallpaper wallpaper, {
     void Function(double progress)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     File? tempFile;
     try {
       final dir = await getTemporaryDirectory();
       tempFile = File('${dir.path}/${fileNameFor(wallpaper)}');
-      await downloadToFile(wallpaper, tempFile, onProgress: onProgress);
+      await downloadToFile(
+        wallpaper,
+        tempFile,
+        onProgress: onProgress,
+        cancelToken: cancelToken,
+      );
       await Gal.putImage(tempFile.path, album: albumName);
     } on GalException catch (error) {
       throw DownloadException(switch (error.type) {

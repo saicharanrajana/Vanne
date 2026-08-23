@@ -3,7 +3,6 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
-import '../../../core/domain/favorite_wallpaper.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../application/favorites_controller.dart';
 
@@ -14,8 +13,10 @@ import '../application/favorites_controller.dart';
 /// and surviving app restarts. Snapshots carry enough metadata that
 /// favorites render even if the wallpaper is deleted remotely.
 ///
-/// Layout is full slivers like Discover: a floating [SliverAppBar] header
-/// plus the masonry grid slivers, so scrolling hides the header.
+/// Layout is full slivers: a floating [SliverAppBar] header plus the masonry
+/// grid slivers, so scrolling hides the header. The header is static; only
+/// the grid slivers subscribe to the favorites signal. The feed is finite
+/// (`hasMore: false`), so there is no scroll listener or load-more wiring.
 final class FavoritesScreen extends StatelessWidget {
   final ValueChanged<Wallpaper> onOpenWallpaper;
 
@@ -56,9 +57,10 @@ final class FavoritesScreen extends StatelessWidget {
       bottom: false,
       child: SignalBuilder(
         builder: (context) {
-          final items = controller.items.map(_asWallpaper).toList();
+          // The feed is finite (hasMore: false): no scroll listener or
+          // load-more wiring needed.
           final grid = WallpaperGrid(
-            items: items,
+            items: controller.wallpapers.value,
             hasMore: false,
             favoriteIds: controller.favoriteIds,
             onToggleFavorite: controller.toggle,
@@ -70,44 +72,14 @@ final class FavoritesScreen extends StatelessWidget {
             ),
             onOpen: onOpenWallpaper,
           );
-          // Use NotificationListener for consistency, though hasMore false
-          return NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              grid.maybeTriggerLoadMore(notification);
-              return false;
-            },
-            child: CustomScrollView(
-              slivers: [
-                headerSliver,
-                ...grid.buildSlivers(context),
-              ],
-            ),
+          return CustomScrollView(
+            slivers: [
+              headerSliver,
+              ...grid.buildSlivers(context),
+            ],
           );
         },
       ),
     );
   }
-
-  /// Adapts the persisted snapshot back into the domain model the grid
-  /// consumes. Listing-only fields (views, colors) are not displayed by
-  /// tiles and default harmlessly.
-  static Wallpaper _asWallpaper(FavoriteWallpaper favorite) => Wallpaper(
-    id: favorite.id,
-    url: favorite.pageUrl,
-    source: '',
-    purity: Purity.sfw,
-    category: Category.general,
-    width: favorite.width,
-    height: favorite.height,
-    resolution: favorite.resolution,
-    ratio: favorite.ratio,
-    fileSizeBytes: favorite.fileSizeBytes,
-    fileType: favorite.fileType,
-    createdAt: favorite.createdAt,
-    colors: const [],
-    views: 0,
-    favorites: 0,
-    path: favorite.imageUrl,
-    thumbnails: Thumbnails(small: favorite.thumbnailUrl),
-  );
 }

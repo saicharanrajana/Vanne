@@ -70,26 +70,11 @@ final class CollectionsController {
     return null;
   }
 
-  Future<String?> update(CollectionEntry entry) async {
-    if (!_entries.value.containsKey(entry.id)) return 'Not found';
-    final lower = entry.name.toLowerCase();
-    for (final e in _entries.value.values) {
-      if (e.id != entry.id && e.name.toLowerCase() == lower) {
-        return 'Name already exists';
-      }
-    }
-    final prev = Map<String, CollectionEntry>.from(_entries.value);
-    _entries.value = {...prev, entry.id: entry};
-    final ok = await _repo.update(entry);
-    if (!ok) {
-      _entries.value = prev;
-      return 'Failed to save';
-    }
-    return null;
-  }
-
-  Future<void> removeMany(Set<String> idsToRemove) async {
-    if (idsToRemove.isEmpty) return;
+  /// Deletes [idsToRemove] optimistically; rolls back and returns `false`
+  /// when persistence fails so callers can surface an error instead of a
+  /// false success.
+  Future<bool> removeMany(Set<String> idsToRemove) async {
+    if (idsToRemove.isEmpty) return true;
     final prev = Map<String, CollectionEntry>.from(_entries.value);
     final next = Map<String, CollectionEntry>.from(prev);
     for (final id in idsToRemove) {
@@ -102,8 +87,10 @@ final class CollectionsController {
         selectedIds.value.where(remainingIds.contains).toSet();
     try {
       await _repo.removeMany(idsToRemove);
+      return true;
     } catch (_) {
       _entries.value = prev;
+      return false;
     }
   }
 

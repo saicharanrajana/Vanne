@@ -43,9 +43,6 @@ final class FeedState {
   const FeedState.initialLoading()
     : this(items: const {}, loadingFirst: true);
 
-  /// Ordered list for widgets that need a List (preserves insertion order).
-  List<Wallpaper> get itemsList => items.toList(growable: false);
-
   FeedState copyWith({bool? loadingMore, String? paginationError}) => FeedState(
     items: items,
     loadingFirst: loadingFirst,
@@ -57,7 +54,7 @@ final class FeedState {
 }
 
 /// Base controller for every remote wallpaper feed (Discover, Search,
-/// Category exploration).
+/// Collection explore).
 ///
 /// Owns:
 /// - reactive [state] consumed by the shared grid widget,
@@ -83,30 +80,52 @@ abstract class FeedController {
   /// Guards concurrent page loads.
   bool _inFlight = false;
 
+  /// Bumped by [reload]; responses from superseded generations are
+  /// discarded so a slow older request can never corrupt fresh state.
+  int _generation = 0;
+
+  /// Set by [dispose]; guards signal writes from in-flight requests.
+  bool _disposed = false;
+
   FeedController(this._repository);
 
   /// Describes the next request from current controller inputs.
   SearchRequestSpec buildSpec();
 
+  /// Releases reactive resources; safe to call more than once.
+  void dispose() {
+    _disposed = true;
+    state.dispose();
+  }
+
   /// Starts (or restarts) the feed from page 1.
   Future<void> reload() async {
+    // Invalidate any in-flight page load (pagination or first load).
+    _generation++;
+    final generation = _generation;
     _inFlight = false;
     _seed = null;
     _pagesRequested = 0;
+    if (_disposed) return;
     state.set(const FeedState.initialLoading());
-    await _loadPage(append: false);
+    await _loadPage(append: false, generation: generation);
   }
 
   /// Loads the next page when available; no-op while busy or exhausted.
   Future<void> loadMore() async {
     final current = state.value;
     if (_inFlight || !current.hasMore || current.loadingFirst) return;
-    await _loadPage(append: true);
+    await _loadPage(append: true, generation: _generation);
   }
 
-  Future<void> _loadPage({required bool append}) async {
-    if (_inFlight) return;
+  Future<void> _loadPage({
+    required bool append,
+    required int generation,
+  }) async {
+    if (_inFlight || _disposed) return;
     _inFlight = true;
+    // True when this is still the newest operation at completion time.
+    bool isCurrent() => !_disposed && generation == _generation;
 
     if (append) {
       state.set(state.peek().copyWith(loadingMore: true));
@@ -122,6 +141,7 @@ abstract class FeedController {
         page: append ? _pagesRequested + 1 : 1,
         seed: append ? _seed : null,
       );
+      if (!isCurrent()) return; // superseded by reload/dispose — drop result
       _seed = outcome.page.meta.seed ?? _seed;
       _pagesRequested = outcome.page.currentPage;
 
@@ -144,6 +164,7 @@ abstract class FeedController {
         ),
       );
     } on WallhavenUserException catch (error) {
+      if (!isCurrent()) return; // superseded — do not surface stale errors
       if (append) {
         // Keep everything already on screen; surface a retry footer.
         state.set(
@@ -163,7 +184,7 @@ abstract class FeedController {
   /// Retries a failed load-more without touching loaded pages.
   Future<void> retryPagination() async {
     if (_inFlight || !state.value.hasMore) return;
-    await _loadPage(append: true);
+    await _loadPage(append: true, generation: _generation);
   }
 }
 

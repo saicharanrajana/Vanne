@@ -12,7 +12,8 @@ import '../domain/favorite_wallpaper.dart';
 /// JSON encode/decode runs in a separate isolate via [compute]; decoding
 /// is batched into a single call so restoring N favorites costs one
 /// isolate round-trip, not N.
-final class FavoritesRepository {
+/// Not `final` so tests can provide fakes via `implements`.
+class FavoritesRepository {
   static const _boxName = 'favorites';
 
   Box<String>? _box;
@@ -27,16 +28,18 @@ final class FavoritesRepository {
     if (box == null) return const [];
     final raws = box.values.toList(growable: false);
     if (raws.isEmpty) return const [];
+    // Batched: restoring N favorites costs one isolate round-trip, not N.
     return compute(_decodeFavorites, raws);
   }
 
-  bool isFavorite(String id) => _box?.containsKey(id) ?? false;
-
   /// Adds [favorite]; returns `true` when the set actually changed.
+  ///
+  /// Encoding inline: one snapshot is a ~300-byte string — an isolate
+  /// round-trip would cost more than it saves.
   Future<bool> add(FavoriteWallpaper favorite) async {
     final box = _box;
     if (box == null || box.containsKey(favorite.id)) return false;
-    await box.put(favorite.id, await compute(_encodeFavorite, favorite));
+    await box.put(favorite.id, favorite.encode());
     return true;
   }
 
@@ -53,6 +56,3 @@ final class FavoritesRepository {
 /// skipped rather than failing the whole restore.
 List<FavoriteWallpaper> _decodeFavorites(List<String> raws) =>
     [for (final raw in raws) ?FavoriteWallpaper.decode(raw)];
-
-/// Isolate entry point: serialize one snapshot to its JSON string.
-String _encodeFavorite(FavoriteWallpaper favorite) => favorite.encode();

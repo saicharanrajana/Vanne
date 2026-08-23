@@ -58,10 +58,13 @@ final class CollectionsScreen extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    await controller.removeMany(Set<String>.from(selected));
+    final deleted = await controller.removeMany(Set<String>.from(selected));
     controller.clearSelection();
     if (!context.mounted) return;
-    AppSnack.show(context, 'Deleted $count');
+    AppSnack.show(
+      context,
+      deleted ? 'Deleted $count' : 'Couldn’t delete — please try again.',
+    );
   }
 
   @override

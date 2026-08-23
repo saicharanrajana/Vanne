@@ -7,7 +7,8 @@ import 'collection_entry.dart';
 ///
 /// Each entry is JSON-encoded [CollectionEntry] keyed by id.
 /// Mirrors `FavoritesRepository` pattern.
-final class CollectionsRepository {
+/// Not `final` so tests can provide fakes via `implements`.
+class CollectionsRepository {
   static const _boxName = 'collections';
 
   Box<String>? _box;
@@ -24,8 +25,6 @@ final class CollectionsRepository {
     return compute(_decodeCollections, raws);
   }
 
-  bool contains(String id) => _box?.containsKey(id) ?? false;
-
   Future<bool> add(CollectionEntry entry) async {
     final box = _box;
     if (box == null || box.containsKey(entry.id)) return false;
@@ -33,26 +32,19 @@ final class CollectionsRepository {
     return true;
   }
 
-  Future<bool> update(CollectionEntry entry) async {
+  /// Inserts [entries] in one Hive batch; used for first-run seeding.
+  Future<void> addAll(List<CollectionEntry> entries) async {
     final box = _box;
-    if (box == null) return false;
-    await box.put(entry.id, await compute(_encodeCollection, entry));
-    return true;
-  }
-
-  Future<bool> remove(String id) async {
-    final box = _box;
-    if (box == null || !box.containsKey(id)) return false;
-    await box.delete(id);
-    return true;
+    if (box == null) return;
+    await box.putAll({
+      for (final entry in entries) entry.id: await compute(_encodeCollection, entry),
+    });
   }
 
   Future<void> removeMany(Set<String> ids) async {
     final box = _box;
     if (box == null) return;
-    for (final id in ids) {
-      if (box.containsKey(id)) await box.delete(id);
-    }
+    await box.deleteAll(ids);
   }
 }
 

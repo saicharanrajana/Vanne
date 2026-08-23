@@ -10,7 +10,11 @@ import '../application/collection_explore_controller.dart';
 import '../application/collections_controller.dart';
 
 /// Wallhaven search screen scoped to one [CollectionEntry].
-final class CollectionExploreScreen extends StatelessWidget {
+///
+/// Stateful so its [CollectionExploreController] is created exactly once
+/// per navigation — resolving it in `build` would spawn a fresh controller
+/// (and a fresh page-1 request) on every rebuild.
+final class CollectionExploreScreen extends StatefulWidget {
   final String collectionId;
   final ValueChanged<Wallpaper> onOpenWallpaper;
 
@@ -21,16 +25,41 @@ final class CollectionExploreScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final collCtrl = locator<CollectionsController>();
-    CollectionEntry? entry;
-    try {
-      entry = collCtrl.entries.value.firstWhere((e) => e.id == collectionId);
-    } catch (_) {
-      entry = null;
-    }
+  State<CollectionExploreScreen> createState() =>
+      _CollectionExploreScreenState();
+}
 
-    if (entry == null) {
+final class _CollectionExploreScreenState
+    extends State<CollectionExploreScreen> {
+  /// Null when the collection was deleted before this screen opened.
+  CollectionExploreController? _controller;
+  CollectionEntry? _entry;
+
+  @override
+  void initState() {
+    super.initState();
+    final entry = locator<CollectionsController>()
+        .entries
+        .value
+        .where((e) => e.id == widget.collectionId)
+        .firstOrNull;
+    if (entry != null) {
+      _entry = entry;
+      _controller = locator<CollectionExploreController>(param1: entry);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final entry = _entry;
+    if (controller == null || entry == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Not found')),
         body: const EmptyState(
@@ -40,7 +69,6 @@ final class CollectionExploreScreen extends StatelessWidget {
         ),
       );
     }
-    final controller = locator<CollectionExploreController>(param1: entry);
     final favorites = locator<FavoritesController>();
 
     return Scaffold(
@@ -55,7 +83,7 @@ final class CollectionExploreScreen extends StatelessWidget {
             hasMore: state.hasMore,
             error: state.error,
             paginationError: state.paginationError,
-            heroScope: 'collection-${entry!.id}-',
+            heroScope: 'collection-${entry.id}-',
             onRetry: controller.reload,
             onRetryPagination: controller.retryPagination,
             onLoadMore: controller.loadMore,
@@ -65,7 +93,7 @@ final class CollectionExploreScreen extends StatelessWidget {
               title: 'Nothing here yet',
               message: 'No wallpapers matched ${entry.name}.',
             ),
-            onOpen: onOpenWallpaper,
+            onOpen: widget.onOpenWallpaper,
           );
         },
       ),

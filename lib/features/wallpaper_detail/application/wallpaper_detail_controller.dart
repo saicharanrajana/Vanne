@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -33,6 +34,12 @@ final class WallpaperDetailController {
   /// Cache path produced by a previous "Set" attempt, reused when valid.
   String? _cachedTempPath;
 
+  /// Cancels in-flight transfers when the screen is popped mid-download.
+  final CancelToken _lifecycle = CancelToken();
+
+  /// Set by [dispose]; guards signal writes from in-flight operations.
+  bool _disposed = false;
+
   WallpaperDetailController({
     required Wallpaper initial,
     required this._repository,
@@ -60,11 +67,15 @@ final class WallpaperDetailController {
     try {
       await _downloader.saveToGallery(
         wallpaper.value,
-        onProgress: (progress) =>
-            download.set(DownloadState.downloading(progress)),
+        onProgress: (progress) {
+          if (!_disposed) download.set(DownloadState.downloading(progress));
+        },
+        cancelToken: _lifecycle,
       );
+      if (_disposed) return;
       download.set(const DownloadState.done());
     } on DownloadException catch (error) {
+      if (_disposed) return; // screen gone — nothing left to report to
       download.set(DownloadState.failed(error.message));
     }
   }
@@ -79,10 +90,13 @@ final class WallpaperDetailController {
     try {
       final file = File(await _ensureLocalFile());
       final outcome = await _applier.apply(file: file, target: target);
+      if (_disposed) return;
       apply.set(ApplyState.fromOutcome(outcome));
     } on DownloadException catch (error) {
+      if (_disposed) return;
       apply.set(ApplyState.failed(error.message));
     } on FileSystemException {
+      if (_disposed) return;
       apply.set(ApplyState.failed('Could not prepare the wallpaper file.'));
     }
   }
@@ -95,13 +109,20 @@ final class WallpaperDetailController {
     final file = File(
       '${dir.path}/${DownloadService.fileNameFor(wallpaper.value)}',
     );
-    await _downloader.downloadToFile(wallpaper.value, file);
+    await _downloader.downloadToFile(
+      wallpaper.value,
+      file,
+      cancelToken: _lifecycle,
+    );
     _cachedTempPath = file.path;
     return file.path;
   }
 
-  /// Releases reactive resources when leaving the screen.
+  /// Releases reactive resources when leaving the screen and cancels any
+  /// in-flight transfer so no signal is written after disposal.
   void dispose() {
+    _disposed = true;
+    _lifecycle.cancel();
     download.dispose();
     apply.dispose();
     details.dispose();

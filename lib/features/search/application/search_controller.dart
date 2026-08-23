@@ -65,62 +65,64 @@ final class SearchController extends FeedController {
   }
 
   /// Commits the current text and restarts pagination (debounced).
-  Future<void> submit() async {
+  void submit() {
     _committedQuery.set(queryText.value.trim());
-    await _debouncedReload();
+    _debouncedReload();
   }
 
   /// Toggles a color chip; single-select: tapping a color selects it
   /// exclusively (replacing any previous), tapping the same again clears.
   /// Filter changes re-run the search (debounced).
-  Future<void> toggleColor(FeedColor color) async {
+  void toggleColor(FeedColor color) {
     final current = selectedColors.peek();
     if (current.contains(color)) {
       selectedColors.set(const {});
     } else {
       selectedColors.set({color});
     }
-    await _debouncedReload();
+    _debouncedReload();
   }
 
   /// Toggles a genre chip; single-select: same semantics as [toggleColor].
-  Future<void> toggleGenre(FeedGenre genre) async {
+  void toggleGenre(FeedGenre genre) {
     final current = selectedGenres.peek();
     if (current.contains(genre)) {
       selectedGenres.set(const {});
     } else {
       selectedGenres.set({genre});
     }
-    await _debouncedReload();
+    _debouncedReload();
   }
 
 
   /// Clears every input back to a pristine search state (debounced).
-  Future<void> clearAll() async {
+  void clearAll() {
     queryText.set('');
     _committedQuery.set('');
     selectedColors.set(const {});
     selectedGenres.set(const {});
-    await _debouncedReload();
+    _debouncedReload();
   }
 
   /// Collapses bursts of reload triggers into one network call: each new
   /// trigger cancels the pending timer and restarts the window; only the
-  /// trailing edge fetches.
-  Future<void> _debouncedReload([
+  /// trailing edge fetches. Returns immediately; no value is exposed —
+  /// callers observe progress via the feed [state].
+  void _debouncedReload([
     Duration delay = const Duration(milliseconds: 350),
   ]) {
-    final done = Completer<void>();
     _debounce?.cancel();
-    _debounce = Timer(delay, () async {
-      try {
-        await reload();
-      } finally {
-        done.complete();
-      }
-    });
-    return done.future;
+    _debounce = Timer(delay, reload);
   }
 
-  void dispose() => _debounce?.cancel();
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    queryText.dispose();
+    _committedQuery.dispose();
+    selectedColors.dispose();
+    selectedGenres.dispose();
+    hasCommittedInput.dispose();
+    super.dispose();
+  }
 }

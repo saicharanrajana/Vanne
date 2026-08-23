@@ -61,16 +61,22 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
                 const SizedBox(height: 12),
                 Hero(
                   tag: _searchHeroTag,
-                  flightShuttleBuilder: (flightContext, animation, direction,
-                      fromHeroContext, toHeroContext) {
-                    final hero = direction == HeroFlightDirection.push
-                        ? toHeroContext.widget as Hero
-                        : fromHeroContext.widget as Hero;
-                    return Material(
-                      color: Colors.transparent,
-                      child: hero.child,
-                    );
-                  },
+                  flightShuttleBuilder:
+                      (
+                        flightContext,
+                        animation,
+                        direction,
+                        fromHeroContext,
+                        toHeroContext,
+                      ) {
+                        final hero = direction == HeroFlightDirection.push
+                            ? toHeroContext.widget as Hero
+                            : fromHeroContext.widget as Hero;
+                        return Material(
+                          color: Colors.transparent,
+                          child: hero.child,
+                        );
+                      },
                   placeholderBuilder: (context, size, child) =>
                       SizedBox.fromSize(size: size, child: child),
                   child: SearchBar(
@@ -122,10 +128,7 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
               return false;
             },
             child: CustomScrollView(
-              slivers: [
-                headerSliver,
-                ...grid.buildSlivers(context),
-              ],
+              slivers: [headerSliver, ...grid.buildSlivers(context)],
             ),
           );
         },

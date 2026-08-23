@@ -38,14 +38,11 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
     final state = widget.controller.apply.peek();
     if (!mounted) return;
     if (state.succeeded) {
-      AppSnack.show(
-        context,
-        switch (target) {
-          ApplyTarget.home => 'Wallpaper set for your home screen',
-          ApplyTarget.lock => 'Wallpaper set for your lock screen',
-          ApplyTarget.both => 'Wallpaper set for home and lock screens',
-        },
-      );
+      AppSnack.show(context, switch (target) {
+        ApplyTarget.home => 'Wallpaper set for your home screen',
+        ApplyTarget.lock => 'Wallpaper set for your lock screen',
+        ApplyTarget.both => 'Wallpaper set for home and lock screens',
+      });
       Navigator.of(context).pop();
     }
     // On failure, error is shown inline; dialog stays open for retry.
@@ -170,7 +167,9 @@ final class _PopupTile extends StatelessWidget {
                     size: 22,
                     color: enabled
                         ? theme.colorScheme.onSecondaryContainer
-                        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        : theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -178,7 +177,9 @@ final class _PopupTile extends StatelessWidget {
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: enabled
                           ? theme.colorScheme.onSecondaryContainer
-                          : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          : theme.colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.5,
+                            ),
                       fontWeight: FontWeight.w600,
                     ),
                   ),

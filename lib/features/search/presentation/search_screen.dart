@@ -100,16 +100,22 @@ final class _SearchScreenState extends State<SearchScreen> {
               children: [
                 Hero(
                   tag: _searchHeroTag,
-                  flightShuttleBuilder: (flightContext, animation, direction,
-                      fromHeroContext, toHeroContext) {
-                    final hero = direction == HeroFlightDirection.push
-                        ? toHeroContext.widget as Hero
-                        : fromHeroContext.widget as Hero;
-                    return Material(
-                      color: Colors.transparent,
-                      child: hero.child,
-                    );
-                  },
+                  flightShuttleBuilder:
+                      (
+                        flightContext,
+                        animation,
+                        direction,
+                        fromHeroContext,
+                        toHeroContext,
+                      ) {
+                        final hero = direction == HeroFlightDirection.push
+                            ? toHeroContext.widget as Hero
+                            : fromHeroContext.widget as Hero;
+                        return Material(
+                          color: Colors.transparent,
+                          child: hero.child,
+                        );
+                      },
                   placeholderBuilder: (context, size, child) =>
                       SizedBox.fromSize(size: size, child: child),
                   child: SearchBar(
@@ -204,8 +210,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                         child: EmptyState(
                           iconData: Icons.search,
                           title: 'Search wallpapers',
-                          message:
-                              'Type a query or pick a color / genre to find wallpapers.',
+                          message: 'Type a query or pick a color / genre to find wallpapers.',
                         ),
                       ),
                     ),
@@ -241,10 +246,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                 return false;
               },
               child: CustomScrollView(
-                slivers: [
-                  headerSliver,
-                  ...grid.buildSlivers(context),
-                ],
+                slivers: [headerSliver, ...grid.buildSlivers(context)],
               ),
             );
           },
@@ -287,7 +289,9 @@ final class _ColorChip extends StatelessWidget {
           height: 64,
           color: display,
           border: BorderSide(
-            color: selected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.8),
+            color: selected
+                ? scheme.primary
+                : scheme.outlineVariant.withValues(alpha: 0.8),
             width: selected ? 3 : 1.2,
           ),
           boxShadow: selected
@@ -347,7 +351,9 @@ final class _GenreChip extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: M3EContainer.clampShell(
-          color: selected ? scheme.secondaryContainer : scheme.surfaceContainerHighest,
+          color: selected
+              ? scheme.secondaryContainer
+              : scheme.surfaceContainerHighest,
           border: BorderSide(
             color: selected ? scheme.primary : scheme.outlineVariant,
             width: selected ? 2 : 1,
@@ -365,7 +371,9 @@ final class _GenreChip extends StatelessWidget {
           child: Text(
             genre.label,
             style: textTheme.labelLarge?.copyWith(
-              color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+              color: selected
+                  ? scheme.onSecondaryContainer
+                  : scheme.onSurfaceVariant,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
               letterSpacing: 0.1,
             ),

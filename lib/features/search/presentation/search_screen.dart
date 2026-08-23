@@ -284,7 +284,7 @@ final class _ColorChip extends StatelessWidget {
       label: 'Filter by color ${color.name}',
       child: GestureDetector(
         onTap: onTap,
-        child: M3EContainer.l8LeafClover(
+        child: M3EContainer.square(
           width: 72,
           height: 64,
           color: display,

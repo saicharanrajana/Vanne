@@ -7,8 +7,6 @@ import '../../../app/dependencies.dart';
 import '../../../app/theme/app_motion.dart';
 import '../../../app/theme/app_shapes.dart';
 import '../../../app/theme/app_spacing.dart';
-import '../../../app/theme/app_theme.dart';
-import '../../../app/theme/app_typography.dart';
 import '../../../features/settings/application/settings_controller.dart';
 import '../../../shared/extensions/gap_extensions.dart';
 import '../../../shared/widgets/bottom_padding.dart';
@@ -19,6 +17,7 @@ import '../../favorites/application/favorites_controller.dart';
 
 import '../application/wallpaper_detail_controller.dart';
 import '../application/wallpaper_metadata.dart';
+import 'wallpaper_theme.dart';
 import 'widgets/wallpaper_action_bar.dart';
 import 'widgets/wallpaper_color_palette.dart';
 import 'widgets/wallpaper_info_card.dart';
@@ -102,7 +101,7 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
           pitchBlack,
         );
         if (key != _schemeKey || _cachedScheme == null) {
-          _cachedScheme = _wallpaperScheme(
+          _cachedScheme = wallpaperScheme(
             wallpaper,
             brightness,
             baseTheme.colorScheme,
@@ -111,7 +110,7 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
           _schemeKey = key;
         }
         final scheme = _cachedScheme!;
-        final wallpaperTheme = _wallpaperTheme(scheme, baseTheme);
+        final wallpaperTheme = wallpaperThemeData(scheme, baseTheme);
         return AnimatedTheme(
           data: wallpaperTheme,
           duration: AppMotion.transition,
@@ -362,94 +361,6 @@ final class _FullBleedImage extends StatelessWidget {
       },
     );
   }
-}
-
-ColorScheme _wallpaperScheme(
-  Wallpaper wallpaper,
-  Brightness brightness,
-  ColorScheme fallback,
-  bool pitchBlack,
-) {
-  if (wallpaper.colors.isEmpty) return fallback;
-
-  // Readability window for seeds: outside it, containers/text pairs lose
-  // contrast no matter how saturated the color is.
-  const minLightness = 0.35;
-  const maxLightness = 0.65;
-
-  HSLColor? best;
-  HSLColor? bestAny;
-  for (final hex in wallpaper.colors) {
-    final color = parseHexColor(hex);
-    if (color == null) continue;
-    final hsl = HSLColor.fromColor(color);
-    if (bestAny == null || hsl.saturation > bestAny.saturation) {
-      bestAny = hsl;
-    }
-    final inWindow =
-        hsl.lightness >= minLightness && hsl.lightness <= maxLightness;
-    if (inWindow && (best == null || hsl.saturation > best.saturation)) {
-      best = hsl;
-    }
-  }
-
-  var chosen = best ?? bestAny;
-  if (chosen == null) return fallback;
-  // No candidate sat inside the readability window — nudge the most
-  // saturated one into it rather than falling back to the app scheme.
-  chosen = chosen.withLightness(
-    chosen.lightness.clamp(minLightness, maxLightness),
-  );
-
-  // Generate a full scheme from the vibrant seed *without* systemColorScheme.
-  // When systemColorScheme is passed, M3EColorScheme keeps system primary/
-  // secondary (app's blue) and only overrides surfaces — which is why
-  // variety wallpapers still looked blue. Passing null makes primary,
-  // primaryContainer, secondary etc come from the wallpaper seed.
-  final scheme = M3EColorScheme.generate(
-    seedColor: chosen.toColor(),
-    brightness: brightness,
-  );
-
-  // Pitch-black mode: collapse surfaces to the true-black ladder while the
-  // wallpaper-derived accents (primary, containers) stay intact.
-  return pitchBlack && brightness == Brightness.dark
-      ? AppTheme.toPitchBlack(scheme)
-      : scheme;
-}
-
-/// Robust wallpaper-derived ThemeData. Wrapping the detail screen with
-/// this ensures *every* descendant that does `Theme.of(context)` gets
-/// wallpaper colors — no per-widget `colorScheme` plumbing. Future
-/// widgets added under the detail `Theme` automatically honor the
-/// wallpaper palette without manual updates.
-ThemeData _wallpaperTheme(ColorScheme scheme, ThemeData base) {
-  return base.copyWith(
-    colorScheme: scheme,
-    scaffoldBackgroundColor: scheme.surface,
-    canvasColor: scheme.surface,
-    textTheme: buildAppTextTheme(scheme),
-    chipTheme: base.chipTheme.copyWith(
-      backgroundColor: scheme.surfaceContainerLow,
-      selectedColor: scheme.secondaryContainer,
-      checkmarkColor: scheme.onSecondaryContainer,
-      side: BorderSide(color: scheme.outlineVariant),
-      labelStyle: TextStyle(color: scheme.onSurfaceVariant),
-      secondaryLabelStyle: TextStyle(color: scheme.onSecondaryContainer),
-      shape: StadiumBorder(side: BorderSide(color: scheme.outlineVariant)),
-      showCheckmark: true,
-    ),
-    iconTheme: base.iconTheme.copyWith(color: scheme.onSurfaceVariant),
-    primaryIconTheme: base.primaryIconTheme.copyWith(
-      color: scheme.onSurfaceVariant,
-    ),
-    appBarTheme: base.appBarTheme.copyWith(
-      backgroundColor: scheme.surface,
-      foregroundColor: scheme.onSurface,
-      surfaceTintColor: Colors.transparent,
-    ),
-    dividerColor: scheme.outlineVariant,
-  );
 }
 
 /// 2-column metadata grid: Resolution · File size / Aspect ratio ·

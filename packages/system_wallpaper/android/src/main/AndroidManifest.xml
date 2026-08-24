@@ -1,0 +1,32 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <application>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.system_wallpaper.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/system_wallpaper_file_paths" />
+        </provider>
+    </application>
+    <!-- Package visibility for wallpaper pickers (Android 11+) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.ATTACH_DATA" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.service.wallpaper.CROP_AND_SET_WALLPAPER" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_WALLPAPER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="image/*" />
+        </intent>
+    </queries>
+</manifest>

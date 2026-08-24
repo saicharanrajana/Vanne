@@ -1,43 +1,61 @@
 import 'dart:io';
 
-import 'package:async_wallpaper/async_wallpaper.dart' as plugin;
+import 'package:system_wallpaper/system_wallpaper.dart';
 
-/// Applies wallpapers through `async_wallpaper` — no manual platform
-/// channels. The source must be a local file; callers download the image
-/// to a temp file first (see [DownloadService] for the gallery flow).
+/// Applies wallpapers through first-party `system_wallpaper` plugin.
 ///
-/// Note: pinned to async_wallpaper 3.1.0 — the 3.2.0 release ships
-/// non-compiling Kotlin in its Android implementation.
+/// Three direct targets (home/lock/both) use `WallpaperManager.setStream` off
+/// the main thread. The fourth option delegates to the system picker via
+/// `ACTION_ATTACH_DATA` + `FLAG_GRANT_READ_URI_PERMISSION` (Google Photos
+/// parity) so the OEM crop/palette UI handles the rest.
 final class WallpaperApplier {
-  /// Applies [file] as home/lock/both wallpaper.
-  ///
-  /// Returns a user-facing message describing the truthful outcome:
-  /// success, failure, or unsupported operation.
+  final SystemWallpaperPlatform _platform;
+
+  WallpaperApplier({SystemWallpaperPlatform? platform})
+      : _platform = platform ?? SystemWallpaperPlatform();
+
+  /// Applies [file] as home/lock/both wallpaper via `setStream`.
   Future<ApplyOutcome> apply({
     required File file,
     required ApplyTarget target,
   }) async {
-    final result = await plugin.AsyncWallpaper.setWallpaper(
-      plugin.WallpaperRequest(
-        target: switch (target) {
-          ApplyTarget.home => plugin.WallpaperTarget.home,
-          ApplyTarget.lock => plugin.WallpaperTarget.lock,
-          ApplyTarget.both => plugin.WallpaperTarget.both,
-        },
-        sourceType: plugin.WallpaperSourceType.file,
-        source: file.path,
-      ),
+    final result = await _platform.setWallpaper(
+      filePath: file.path,
+      target: switch (target) {
+        ApplyTarget.home => WallpaperTarget.home,
+        ApplyTarget.lock => WallpaperTarget.lock,
+        ApplyTarget.both => WallpaperTarget.both,
+      },
     );
 
-    if (result.isSuccess) {
-      return const ApplyOutcome.success();
-    }
-    final error = result.error;
-    return ApplyOutcome.failure(switch (error?.code) {
-      plugin.WallpaperErrorCode.unsupported =>
-        'This device does not support setting that wallpaper.',
-      _ => error?.message ?? 'Could not set the wallpaper.',
-    });
+    return switch (result) {
+      WallpaperSuccess() => const ApplyOutcome.success(),
+      WallpaperFailure(:final code, :final message) =>
+        ApplyOutcome.failure(_messageFor(code, message)),
+    };
+  }
+
+  /// Launches system picker (ATTACH_DATA + fallback to getCropAndSetWallpaperIntent).
+  /// Returns success if an activity resolved; failure with user-facing message otherwise.
+  Future<ApplyOutcome> setWithSystemPicker({required File file}) async {
+    final result = await _platform.setWithSystemPicker(filePath: file.path);
+    return switch (result) {
+      WallpaperSuccess() => const ApplyOutcome.success(),
+      WallpaperFailure(:final code, :final message) =>
+        ApplyOutcome.failure(_messageFor(code, message)),
+    };
+  }
+
+  String _messageFor(WallpaperErrorCode code, String message) {
+    return switch (code) {
+      WallpaperErrorCode.unsupported =>
+        'No app found to handle this wallpaper action.',
+      WallpaperErrorCode.fileNotFound => 'Wallpaper file not found.',
+      WallpaperErrorCode.security =>
+        'System denied access to set the wallpaper.',
+      WallpaperErrorCode.invalidArgs => message,
+      _ => message.isNotEmpty ? message : 'Could not set the wallpaper.',
+    };
   }
 }
 

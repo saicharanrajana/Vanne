@@ -2,16 +2,27 @@ import 'package:m3e_core/m3e_core.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
+import '../../../../app/dependencies.dart';
+import '../../../../app/theme/app_motion.dart';
 import '../../../../app/theme/app_shapes.dart';
+import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/wallpaper_applier.dart';
+import '../../../../features/settings/application/settings_controller.dart';
 import '../../../../shared/widgets/app_snack.dart';
+import '../../../../shared/widgets/pressable_scale.dart';
 import '../../application/wallpaper_detail_controller.dart';
+import '../wallpaper_theme.dart';
 
-/// Opens the "Set wallpaper" dialog — home / lock / both.
+/// Opens the "Set wallpaper" dialog — home / lock / both / Set With….
 ///
-/// Tapping an option applies it directly (no preselect, no extra tap).
-/// The controller downloads a local copy; `async_wallpaper` applies it and
-/// per-target results drive the snackbar.
+/// Rendered on the root navigator, so the ambient app theme would win;
+/// the dialog re-derives the wallpaper scheme (same helper the detail
+/// screen uses) and wraps itself in it — every color comes from the
+/// wallpaper's palette, honoring pitch-black mode.
+///
+/// Flow: caller should [WallpaperDetailController.prepareForSet] (wavy
+/// indicator) before opening so the file is ready; the sheet then applies
+/// instantly without re-download.
 Future<void> showSetWallpaperPopup(
   BuildContext context, {
   required WallpaperDetailController controller,
@@ -19,8 +30,69 @@ Future<void> showSetWallpaperPopup(
   return showDialog<void>(
     context: context,
     barrierDismissible: true,
-    builder: (context) => _SetWallpaperDialog(controller: controller),
+    builder: (dialogContext) => _SetWallpaperTheme(
+      controller: controller,
+      child: _SetWallpaperDialog(controller: controller),
+    ),
   );
+}
+
+/// Rebuilds the wallpaper-derived theme when the palette signal changes
+/// (e.g. deep-linked wallpaper whose colors arrive late), cross-fading
+/// just like the detail screen's [AnimatedTheme].
+final class _SetWallpaperTheme extends StatefulWidget {
+  final WallpaperDetailController controller;
+  final Widget child;
+
+  const _SetWallpaperTheme({required this.controller, required this.child});
+
+  @override
+  State<_SetWallpaperTheme> createState() => _SetWallpaperThemeState();
+}
+
+final class _SetWallpaperThemeState extends State<_SetWallpaperTheme> {
+  ColorScheme? _cachedScheme;
+  Object? _schemeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseTheme = Theme.of(context);
+    final brightness = baseTheme.brightness;
+
+    return SignalBuilder(
+      builder: (context) {
+        final wallpaper = widget.controller.wallpaper.value;
+        final settings = locator.isRegistered<SettingsController>()
+            ? locator<SettingsController>()
+            : null;
+        final pitchBlack =
+            (settings?.pitchBlack.value ?? false) &&
+            brightness == Brightness.dark;
+        final key = Object.hash(
+          wallpaper.id,
+          brightness,
+          wallpaper.colors,
+          pitchBlack,
+        );
+        if (key != _schemeKey || _cachedScheme == null) {
+          _cachedScheme = wallpaperScheme(
+            wallpaper,
+            brightness,
+            baseTheme.colorScheme,
+            pitchBlack,
+          );
+          _schemeKey = key;
+        }
+        final theme = wallpaperThemeData(_cachedScheme!, baseTheme);
+        return AnimatedTheme(
+          data: theme,
+          duration: AppMotion.transition,
+          curve: AppMotion.arrivalCurve,
+          child: Theme(data: theme, child: widget.child),
+        );
+      },
+    );
+  }
 }
 
 final class _SetWallpaperDialog extends StatefulWidget {
@@ -48,71 +120,116 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
     // On failure, error is shown inline; dialog stays open for retry.
   }
 
+  Future<void> _setWith() async {
+    await widget.controller.setWithSystemPicker();
+    final state = widget.controller.apply.peek();
+    if (!mounted) return;
+    if (state.succeeded) {
+      AppSnack.show(context, 'Opened system wallpaper picker');
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
     return Dialog(
-      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+      backgroundColor: scheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLarge),
+        borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: SignalBuilder(
           builder: (context) {
             final state = widget.controller.apply.value;
             final busy = state.isBusy;
+
+            // Each tile gets its own tonal container role so the wallpaper's
+            // palette paints the whole popup. All pairs are Material-3
+            // guaranteed contrast pairs.
+            final tiles = <(IconData, String, Color, Color, VoidCallback)>[
+              (
+                Icons.home_outlined,
+                'Home Screen',
+                scheme.primaryContainer,
+                scheme.onPrimaryContainer,
+                () => _apply(ApplyTarget.home),
+              ),
+              (
+                Icons.lock_outline,
+                'Lock Screen',
+                scheme.primaryContainer,
+                scheme.onPrimaryContainer,
+                () => _apply(ApplyTarget.lock),
+              ),
+              (
+                Icons.layers_outlined,
+                'Home & Lock Screen',
+                scheme.primaryContainer,
+                scheme.onPrimaryContainer,
+                () => _apply(ApplyTarget.both),
+              ),
+              (
+                Icons.tune_outlined,
+                'Set With…',
+                scheme.primaryContainer,
+                scheme.onPrimaryContainer,
+                _setWith,
+              ),
+            ];
+
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   'Set wallpaper',
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose where to apply',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: scheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 20),
-                for (final target in ApplyTarget.values)
-                  _PopupTile(
-                    icon: switch (target) {
-                      ApplyTarget.home => Icons.home_outlined,
-                      ApplyTarget.lock => Icons.lock_outline,
-                      ApplyTarget.both => Icons.layers_outlined,
-                    },
-                    title: switch (target) {
-                      ApplyTarget.home => 'Home screen',
-                      ApplyTarget.lock => 'Lock screen',
-                      ApplyTarget.both => 'Home + Lock screen',
-                    },
-                    enabled: !busy,
-                    onTap: () => _apply(target),
+                const SizedBox(height: AppSpacing.lg),
+                for (var i = 0; i < tiles.length; i++) ...[
+                  _EntranceTile(
+                    delay: i * 40,
+                    reduceMotion: reduceMotion,
+                    child: _PopupTile(
+                      icon: tiles[i].$1,
+                      title: tiles[i].$2,
+                      container: tiles[i].$3,
+                      onContainer: tiles[i].$4,
+                      enabled: !busy,
+                      onTap: tiles[i].$5,
+                    ),
                   ),
+                  if (i < tiles.length - 1)
+                    const SizedBox(height: AppSpacing.lg),
+                ],
                 if (state.error != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     state.error!,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
+                      color: scheme.error,
                     ),
                   ),
                 ],
                 if (busy) ...[
-                  const SizedBox(height: 16),
-                  const Center(
+                  const SizedBox(height: AppSpacing.lg),
+                  Center(
                     child: SizedBox(
                       height: 24,
                       width: 24,
-                      child: M3ELinearWavyProgressIndicator(),
+                      child: M3ELinearWavyProgressIndicator(
+                        color: scheme.primary,
+                      ),
                     ),
                   ),
                 ],
@@ -125,15 +242,55 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
   }
 }
 
+/// Staggered entrance: each tile fades and slides up, its motion starting
+/// [delay] ms into the animation. Snaps when reduced motion is requested.
+final class _EntranceTile extends StatelessWidget {
+  final int delay;
+  final bool reduceMotion;
+  final Widget child;
+
+  const _EntranceTile({
+    required this.delay,
+    required this.reduceMotion,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (reduceMotion) return child;
+
+    final totalMs = AppMotion.transition.inMilliseconds + delay;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: totalMs),
+      // Hold still for [delay], then run the arrival curve for the
+      // remaining window — a clean stagger without timers.
+      curve: Interval(delay / totalMs, 1, curve: AppMotion.arrivalCurve),
+      builder: (context, value, child) => Opacity(
+        opacity: value.clamp(0, 1),
+        child: Transform.translate(
+          offset: Offset(0, 16 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 final class _PopupTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final Color container;
+  final Color onContainer;
   final bool enabled;
   final VoidCallback onTap;
 
   const _PopupTile({
     required this.icon,
     required this.title,
+    required this.container,
+    required this.onContainer,
     required this.enabled,
     required this.onTap,
   });
@@ -141,49 +298,57 @@ final class _PopupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Accessible pair: secondaryContainer / onSecondaryContainer is a
-    // Material-3 guaranteed contrast pair (≥7:1). Using surfaceContainerHighest
-    // with onSurfaceVariant was low-contrast and failed a11y.
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: enabled
-            ? theme.colorScheme.secondaryContainer
-            : theme.colorScheme.surfaceContainerHigh,
-        shape: RoundedRectangleBorder(
+    final scheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+    // Disabled: neutral surface + de-emphasized content (distinct beyond
+    // color alone — container and content both change).
+    final tileColor = enabled ? container : scheme.surfaceContainerHigh;
+    final contentColor = enabled
+        ? onContainer
+        : scheme.onSurfaceVariant.withValues(alpha: 0.5);
+
+    return PressableScale(
+      child: AnimatedContainer(
+        duration: reduceMotion ? Duration.zero : AppMotion.transition,
+        decoration: BoxDecoration(
+          color: tileColor,
           borderRadius: BorderRadius.circular(AppShapes.largeIncreased),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          child: SizedBox(
-            height: 56,
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 22,
-                    color: enabled
-                        ? theme.colorScheme.onSecondaryContainer
-                        : theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.5,
-                          ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: enabled
-                          ? theme.colorScheme.onSecondaryContainer
-                          : theme.colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                      fontWeight: FontWeight.w600,
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppShapes.largeIncreased),
+          ),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            child: SizedBox(
+              height: 64,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Tonal icon chip: painted circle in on-container @ 12%.
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: contentColor.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, size: 22, color: contentColor),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: AppSpacing.md),
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: contentColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

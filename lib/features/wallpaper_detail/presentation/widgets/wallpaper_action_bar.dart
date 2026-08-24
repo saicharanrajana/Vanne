@@ -7,6 +7,7 @@ import 'package:signals/signals_flutter.dart';
 import '../../../../app/dependencies.dart';
 import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/downloads/download_service.dart';
 import '../../../../core/services/url_launcher_service.dart';
 import '../../../../shared/widgets/app_snack.dart';
 import '../../../../shared/widgets/pressable_scale.dart';
@@ -17,10 +18,8 @@ import 'set_wallpaper_sheet.dart';
 /// `[ ↓ ] [ Set ] [ ↗ ]` — two large tonal icon buttons flanking
 /// a wide filled primary button.
 ///
-/// All three share the same 64 dp height and expressive rounding so they
-/// read as one group. Functionality is unchanged: gallery download (with
-/// in-place progress), the Set-wallpaper dialog, and opening the
-/// wallpaper's Wallhaven page.
+/// "Set" now follows: tap → wavy indicator while tmp file resolves →
+/// then 4-option sheet (Home/Lock/Both/Set With… via ATTACH_DATA).
 final class WallpaperActionBar extends StatelessWidget {
   final WallpaperDetailController controller;
 
@@ -31,6 +30,8 @@ final class WallpaperActionBar extends StatelessWidget {
     return SignalBuilder(
       builder: (context) {
         final isBusy = controller.download.value.isBusy;
+        // Watch prepare so the primary button shows resolving state.
+        final isPreparing = controller.prepare.value.isResolving;
 
         return Row(
           children: [
@@ -48,9 +49,11 @@ final class WallpaperActionBar extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _PrimaryActionButton(
-                label: 'Set',
-                onPressed: () =>
-                    showSetWallpaperPopup(context, controller: controller),
+                label: isPreparing ? 'Preparing…' : 'Set',
+                busy: isPreparing,
+                onPressed: isPreparing
+                    ? null
+                    : () => _prepareAndShowSheet(context, controller),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -63,6 +66,31 @@ final class WallpaperActionBar extends StatelessWidget {
         );
       },
     );
+  }
+
+  static Future<void> _prepareAndShowSheet(
+    BuildContext context,
+    WallpaperDetailController controller,
+  ) async {
+    try {
+      await controller.prepareForSet();
+    } on DownloadException catch (e) {
+      if (!context.mounted) return;
+      AppSnack.show(context, e.message, error: true);
+      return;
+    } catch (_) {
+      if (!context.mounted) return;
+      AppSnack.show(context, 'Could not prepare the wallpaper file.', error: true);
+      return;
+    }
+    final prepError = controller.prepare.peek().error;
+    if (prepError != null) {
+      if (!context.mounted) return;
+      AppSnack.show(context, prepError, error: true);
+      return;
+    }
+    if (!context.mounted) return;
+    await showSetWallpaperPopup(context, controller: controller);
   }
 
   /// Runs the gallery download and reports the terminal outcome. All
@@ -146,12 +174,17 @@ final class _ActionButton extends StatelessWidget {
 }
 
 /// The wide filled primary "Set wallpaper" button — the group's visual
-/// anchor.
+/// anchor. Shows wavy indicator when preparing tmp file.
 final class _PrimaryActionButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final bool busy;
+  final VoidCallback? onPressed;
 
-  const _PrimaryActionButton({required this.label, required this.onPressed});
+  const _PrimaryActionButton({
+    required this.label,
+    this.busy = false,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +206,17 @@ final class _PrimaryActionButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.wallpaper, color: scheme.onPrimary, size: 22),
+                if (busy)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: M3ECircularWavyProgressIndicator(
+                      size: 20,
+                      color: scheme.onPrimary,
+                    ),
+                  )
+                else
+                  Icon(Icons.wallpaper, color: scheme.onPrimary, size: 22),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   label,

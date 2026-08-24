@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart' show CancelToken;
+import 'package:path_provider/path_provider.dart';
 import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -10,6 +11,9 @@ import '../../../core/wallpaper/wallpaper_repository.dart';
 
 /// Owns one wallpaper-detail screen: optional detail fetch, download
 /// progress, and apply-wallpaper outcomes.
+///
+/// New flow: "Set" first resolves a local file (with wavy indicator), then
+/// poses 4 options (home/lock/both/Set With… system picker via ATTACH_DATA).
 final class WallpaperDetailController {
   final WallpaperRepository _repository;
   final DownloadService _downloader;
@@ -28,7 +32,10 @@ final class WallpaperDetailController {
   /// Download lifecycle for the action row.
   final download = signal(const DownloadState.idle());
 
-  /// Apply-wallpaper lifecycle for the Set sheet.
+  /// Preparation lifecycle for the "Set" flow (download to tmp before sheet).
+  final prepare = signal(const PrepareState.idle());
+
+  /// Apply-wallpaper lifecycle for the Set sheet (home/lock/both/Set With…).
   final apply = signal(const ApplyState.idle());
 
   /// Cache path produced by a previous "Set" attempt, reused when valid.
@@ -80,10 +87,39 @@ final class WallpaperDetailController {
     }
   }
 
+  /// Resolves a local cache file for the "Set" flow, showing wavy progress
+  /// until ready. Cached path is reused across all 4 options.
+  ///
+  /// Call this *before* opening the sheet. On success returns the path and
+  /// sets [prepare] to ready; on failure sets error and throws.
+  Future<String> prepareForSet() async {
+    if (prepare.value.isResolving) {
+      final cached = _cachedTempPath;
+      if (cached != null && File(cached).existsSync()) return cached;
+    }
+    if (prepare.value.isResolving) return _cachedTempPath ?? await _ensureLocalFile();
+    prepare.set(const PrepareState.resolving());
+    try {
+      final path = await _ensureLocalFile();
+      if (_disposed) return path;
+      prepare.set(PrepareState.ready(path));
+      return path;
+    } on DownloadException catch (error) {
+      if (_disposed) rethrow;
+      prepare.set(PrepareState.failed(error.message));
+      rethrow;
+    } on FileSystemException {
+      if (_disposed) rethrow;
+      const msg = 'Could not prepare the wallpaper file.';
+      prepare.set(const PrepareState.failed(msg));
+      throw const DownloadException(msg);
+    }
+  }
+
   /// Applies the wallpaper to home/lock/both.
   ///
-  /// async_wallpaper requires a local file, so this ensures a cache copy
-  /// first (reused across targets within the session).
+  /// Assumes [prepareForSet] already succeeded (reuses cached file). Falls
+  /// back to ensuring the file if called directly.
   Future<void> applyAsWallpaper(ApplyTarget target) async {
     if (apply.value.isBusy) return;
     apply.set(ApplyState.applying(target));
@@ -101,14 +137,51 @@ final class WallpaperDetailController {
     }
   }
 
+  /// Launches system picker via ACTION_ATTACH_DATA (Google Photos parity).
+  /// Requires a cached file (call [prepareForSet] first for the intended UX).
+  Future<void> setWithSystemPicker() async {
+    if (apply.value.isBusy) return;
+    apply.set(const ApplyState.applyingSystemPicker());
+    try {
+      final file = File(await _ensureLocalFile());
+      final outcome = await _applier.setWithSystemPicker(file: file);
+      if (_disposed) return;
+      apply.set(ApplyState.fromOutcome(outcome));
+    } on DownloadException catch (error) {
+      if (_disposed) return;
+      apply.set(ApplyState.failed(error.message));
+    } on FileSystemException {
+      if (_disposed) return;
+      apply.set(ApplyState.failed('Could not prepare the wallpaper file.'));
+    }
+  }
+
   Future<String> _ensureLocalFile() async {
     final cached = _cachedTempPath;
     if (cached != null && File(cached).existsSync()) return cached;
 
-    final dir = await Directory.systemTemp.createTemp('wallpaper_apply');
+    // Use app cache dir (covered by FileProvider cache-path), not
+    // Directory.systemTemp which on Android is code_cache and not
+    // covered by default FileProvider paths (see screenshot error:
+    // "Failed to find configured root that contains .../code_cache/...").
+    // Fall back to systemTemp for tests where path_provider isn't mocked.
+    Directory base;
+    try {
+      base = await getTemporaryDirectory();
+    } on Exception {
+      base = Directory.systemTemp;
+    } on Error {
+      base = Directory.systemTemp;
+    }
+    final dir = await Directory('${base.path}/wallpaper_apply').create(recursive: true);
     final file = File(
       '${dir.path}/${DownloadService.fileNameFor(wallpaper.value)}',
     );
+    // Reuse if already downloaded in this session (e.g. after prepareForSet).
+    if (await file.exists()) {
+      _cachedTempPath = file.path;
+      return file.path;
+    }
     await _downloader.downloadToFile(
       wallpaper.value,
       file,
@@ -124,6 +197,7 @@ final class WallpaperDetailController {
     _disposed = true;
     _lifecycle.cancel();
     download.dispose();
+    prepare.dispose();
     apply.dispose();
     details.dispose();
     detailsError.dispose();
@@ -148,30 +222,60 @@ final class DownloadState {
   const DownloadState.idle() : this(isBusy: false);
 
   const DownloadState.downloading([this.progress])
-    : isBusy = true,
-      error = null,
-      done = false;
+      : isBusy = true,
+        error = null,
+        done = false;
 
   const DownloadState.done()
-    : isBusy = false,
-      progress = null,
-      error = null,
-      done = true;
+      : isBusy = false,
+        progress = null,
+        error = null,
+        done = true;
 
   factory DownloadState.failed(String message) =>
       DownloadState(isBusy: false, error: message);
+}
+
+/// Preparation state for the "Set" flow (resolve file before showing sheet).
+final class PrepareState {
+  final bool isResolving;
+  final String? path;
+  final String? error;
+
+  const PrepareState({
+    required this.isResolving,
+    this.path,
+    this.error,
+  });
+
+  const PrepareState.idle() : this(isResolving: false);
+
+  const PrepareState.resolving()
+      : isResolving = true,
+        path = null,
+        error = null;
+
+  const PrepareState.ready(this.path)
+      : isResolving = false,
+        error = null;
+
+  const PrepareState.failed(this.error)
+      : isResolving = false,
+        path = null;
 }
 
 /// Apply-sheet state machine.
 final class ApplyState {
   final bool isBusy;
   final ApplyTarget? target;
+  final bool isSystemPicker;
   final String? error;
   final bool succeeded;
 
   const ApplyState({
     required this.isBusy,
     this.target,
+    this.isSystemPicker = false,
     this.error,
     this.succeeded = false,
   });
@@ -179,21 +283,30 @@ final class ApplyState {
   const ApplyState.idle() : this(isBusy: false);
 
   const ApplyState.applying(this.target)
-    : isBusy = true,
-      error = null,
-      succeeded = false;
+      : isBusy = true,
+        error = null,
+        succeeded = false,
+        isSystemPicker = false;
+
+  const ApplyState.applyingSystemPicker()
+      : isBusy = true,
+        target = null,
+        error = null,
+        succeeded = false,
+        isSystemPicker = true;
 
   const ApplyState.success()
-    : isBusy = false,
-      target = null,
-      error = null,
-      succeeded = true;
+      : isBusy = false,
+        target = null,
+        error = null,
+        succeeded = true,
+        isSystemPicker = false;
 
   factory ApplyState.failed(String message) =>
       ApplyState(isBusy: false, error: message);
 
   factory ApplyState.fromOutcome(ApplyOutcome outcome) => switch (outcome) {
-    ApplyOutcome(status: ApplyStatus.applied) => const ApplyState.success(),
-    ApplyOutcome(:final message) => ApplyState.failed(message),
-  };
+        ApplyOutcome(status: ApplyStatus.applied) => const ApplyState.success(),
+        ApplyOutcome(:final message) => ApplyState.failed(message),
+      };
 }

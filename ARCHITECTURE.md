@@ -180,3 +180,53 @@ Rules:
   (`shared/widgets/app_snack.dart`), which uses the root
   `scaffoldMessengerKey` — never ambient `ScaffoldMessenger.of(context)`
   from contexts captured across async gaps.
+
+## Wallpaper setting: `packages/system_wallpaper`
+
+First-party Android plugin replacing `async_wallpaper`. Four operations:
+
+* Home / Lock / Both — `WallpaperManager.setStream` with
+  `FLAG_SYSTEM`/`FLAG_LOCK` on `Dispatchers.IO` (no bitmap decode, no
+  Picasso, no main-thread work).
+* **Set With…** — system picker via `getCropAndSetWallpaperIntent`
+  (fallback `ACTION_ATTACH_DATA` → `SET_WALLPAPER` → `VIEW`), served from a
+  `FileProvider` URI with `FLAG_GRANT_READ_URI_PERMISSION` + `ClipData`.
+
+Plugin-owned (survives recreating `android/` — merged via manifest merger):
+`SET_WALLPAPER` permission, `FileProvider` + `file_paths.xml`, and
+package-visibility `<queries>` for the picker intents.
+
+### App-level Android overrides (must be re-applied after recreating android/)
+
+Three behaviours cannot live in a plugin (the manifest merger cannot add
+attributes to an app-declared activity, and Application-class injection
+would break plugin composability):
+
+1. `android:configChanges` including `colorMode|navigation|mcc|mnc` —
+   wallpaper changes can alter systemui color overlays; without these flags
+   the activity recreates.
+2. `WallpaperApp.kt` — pre-warms and caches a `FlutterEngine`
+   (`"main_engine"` in `FlutterEngineCache`) at app start.
+3. `MainActivity.kt` — binds to the cached engine
+   (`getCachedEngineId`, `shouldDestroyEngineWithHost = false`).
+4. `compileSdk` / `minSdk` in `android/app/build.gradle.kts` — bumped to the
+   maximum required by the app's Android plugins. **Not hardcoded**: the
+   script reads each plugin's declared SDKs (via
+   `.flutter-plugins-dependencies`, Flutter's own plugin registry) and takes
+   the max, so re-running the script after a plugin raises its requirement
+   self-heals the build.
+
+The system picker (Pixel wallpaper app → MagicPortrait live wallpaper)
+changes Runtime Resource Overlays (`systemui-dynamic.frro`), which forces
+activity recreation regardless of `configChanges`. The cached engine makes
+that recreation invisible: no splash, no navigation/state loss.
+
+**After `rm -rf android && flutter create .`**, re-apply:
+
+```bash
+./tool/apply_android_overrides.sh
+```
+
+Canonical copies live in `tool/android_overrides/`; the script detects the
+app's Kotlin package, rewrites `package` lines, patches the manifest, and is
+idempotent.

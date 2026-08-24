@@ -27,6 +27,13 @@ final locator = GetIt.instance;
 
 /// Registers application services and controllers.
 Future<void> bootstrap() async {
+  // TODO(guard): verify Android overrides are applied at startup (debug
+  //  builds only). Call a `verifyOverrides` MethodChannel method on
+  //  system_wallpaper (see TODO in SystemWallpaperPlugin.kt) and log/surface
+  //  a warning if the cached engine is missing — that means
+  //  `tool/apply_android_overrides.sh` was never run after recreating
+  //  android/, and "Set With…" will restart the app on wallpaper RRO changes.
+  //  Details: ARCHITECTURE.md → "App-level Android overrides".
   await Hive.initFlutter();
 
   final settingsStore = SettingsStore();

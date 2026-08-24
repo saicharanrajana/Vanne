@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="wallpaper_cache" path="." />
+    <cache-path name="wallpaper_cache_code" path="code_cache/" />
+    <files-path name="files" path="." />
+    <!-- code_cache is sibling of cache/files — reach via files/../code_cache -->
+    <files-path name="code_cache_via_files" path="../code_cache/" />
+    <external-path name="external" path="." />
+    <external-files-path name="external_files" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <external-media-path name="external_media" path="." />
+    <!-- Fallback: allow any file under app's data root (covers code_cache on all OEMs) -->
+    <root-path name="root" path="." />
+</paths>

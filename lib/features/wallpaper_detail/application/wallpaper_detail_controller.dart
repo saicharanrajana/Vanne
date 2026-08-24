@@ -96,8 +96,11 @@ final class WallpaperDetailController {
     if (prepare.value.isResolving) {
       final cached = _cachedTempPath;
       if (cached != null && File(cached).existsSync()) return cached;
+      // Already resolving without a valid cache — avoid spawning a second
+      // concurrent download; return existing path or let caller retry.
+      if (_cachedTempPath != null) return _cachedTempPath!;
+      throw const DownloadException('Wallpaper is already being prepared.');
     }
-    if (prepare.value.isResolving) return _cachedTempPath ?? await _ensureLocalFile();
     prepare.set(const PrepareState.resolving());
     try {
       final path = await _ensureLocalFile();
@@ -178,9 +181,16 @@ final class WallpaperDetailController {
       '${dir.path}/${DownloadService.fileNameFor(wallpaper.value)}',
     );
     // Reuse if already downloaded in this session (e.g. after prepareForSet).
+    // Guard against 0-byte truncated file from interrupted download.
     if (await file.exists()) {
-      _cachedTempPath = file.path;
-      return file.path;
+      if (await file.length() > 0) {
+        _cachedTempPath = file.path;
+        return file.path;
+      }
+      // Stale 0-byte file — delete and re-download.
+      try {
+        await file.delete();
+      } catch (_) {}
     }
     await _downloader.downloadToFile(
       wallpaper.value,

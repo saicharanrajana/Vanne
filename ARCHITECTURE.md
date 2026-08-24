@@ -194,7 +194,9 @@ First-party Android plugin replacing `async_wallpaper`. Four operations:
 
 Plugin-owned (survives recreating `android/` — merged via manifest merger):
 `SET_WALLPAPER` permission, `FileProvider` + `file_paths.xml`, and
-package-visibility `<queries>` for the picker intents.
+package-visibility `<queries>` for the picker intents. `INTERNET` is **not**
+owned by this plugin — it must still merge from the app manifest or another
+plugin (verify with `grep INTERNET` on the merged manifest after builds).
 
 ### App-level Android overrides (must be re-applied after recreating android/)
 

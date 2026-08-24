@@ -152,6 +152,21 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
             // Each tile gets its own tonal container role so the wallpaper's
             // palette paints the whole popup. All pairs are Material-3
             // guaranteed contrast pairs.
+            // busyTarget tracks which option is currently applying so only
+            // that tile shows the inline wavy indicator (like the Set button).
+            final busyTarget = state.target;
+            final busyPicker = state.isSystemPicker;
+            bool isTileBusy(int index) {
+              if (!busy) return false;
+              return switch (index) {
+                0 => busyTarget == ApplyTarget.home,
+                1 => busyTarget == ApplyTarget.lock,
+                2 => busyTarget == ApplyTarget.both,
+                3 => busyPicker,
+                _ => false,
+              };
+            }
+
             final tiles = <(IconData, String, Color, Color, VoidCallback)>[
               (
                 Icons.home_outlined,
@@ -205,6 +220,7 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
                       container: tiles[i].$3,
                       onContainer: tiles[i].$4,
                       enabled: !busy,
+                      busy: isTileBusy(i),
                       onTap: tiles[i].$5,
                     ),
                   ),
@@ -218,18 +234,6 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.error,
-                    ),
-                  ),
-                ],
-                if (busy) ...[
-                  const SizedBox(height: AppSpacing.lg),
-                  Center(
-                    child: SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: M3ELinearWavyProgressIndicator(
-                        color: scheme.primary,
-                      ),
                     ),
                   ),
                 ],
@@ -284,6 +288,7 @@ final class _PopupTile extends StatelessWidget {
   final Color container;
   final Color onContainer;
   final bool enabled;
+  final bool busy;
   final VoidCallback onTap;
 
   const _PopupTile({
@@ -292,6 +297,7 @@ final class _PopupTile extends StatelessWidget {
     required this.container,
     required this.onContainer,
     required this.enabled,
+    this.busy = false,
     required this.onTap,
   });
 
@@ -301,10 +307,11 @@ final class _PopupTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
-    // Disabled: neutral surface + de-emphasized content (distinct beyond
-    // color alone — container and content both change).
-    final tileColor = enabled ? container : scheme.surfaceContainerHigh;
-    final contentColor = enabled
+    // Busy tile keeps its tonal colors so the wavy indicator remains
+    // vibrant; other disabled tiles use neutral + de-emphasized colors.
+    final isActive = busy || enabled;
+    final tileColor = isActive ? container : scheme.surfaceContainerHigh;
+    final contentColor = isActive
         ? onContainer
         : scheme.onSurfaceVariant.withValues(alpha: 0.5);
 
@@ -326,29 +333,38 @@ final class _PopupTile extends StatelessWidget {
             child: SizedBox(
               height: 64,
               child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Tonal icon chip: painted circle in on-container @ 12%.
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: contentColor.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+                child: busy
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: M3ECircularWavyProgressIndicator(
+                          size: 24,
+                          color: contentColor,
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Tonal icon chip: painted circle in on-container @ 12%.
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: contentColor.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(icon, size: 22, color: contentColor),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Text(
+                            title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: contentColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Icon(icon, size: 22, color: contentColor),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: contentColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),

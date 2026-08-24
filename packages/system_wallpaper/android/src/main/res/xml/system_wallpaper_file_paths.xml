@@ -9,6 +9,8 @@
     <external-files-path name="external_files" path="." />
     <external-cache-path name="external_cache" path="." />
     <external-media-path name="external_media" path="." />
-    <!-- Fallback: allow any file under app's data root (covers code_cache on all OEMs) -->
+    <!-- TODO: validate fallback copy to cache/wallpaper_share covers all OEM
+         code_cache paths, then remove this root-path fallback. Broad access
+         is kept for now to avoid breaking picker on edge devices. -->
     <root-path name="root" path="." />
 </paths>

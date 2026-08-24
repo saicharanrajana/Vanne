@@ -6,8 +6,9 @@ import 'package:system_wallpaper/system_wallpaper.dart';
 ///
 /// Three direct targets (home/lock/both) use `WallpaperManager.setStream` off
 /// the main thread. The fourth option delegates to the system picker via
-/// `ACTION_ATTACH_DATA` + `FLAG_GRANT_READ_URI_PERMISSION` (Google Photos
-/// parity) so the OEM crop/palette UI handles the rest.
+/// `getCropAndSetWallpaperIntent` (primary) + `ACTION_ATTACH_DATA` fallback
+/// with `FLAG_GRANT_READ_URI_PERMISSION` so the OEM crop/palette UI handles
+/// the rest.
 final class WallpaperApplier {
   final SystemWallpaperPlatform _platform;
 
@@ -53,6 +54,9 @@ final class WallpaperApplier {
       WallpaperErrorCode.fileNotFound => 'Wallpaper file not found.',
       WallpaperErrorCode.security =>
         'System denied access to set the wallpaper.',
+      WallpaperErrorCode.io => message.isNotEmpty
+          ? message
+          : 'Storage error while setting the wallpaper.',
       WallpaperErrorCode.invalidArgs => message,
       _ => message.isNotEmpty ? message : 'Could not set the wallpaper.',
     };

@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
+import '../../../core/services/dynamic_palette_refresher.dart';
 import '../../../core/downloads/download_service.dart';
 import '../../../core/services/wallpaper_applier.dart';
 import '../../../core/wallpaper/wallpaper_repository.dart';
@@ -131,6 +132,13 @@ final class WallpaperDetailController {
       final outcome = await _applier.apply(file: file, target: target);
       if (_disposed) return;
       apply.set(ApplyState.fromOutcome(outcome));
+      if (outcome.status == ApplyStatus.applied) {
+        // System Material You palette is extracted from the new wallpaper
+        // asynchronously. The palette signal only fetched once at startup,
+        // so bump the tick to force a re-fetch. Fire-and-forget.
+        // ignore: discarded_futures
+        requestDynamicPaletteRefresh();
+      }
     } on DownloadException catch (error) {
       if (_disposed) return;
       apply.set(ApplyState.failed(error.message));
@@ -150,6 +158,13 @@ final class WallpaperDetailController {
       final outcome = await _applier.setWithSystemPicker(file: file);
       if (_disposed) return;
       apply.set(ApplyState.fromOutcome(outcome));
+      if (outcome.status == ApplyStatus.applied) {
+        // Picker launches an external activity; the actual wallpaper is only
+        // set after the user confirms the crop. The debounced refresher
+        // will collapse rapid calls and the cached-engine will keep state.
+        // ignore: discarded_futures
+        requestDynamicPaletteRefresh();
+      }
     } on DownloadException catch (error) {
       if (_disposed) return;
       apply.set(ApplyState.failed(error.message));

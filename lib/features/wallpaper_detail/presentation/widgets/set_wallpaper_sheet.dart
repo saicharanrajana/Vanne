@@ -1,4 +1,5 @@
 import 'package:m3e_core/m3e_core.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -169,28 +170,28 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
 
             final tiles = <(IconData, String, Color, Color, VoidCallback)>[
               (
-                Icons.home_outlined,
+                BootstrapIcons.house_fill,
                 'Home Screen',
                 scheme.primaryContainer,
                 scheme.onPrimaryContainer,
                 () => _apply(ApplyTarget.home),
               ),
               (
-                Icons.lock_outline,
+                BootstrapIcons.lock_fill,
                 'Lock Screen',
                 scheme.primaryContainer,
                 scheme.onPrimaryContainer,
                 () => _apply(ApplyTarget.lock),
               ),
               (
-                Icons.layers_outlined,
+                BootstrapIcons.layers_fill,
                 'Home & Lock Screen',
                 scheme.primaryContainer,
                 scheme.onPrimaryContainer,
                 () => _apply(ApplyTarget.both),
               ),
               (
-                Icons.tune_outlined,
+                BootstrapIcons.grid_fill,
                 'Set With…',
                 scheme.primaryContainer,
                 scheme.onPrimaryContainer,
@@ -353,7 +354,7 @@ final class _PopupTile extends StatelessWidget {
                               color: contentColor.withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(icon, size: 22, color: contentColor),
+                            child: Icon(icon, size: 23, color: contentColor),
                           ),
                           const SizedBox(width: AppSpacing.md),
                           Text(

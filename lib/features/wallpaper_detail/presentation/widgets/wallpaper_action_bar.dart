@@ -1,6 +1,7 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
 import 'package:m3e_core/m3e_core.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -44,7 +45,7 @@ final class WallpaperActionBar extends StatelessWidget {
                       height: 24,
                       child: M3ECircularWavyProgressIndicator(size: 24),
                     )
-                  : const Icon(Icons.download),
+                  : const Icon(BootstrapIcons.cloud_arrow_down_fill, size: 22),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -60,7 +61,10 @@ final class WallpaperActionBar extends StatelessWidget {
             _ActionButton(
               tooltip: 'Open on Wallhaven',
               onPressed: () => _openSource(context, controller),
-              child: const Icon(Icons.open_in_new),
+              child: const Icon(
+                BootstrapIcons.arrow_up_right_square_fill,
+                size: 22,
+              ),
             ),
           ],
         );
@@ -80,7 +84,11 @@ final class WallpaperActionBar extends StatelessWidget {
       return;
     } catch (_) {
       if (!context.mounted) return;
-      AppSnack.show(context, 'Could not prepare the wallpaper file.', error: true);
+      AppSnack.show(
+        context,
+        'Could not prepare the wallpaper file.',
+        error: true,
+      );
       return;
     }
     final prepError = controller.prepare.peek().error;
@@ -216,7 +224,11 @@ final class _PrimaryActionButton extends StatelessWidget {
                     ),
                   )
                 else
-                  Icon(Icons.wallpaper, color: scheme.onPrimary, size: 22),
+                  Icon(
+                    BootstrapIcons.image_fill,
+                    color: scheme.onPrimary,
+                    size: 22,
+                  ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   label,

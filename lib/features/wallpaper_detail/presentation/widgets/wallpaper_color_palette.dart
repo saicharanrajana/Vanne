@@ -37,7 +37,7 @@ final class WallpaperColorPalette extends StatelessWidget {
 
         return WallpaperSectionCard(
           title: 'Colors',
-          trailing: _CountBadge(count: swatches.length),
+          trailing: _CountBadge(count: colors.length),
           child: Wrap(
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.md,

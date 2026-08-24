@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 
 import '../../../../app/dependencies.dart';
 import '../../../../shared/widgets/spring_sheet.dart';
@@ -121,7 +122,7 @@ class _CreateCollectionSheetState extends State<_CreateCollectionSheet> {
                   const Spacer(),
                   FilledButton.icon(
                     onPressed: _save,
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(BootstrapIcons.plus_lg),
                     label: const Text('Create'),
                   ),
                 ],

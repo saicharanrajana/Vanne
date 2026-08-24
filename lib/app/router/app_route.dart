@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 import 'package:zenrouter/zenrouter.dart';
 
@@ -118,23 +119,23 @@ class MainShell extends AppRoute with RouteLayout<AppRoute> {
             onDestinationSelected: (index) => path.goToIndexed(index),
             destinations: const [
               NavigationDestination(
-                icon: Icon(Icons.explore_outlined),
-                selectedIcon: Icon(Icons.explore),
+                icon: Icon(BootstrapIcons.compass),
+                selectedIcon: Icon(BootstrapIcons.compass_fill),
                 label: 'Discover',
               ),
               NavigationDestination(
-                icon: Icon(Icons.collections_bookmark_outlined),
-                selectedIcon: Icon(Icons.collections_bookmark),
+                icon: Icon(BootstrapIcons.collection),
+                selectedIcon: Icon(BootstrapIcons.collection_fill),
                 label: 'Collections',
               ),
               NavigationDestination(
-                icon: Icon(Icons.favorite_border),
-                selectedIcon: Icon(Icons.favorite),
+                icon: Icon(BootstrapIcons.heart),
+                selectedIcon: Icon(BootstrapIcons.heart_fill),
                 label: 'Favorites',
               ),
               NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
+                icon: Icon(BootstrapIcons.gear),
+                selectedIcon: Icon(BootstrapIcons.gear_fill),
                 label: 'Settings',
               ),
             ],
@@ -276,14 +277,14 @@ final class AppCoordinator extends Coordinator<AppRoute> {
 
   @override
   AppRoute parseRouteFromUri(Uri uri) => switch (uri.pathSegments) {
-        [] || ['discover'] => DiscoverTab(),
-        ['collections'] => CollectionsTab(),
-        ['favorites'] => FavoritesTab(),
-        ['settings'] => SettingsTab(),
-        ['settings', 'api-key'] => ApiKeySettingsRoute(),
-        ['search'] => SearchRoute(),
-        ['wallpaper', final id] => WallpaperDetailRoute(wallpaperId: id),
-        ['collections', final id] => CollectionExploreRoute(collectionId: id),
-        _ => DiscoverTab(),
-      };
+    [] || ['discover'] => DiscoverTab(),
+    ['collections'] => CollectionsTab(),
+    ['favorites'] => FavoritesTab(),
+    ['settings'] => SettingsTab(),
+    ['settings', 'api-key'] => ApiKeySettingsRoute(),
+    ['search'] => SearchRoute(),
+    ['wallpaper', final id] => WallpaperDetailRoute(wallpaperId: id),
+    ['collections', final id] => CollectionExploreRoute(collectionId: id),
+    _ => DiscoverTab(),
+  };
 }

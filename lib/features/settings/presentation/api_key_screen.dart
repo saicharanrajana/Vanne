@@ -1,4 +1,5 @@
 import 'package:m3e_core/m3e_core.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -63,7 +64,7 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
         leading: IconButton(
           onPressed: widget.onBack,
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(BootstrapIcons.arrow_left),
         ),
         title: const Text('Wallhaven API key'),
       ),
@@ -74,8 +75,8 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                Icons.info_outline,
-                size: 20,
+                BootstrapIcons.info_circle_fill,
+                size: 22,
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 10),
@@ -122,7 +123,7 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.check_circle,
+                            BootstrapIcons.check_circle_fill,
                             size: 22,
                             color: theme.colorScheme.onSecondaryContainer,
                           ),
@@ -145,7 +146,7 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                         labelText: 'Paste your API key',
                         border: const OutlineInputBorder(),
                         prefixIcon: Icon(
-                        Icons.vpn_key_outlined,
+                        BootstrapIcons.key_fill,
                         size: 20,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -160,8 +161,8 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                       child: TextButton.icon(
                         onPressed: () => setState(() => _obscured = !_obscured),
                         icon: Icon(
-                          _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                          size: 18,
+                          _obscured ? BootstrapIcons.eye_fill : BootstrapIcons.eye_slash_fill,
+                          size: 20,
                         ),
                         label: Text(_obscured ? 'Show key' : 'Hide key'),
                       ),

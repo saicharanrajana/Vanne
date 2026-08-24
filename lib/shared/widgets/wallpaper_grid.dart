@@ -1,4 +1,5 @@
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:m3e_core/m3e_core.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals.dart';
@@ -210,7 +211,8 @@ final class _GridFooter extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            M3EButton(style: M3EButtonStyle.tonal, 
+            M3EButton(
+              style: M3EButtonStyle.tonal,
               onPressed: onRetryPagination,
               size: M3EButtonSize.sm,
               child: const Text('Try again'),
@@ -293,7 +295,7 @@ final class FeedErrorView extends StatelessWidget {
               height: 72,
               color: theme.colorScheme.errorContainer,
               child: Icon(
-                Icons.wifi_off_outlined,
+                BootstrapIcons.wifi_off,
                 size: 30,
                 color: theme.colorScheme.onErrorContainer,
               ),
@@ -309,7 +311,8 @@ final class FeedErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            M3EButton(style: M3EButtonStyle.filled, 
+            M3EButton(
+              style: M3EButtonStyle.filled,
               onPressed: onRetry,
               size: M3EButtonSize.md,
               child: const Text('Try again'),
@@ -349,7 +352,7 @@ final class EmptyState extends StatelessWidget {
               height: 72,
               color: theme.colorScheme.surfaceContainerHigh,
               child: Icon(
-                iconData ?? Icons.image_outlined,
+                iconData ?? BootstrapIcons.image_fill,
                 size: 30,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

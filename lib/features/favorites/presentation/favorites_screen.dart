@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -66,7 +67,7 @@ final class FavoritesScreen extends StatelessWidget {
             onToggleFavorite: controller.toggle,
             heroScope: 'favorites-',
             emptyState: const EmptyState(
-              iconData: Icons.favorite,
+              iconData: BootstrapIcons.heart_fill,
               title: 'No favorites yet',
               message: 'Save wallpapers you love and they’ll appear here.',
             ),

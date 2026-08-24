@@ -1,8 +1,12 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
+
 import '../../app/theme/app_shapes.dart';
 import '../../app/theme/app_spacing.dart';
+
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
+
 import 'pressable_scale.dart';
 import 'smart_network_image.dart';
 import '../utils/hex_color.dart';
@@ -13,12 +17,12 @@ import '../utils/hex_color.dart';
 /// metadata (no crop-jump), and chrome is limited to a small favorite
 /// affordance that appears over a subtle bottom scrim.
 ///
-/// Loads the original image (`wallpaper.path`) uncropped at the metadata
-/// aspect ratio, sized to [memCacheWidth] so full-res photos cost cell-sized
-/// RAM; disk cache still holds the original for detail reuse. Placeholder is
-/// a blurhash (when available) or a solid derived from `wallpaper.colors`
-/// with a 320ms fade into the photo. Hero tag (`wallpaper-<id>`) matches the
-/// detail screen.
+/// Loads the original-aspect thumbnail (`wallpaper.thumbnails.original`)
+/// uncropped at the metadata aspect ratio, sized to [memCacheWidth] so
+/// photos cost cell-sized RAM; the full-res `wallpaper.path` is reserved
+/// for the detail screen / download. Placeholder is a blurhash (when
+/// available) or a solid derived from `wallpaper.colors` with a 320ms fade
+/// into the photo. Hero tag (`wallpaper-<id>`) matches the detail screen.
 final class WallpaperTile extends StatelessWidget {
   final Wallpaper wallpaper;
 
@@ -54,11 +58,12 @@ final class WallpaperTile extends StatelessWidget {
     return wallpaper.width / wallpaper.height;
   }
 
-  /// Wallhaven CDN thumbnails are hard-cropped (small → 300×200, lg →
-  /// 432×243) regardless of the source ratio, so the only uncropped
-  /// resource is the original file.
+  /// `thumbnails.original` is the uncropped original-aspect thumbnail —
+  /// ideal for the grid (no hard crop like `small`/`large`). The full-res
+  /// `wallpaper.path` is reserved for the detail screen / download.
   String get _imageUrl =>
-      wallpaper.path.isNotEmpty ? wallpaper.path : _placeholderUrl;
+      wallpaper.thumbnails.original ??
+      (wallpaper.path.isNotEmpty ? wallpaper.path : _placeholderUrl);
 
   String get _placeholderUrl => wallpaper.thumbnails.bestForGrid ?? '';
 
@@ -75,16 +80,19 @@ final class WallpaperTile extends StatelessWidget {
       tag: heroTag,
       // Use a transparent flight to keep the scaffold's surface (including
       // pitch-black) visible; the default white Material would flash.
-      flightShuttleBuilder: (flightContext, animation, direction,
-          fromHeroContext, toHeroContext) {
-        final hero = direction == HeroFlightDirection.push
-            ? toHeroContext.widget as Hero
-            : fromHeroContext.widget as Hero;
-        return Material(
-          color: Colors.transparent,
-          child: hero.child,
-        );
-      },
+      flightShuttleBuilder:
+          (
+            flightContext,
+            animation,
+            direction,
+            fromHeroContext,
+            toHeroContext,
+          ) {
+            final hero = direction == HeroFlightDirection.push
+                ? toHeroContext.widget as Hero
+                : fromHeroContext.widget as Hero;
+            return Material(color: Colors.transparent, child: hero.child);
+          },
       placeholderBuilder: (context, size, child) =>
           SizedBox.fromSize(size: size, child: child),
       child: ClipRRect(
@@ -158,7 +166,7 @@ final class _FavoriteButton extends StatelessWidget {
         child: child,
       ),
       child: Icon(
-        selected ? Icons.favorite : Icons.favorite_border,
+        selected ? BootstrapIcons.heart_fill : BootstrapIcons.heart,
         key: ValueKey(selected),
         size: 18,
         color: color,

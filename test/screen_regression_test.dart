@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -130,9 +131,9 @@ void main() {
       // Detail now uses the expressive WallpaperActionBar group with
       // Material icons. Verify it is present and no ErrorWidget in tree.
       expect(find.byType(WallpaperActionBar), findsOneWidget);
-      expect(find.byIcon(Icons.download), findsOneWidget);
-      expect(find.byIcon(Icons.wallpaper), findsOneWidget);
-      expect(find.byIcon(Icons.open_in_new), findsOneWidget);
+      expect(find.byIcon(BootstrapIcons.cloud_arrow_down_fill), findsOneWidget);
+      expect(find.byIcon(BootstrapIcons.image_fill), findsOneWidget);
+      expect(find.byIcon(BootstrapIcons.arrow_up_right_square_fill), findsOneWidget);
       expect(find.text('Set'), findsOneWidget);
       expect(
         find.byWidgetPredicate((w) => w is ErrorWidget),

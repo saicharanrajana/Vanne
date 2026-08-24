@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -87,7 +88,7 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
                     readOnly: true,
                     onTap: widget.onOpenSearch,
                     leading: Icon(
-                      Icons.search,
+                      BootstrapIcons.search,
                       size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -160,7 +161,7 @@ final class _FilterRow extends StatelessWidget {
                 style: TextStyle(color: scheme.onSecondaryContainer),
               ),
               avatar: Icon(
-                Icons.tune,
+                BootstrapIcons.sliders,
                 size: 16,
                 color: scheme.onSecondaryContainer,
               ),

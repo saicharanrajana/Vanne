@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:bootstrap_icons/bootstrap_icons.dart';
+
 import 'package:m3e_core/m3e_core.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -126,7 +128,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                       EdgeInsetsDirectional.symmetric(horizontal: 16),
                     ),
                     leading: IconButton(
-                      icon: const Icon(Icons.arrow_back, size: 20),
+                      icon: const Icon(BootstrapIcons.arrow_left, size: 20),
                       color: theme.colorScheme.onSurfaceVariant,
                       tooltip: 'Back',
                       onPressed: () => Navigator.of(context).maybePop(),
@@ -208,7 +210,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                       child: const Padding(
                         padding: EdgeInsets.only(top: 32),
                         child: EmptyState(
-                          iconData: Icons.search,
+                          iconData: BootstrapIcons.search,
                           title: 'Search wallpapers',
                           message: 'Type a query or pick a color / genre to find wallpapers.',
                         ),
@@ -312,7 +314,11 @@ final class _ColorChip extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.92),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.check, size: 18, color: Colors.black87),
+                    child: Icon(
+                      BootstrapIcons.check_lg,
+                      size: 18,
+                      color: Colors.black87,
+                    ),
                   ),
                 )
               : const SizedBox.shrink(),

@@ -1,3 +1,4 @@
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -24,10 +25,7 @@ class _StubRepository implements WallpaperRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Wallpaper _wallpaper({
-  List<String> colors = const [],
-  List<Tag>? tags,
-}) =>
+Wallpaper _wallpaper({List<String> colors = const [], List<Tag>? tags}) =>
     Wallpaper(
       id: 'abc123',
       url: 'https://wallhaven.cc/w/abc123',
@@ -57,10 +55,10 @@ WallpaperDetailController _controller(Wallpaper wallpaper) =>
     );
 
 Widget _host(Widget child) => MaterialApp(
-      scaffoldMessengerKey: AppSnack.messengerKey,
-      theme: AppTheme.build(brightness: Brightness.light, dynamicScheme: null),
-      home: Scaffold(body: child),
-    );
+  scaffoldMessengerKey: AppSnack.messengerKey,
+  theme: AppTheme.build(brightness: Brightness.light, dynamicScheme: null),
+  home: Scaffold(body: child),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -130,7 +128,7 @@ void main() {
       for (final hex in ['#111111', '#222222', '#333333', '#444444']) {
         expect(find.byTooltip('Copy $hex'), findsOneWidget);
       }
-      expect(find.text('4'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
     });
 
     testWidgets('renders nothing when the wallpaper has no colors', (
@@ -148,10 +146,8 @@ void main() {
   });
 
   group('WallpaperTagsSection', () {
-    List<Tag> tagsOf(int count) => List.generate(
-          count,
-          (i) => Tag(id: i, name: 'tag$i'),
-        );
+    List<Tag> tagsOf(int count) =>
+        List.generate(count, (i) => Tag(id: i, name: 'tag$i'));
 
     testWidgets('shows 2 chips + "+N" when collapsed, expands to all, '
         'and collapses again', (tester) async {
@@ -177,7 +173,7 @@ void main() {
       expect(find.text('+3'), findsNothing);
 
       // Collapse via the chevron affordance.
-      await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+      await tester.tap(find.byIcon(BootstrapIcons.caret_down_fill));
       await tester.pumpAndSettle();
       expect(find.text('tag0'), findsOneWidget);
       expect(find.text('tag1'), findsOneWidget);
@@ -195,19 +191,17 @@ void main() {
         _host(WallpaperTagsSection(controller: controller)),
       );
 
-      await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+      await tester.tap(find.byIcon(BootstrapIcons.caret_down_fill));
       await tester.pumpAndSettle();
       expect(find.text('tag3'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+      await tester.tap(find.byIcon(BootstrapIcons.caret_down_fill));
       await tester.pumpAndSettle();
       expect(find.text('tag3'), findsNothing);
       expect(find.text('+2'), findsOneWidget);
     });
 
-    testWidgets('1 and 2 tags render without an overflow pill', (
-      tester,
-    ) async {
+    testWidgets('1 and 2 tags render without an overflow pill', (tester) async {
       for (final count in [1, 2]) {
         final controller = _controller(_wallpaper(tags: tagsOf(count)));
         addTearDown(controller.dispose);

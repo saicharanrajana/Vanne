@@ -35,7 +35,7 @@ final class WallpaperInfoCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: scheme.primary),
+          Icon(icon, size: 23, color: scheme.primary),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(

@@ -1,4 +1,5 @@
 import 'package:m3e_core/m3e_core.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -7,7 +8,6 @@ import '../../../app/dependencies.dart';
 import '../../../app/theme/app_motion.dart';
 import '../../../app/theme/app_shapes.dart';
 import '../../../app/theme/app_spacing.dart';
-import '../../../features/settings/application/settings_controller.dart';
 import '../../../shared/extensions/gap_extensions.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../../../shared/widgets/pressable_scale.dart';
@@ -88,18 +88,13 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
         // isRegistered (not a bare get): the detail screen must render
         // even in hosts that never registered Settings (e.g. focused
         // widget tests).
-        final settings = locator.isRegistered<SettingsController>()
-            ? locator<SettingsController>()
-            : null;
-        final pitchBlack =
-            (settings?.pitchBlack.value ?? false) &&
-            brightness == Brightness.dark;
-        final key = Object.hash(
-          wallpaper.id,
-          brightness,
-          wallpaper.colors,
-          pitchBlack,
-        );
+        // Infosheet background must stay wallpaper-derived — collapsing to the
+        // true-black ladder (pitch-black) was erasing the palette from the
+        // draggable card. The screen-level scaffold is behind the full-bleed
+        // hero anyway, so the wallpaper scheme is intentionally kept
+        // non-pitch-black.
+        const pitchBlack = false;
+        final key = Object.hash(wallpaper.id, brightness, wallpaper.colors);
         if (key != _schemeKey || _cachedScheme == null) {
           _cachedScheme = wallpaperScheme(
             wallpaper,
@@ -150,7 +145,8 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                                     .surfaceContainerHighest,
                               ),
                               icon: Icon(
-                                Icons.arrow_back,
+                                BootstrapIcons.arrow_left,
+                                size: 22,
                                 color:
                                     wallpaperTheme.colorScheme.onSurfaceVariant,
                               ),
@@ -343,7 +339,7 @@ final class _FullBleedImage extends StatelessWidget {
             child: url.isEmpty
                 ? Center(
                     child: Icon(
-                      Icons.broken_image_outlined,
+                      BootstrapIcons.image_fill,
                       size: 32,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -379,32 +375,32 @@ final class _MetadataGrid extends StatelessWidget {
 
     final cells = <({IconData icon, String label, String value})>[
       (
-        icon: Icons.aspect_ratio,
+        icon: BootstrapIcons.aspect_ratio_fill,
         label: 'Resolution',
         value: wallpaper.resolution.isNotEmpty ? wallpaper.resolution : '—',
       ),
       (
-        icon: Icons.insert_drive_file_outlined,
+        icon: BootstrapIcons.file_earmark_fill,
         label: 'File size',
         value: size ?? '—',
       ),
       (
-        icon: Icons.crop_free,
+        icon: BootstrapIcons.display_fill,
         label: 'Aspect ratio',
         value: WallpaperMetadata.aspectRatio(wallpaper),
       ),
       (
-        icon: Icons.favorite_border,
+        icon: BootstrapIcons.heart_fill,
         label: 'Favorites',
         value: '${wallpaper.favorites}',
       ),
       (
-        icon: Icons.person_outline,
+        icon: BootstrapIcons.person_fill,
         label: 'Uploader',
         value: wallpaper.uploader?.username ?? '—',
       ),
       (
-        icon: Icons.calendar_month_outlined,
+        icon: BootstrapIcons.calendar_fill,
         label: 'Uploaded',
         value: uploaded ?? '—',
       ),
@@ -467,7 +463,7 @@ final class _FavoriteHeroButton extends StatelessWidget {
             ),
             padding: const EdgeInsets.all(8),
             child: Icon(
-              selected ? Icons.favorite : Icons.favorite_border,
+              selected ? BootstrapIcons.heart_fill : BootstrapIcons.heart,
               size: 20,
               color: selected ? scheme.error : scheme.onSurfaceVariant,
             ),

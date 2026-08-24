@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 // Prefer material_ui over package:flutter/material.dart: the app runs on the
 // material_ui widget tree — flutter-material Theme.of lookups here would
@@ -45,7 +46,7 @@ class SmartNetworkImage extends StatelessWidget {
         color: placeholderColor ?? scheme.surfaceContainerHighest,
         alignment: Alignment.center,
         child: Icon(
-          Icons.broken_image_outlined,
+          BootstrapIcons.image_fill,
           size: 20,
           color: scheme.onSurfaceVariant,
         ),
@@ -68,7 +69,9 @@ class SmartNetworkImage extends StatelessWidget {
       memCacheWidth: memCacheWidth,
       fadeInDuration: reduceMotion ? Duration.zero : AppMotion.transition,
       fadeInCurve: AppMotion.arrivalCurve,
-      fadeOutDuration: reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
+      fadeOutDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 140),
       placeholder: (context, _) => _BlurPlaceholder(
         blurHash: blurHash,
         fallbackColor: fallback,
@@ -78,7 +81,7 @@ class SmartNetworkImage extends StatelessWidget {
         color: fallback,
         alignment: Alignment.center,
         child: Icon(
-          Icons.broken_image_outlined,
+          BootstrapIcons.image_fill,
           size: 20,
           color: scheme.onSurfaceVariant,
         ),
@@ -110,11 +113,7 @@ class _BlurPlaceholder extends StatelessWidget {
     if (blurHash != null && blurHash!.length >= 6) {
       try {
         return SizedBox.expand(
-          child: BlurHash(
-            hash: blurHash!,
-            imageFit: fit,
-            color: fallbackColor,
-          ),
+          child: BlurHash(hash: blurHash!, imageFit: fit, color: fallbackColor),
         );
       } catch (_) {
         // Malformed hash — fall through to solid color.

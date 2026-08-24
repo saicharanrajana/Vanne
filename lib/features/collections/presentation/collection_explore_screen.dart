@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -63,7 +64,7 @@ final class _CollectionExploreScreenState
       return Scaffold(
         appBar: AppBar(title: const Text('Not found')),
         body: const EmptyState(
-          iconData: Icons.search_off,
+          iconData: BootstrapIcons.search,
           title: 'Collection not found',
           message: 'It may have been deleted.',
         ),

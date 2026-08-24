@@ -1,4 +1,5 @@
 import 'package:m3e_core/m3e_core.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -114,12 +115,15 @@ final class CollectionsScreen extends StatelessWidget {
                     if (hasSelection) ...[
                       IconButton(
                         tooltip: 'Clear selection',
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(BootstrapIcons.x_lg),
                         onPressed: controller.clearSelection,
                       ),
                       IconButton(
                         tooltip: 'Delete selected',
-                        icon: Icon(Icons.delete, fill: 1.0, color: scheme.error),
+                        icon: Icon(
+                          BootstrapIcons.trash_fill,
+                          color: scheme.error,
+                        ),
                         onPressed: () =>
                             _confirmDelete(context, controller, entries),
                       ),
@@ -139,7 +143,7 @@ final class CollectionsScreen extends StatelessWidget {
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyState(
-                  iconData: Icons.collections_bookmark_outlined,
+                  iconData: BootstrapIcons.collection_fill,
                   title: 'No collections yet',
                   message:
                       'Create a collection to save a search — they’re just '
@@ -156,8 +160,7 @@ final class CollectionsScreen extends StatelessWidget {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 sliver: SliverGrid.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
@@ -200,7 +203,7 @@ final class CollectionsScreen extends StatelessWidget {
               ? null
               : FloatingActionButton.extended(
                   onPressed: () => showCreateCollectionSheet(context),
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(BootstrapIcons.plus_lg),
                   label: const Text('New collection'),
                 ),
         );
@@ -222,8 +225,6 @@ final class _CollectionCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
   });
-
-
 
   static const _shapes = [
     Shapes.gem,
@@ -346,14 +347,11 @@ final class _CollectionCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: scheme.primary,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: scheme.surface,
-                      width: 2,
-                    ),
+                    border: Border.all(color: scheme.surface, width: 2),
                   ),
                   padding: const EdgeInsets.all(3),
                   child: Icon(
-                    Icons.check,
+                    BootstrapIcons.check_lg,
                     size: 14,
                     color: scheme.onPrimary,
                   ),

@@ -1,4 +1,6 @@
 import '../../../core/services/image_cache_service.dart';
+
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -8,6 +10,7 @@ import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../application/settings_controller.dart';
 import '../../../core/storage/settings_store.dart';
+
 /// Grouped, expressive settings screen. Every toggle mutates a
 /// [SettingsController] signal which persists immediately.
 final class SettingsScreen extends StatelessWidget {
@@ -52,7 +55,12 @@ final class SettingsScreen extends StatelessWidget {
         slivers: [
           headerSliver,
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, BottomPadding.of(context, minimum: 24)),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              8,
+              20,
+              BottomPadding.of(context, minimum: 24),
+            ),
             sliver: SliverList.list(
               children: [
                 _Section(
@@ -60,7 +68,7 @@ final class SettingsScreen extends StatelessWidget {
                   children: [
                     SignalBuilder(
                       builder: (context) => _SwitchTile(
-                        icon: Icons.palette_outlined,
+                        icon: BootstrapIcons.palette_fill,
                         title: 'Use dynamic color',
                         subtitle: 'Match app colors to your wallpaper.',
                         value: settings.dynamicColor.value,
@@ -69,7 +77,7 @@ final class SettingsScreen extends StatelessWidget {
                     ),
                     SignalBuilder(
                       builder: (context) => _SwitchTile(
-                        icon: Icons.dark_mode_outlined,
+                        icon: BootstrapIcons.moon_stars_fill,
                         title: 'Pitch black mode',
                         subtitle: 'Pure black in dark mode for OLED screens.',
                         value: settings.pitchBlack.value,
@@ -87,7 +95,7 @@ final class SettingsScreen extends StatelessWidget {
                       builder: (context) {
                         final hasKey = settings.hasApiKey.value;
                         return _SwitchTile(
-                          icon: Icons.shield_outlined,
+                          icon: BootstrapIcons.shield_fill,
                           title: 'Show NSFW wallpapers',
                           subtitle: hasKey
                               ? 'Mature content (18+) — filtered by purity.'
@@ -105,7 +113,7 @@ final class SettingsScreen extends StatelessWidget {
                   title: 'Wallhaven account',
                   children: [
                     _ActionTile(
-                      icon: Icons.vpn_key_outlined,
+                      icon: BootstrapIcons.key_fill,
                       title: 'API key',
                       subtitle: SignalBuilder(
                         builder: (context) => Text(
@@ -120,30 +128,26 @@ final class SettingsScreen extends StatelessWidget {
                       onTap: onOpenApiKey,
                     ),
                     _InfoTile(
-                      icon: Icons.download_outlined,
+                      icon: BootstrapIcons.download,
                       title: 'Downloads',
-                      subtitle: 'Saved to Pictures/WallpaperApp in your gallery.',
+                      subtitle:
+                          'Saved to Pictures/WallpaperApp in your gallery.',
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _Section(
-                  title: 'Storage',
-                  children: [
-                    _CacheTile(),
-                  ],
-                ),
+                _Section(title: 'Storage', children: [_CacheTile()]),
                 const SizedBox(height: 24),
                 _Section(
                   title: 'About',
                   children: [
                     _InfoTile(
-                      icon: Icons.wallpaper_outlined,
+                      icon: BootstrapIcons.card_image,
                       title: 'Source',
                       subtitle: 'Powered by wallhaven.cc',
                     ),
                     _InfoTile(
-                      icon: Icons.code_outlined,
+                      icon: BootstrapIcons.code_square,
                       title: 'Open source',
                       subtitle: 'Free & open — contributions welcome.',
                     ),
@@ -228,14 +232,17 @@ final class _SwitchTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(icon, size: 22, color: scheme.onSurfaceVariant),
+                Icon(icon, size: 23, color: scheme.onSurfaceVariant),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: textTheme.titleSmall?.copyWith(height: 1.2)),
+                      Text(
+                        title,
+                        style: textTheme.titleSmall?.copyWith(height: 1.2),
+                      ),
                       if (subtitle != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
@@ -255,7 +262,9 @@ final class _SwitchTile extends StatelessWidget {
                   label: title,
                   child: Switch(
                     value: value,
-                    onChanged: onChanged == null ? null : (v) => onChanged!.call(v),
+                    onChanged: onChanged == null
+                        ? null
+                        : (v) => onChanged!.call(v),
                   ),
                 ),
               ],
@@ -295,8 +304,8 @@ final class _ThemeModeSelector extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.brightness_4_outlined,
-                    size: 22,
+                    BootstrapIcons.brightness_high_fill,
+                    size: 20,
                     color: scheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 16),
@@ -371,21 +380,24 @@ final class _ActionTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(icon, size: 22, color: scheme.onSurfaceVariant),
+                Icon(icon, size: 23, color: scheme.onSurfaceVariant),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: textTheme.titleSmall?.copyWith(height: 1.2)),
+                      Text(
+                        title,
+                        style: textTheme.titleSmall?.copyWith(height: 1.2),
+                      ),
                       subtitle,
                     ],
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right,
-                  size: 20,
+                  BootstrapIcons.chevron_right,
+                  size: 18,
                   color: scheme.onSurfaceVariant,
                 ),
               ],
@@ -425,7 +437,7 @@ final class _InfoTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 22, color: scheme.onSurfaceVariant),
+          Icon(icon, size: 23, color: scheme.onSurfaceVariant),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -538,15 +550,21 @@ final class _CacheTileState extends State<_CacheTile> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(Icons.cleaning_services_outlined,
-                    size: 22, color: scheme.onSurfaceVariant),
+                Icon(
+                  BootstrapIcons.eraser_fill,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Clear image cache', style: textTheme.titleSmall?.copyWith(height: 1.2)),
+                      Text(
+                        'Clear image cache',
+                        style: textTheme.titleSmall?.copyWith(height: 1.2),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         _format(_bytes),
@@ -569,7 +587,11 @@ final class _CacheTileState extends State<_CacheTile> {
                     ),
                   )
                 else
-                  Icon(Icons.delete_outline, size: 20, color: scheme.onSurfaceVariant),
+                  Icon(
+                    BootstrapIcons.trash_fill,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
               ],
             ),
           ),

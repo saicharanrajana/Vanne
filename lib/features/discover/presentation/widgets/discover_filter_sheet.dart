@@ -1,4 +1,5 @@
 import 'package:m3e_core/m3e_core.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/domain/feed_filter.dart';
@@ -59,8 +60,12 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                 ),
               ),
               Center(
-                child: Text('Sort & filter',
-                    style: theme.textTheme.titleLarge?.copyWith(color: scheme.onSurface)),
+                child: Text(
+                  'Sort & filter',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: scheme.onSurface,
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               _SectionLabel('Sort by'),
@@ -77,9 +82,10 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                       selectedColor: scheme.secondaryContainer,
                       checkmarkColor: scheme.onSecondaryContainer,
                       labelStyle: TextStyle(
-                          color: _draft.sorting == sorting
-                              ? scheme.onSecondaryContainer
-                              : scheme.onSurfaceVariant),
+                        color: _draft.sorting == sorting
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                      ),
                       side: BorderSide(color: scheme.outlineVariant),
                       onSelected: (_) => setState(() {
                         _draft = _withSorting(_draft, sorting);
@@ -102,14 +108,15 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                       selectedColor: scheme.secondaryContainer,
                       checkmarkColor: scheme.onSecondaryContainer,
                       labelStyle: TextStyle(
-                          color: _draft.topRange == range
-                              ? scheme.onSecondaryContainer
-                              : scheme.onSurfaceVariant),
+                        color: _draft.topRange == range
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                      ),
                       side: BorderSide(color: scheme.outlineVariant),
                       onSelected: _draft.sorting == FeedSorting.popular
                           ? (_) => setState(() {
-                                _draft = _draft.copyWith(topRange: range);
-                              })
+                              _draft = _draft.copyWith(topRange: range);
+                            })
                           : null,
                     ),
                 ],
@@ -121,10 +128,7 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final resolution in const [
-                    '1920x1080',
-                    '2560x1440',
-                  ])
+                  for (final resolution in const ['1920x1080', '2560x1440'])
                     FilterChip(
                       label: Text('$resolution+'),
                       selected: _draft.minResolution == resolution,
@@ -132,9 +136,10 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                       selectedColor: scheme.secondaryContainer,
                       checkmarkColor: scheme.onSecondaryContainer,
                       labelStyle: TextStyle(
-                          color: _draft.minResolution == resolution
-                              ? scheme.onSecondaryContainer
-                              : scheme.onSurfaceVariant),
+                        color: _draft.minResolution == resolution
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                      ),
                       side: BorderSide(color: scheme.outlineVariant),
                       onSelected: (_) => setState(() {
                         _draft = _draft.minResolution == resolution
@@ -156,7 +161,10 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                           _draft = FeedFilter.discoverDefault;
                         });
                       },
-                      icon: const Icon(Icons.refresh, size: 18),
+                      icon: const Icon(
+                        BootstrapIcons.arrow_clockwise,
+                        size: 18,
+                      ),
                       label: const Text('Reset'),
                     ),
                   ),
@@ -183,11 +191,11 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
 
   static FeedFilter _withSorting(FeedFilter filter, FeedSorting sorting) =>
       sorting == FeedSorting.popular
-          ? filter.copyWith(
-              sorting: sorting,
-              topRange: filter.topRange ?? FeedTopRange.month,
-            )
-          : filter.copyWith(sorting: sorting);
+      ? filter.copyWith(
+          sorting: sorting,
+          topRange: filter.topRange ?? FeedTopRange.month,
+        )
+      : filter.copyWith(sorting: sorting);
 }
 
 final class _SectionLabel extends StatelessWidget {

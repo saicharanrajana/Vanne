@@ -1,6 +1,7 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
 import 'package:material_ui/material_ui.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -41,7 +42,8 @@ final class _WallpaperTagsSectionState extends State<WallpaperTagsSection> {
         final tags = widget.controller.wallpaper.value.tags;
         if (tags == null || tags.isEmpty) return const SizedBox.shrink();
 
-        final overflow = tags.length - WallpaperTagsSection.collapsedPreviewCount;
+        final overflow =
+            tags.length - WallpaperTagsSection.collapsedPreviewCount;
         final canExpand = overflow > 0;
 
         return WallpaperSectionCard(
@@ -75,9 +77,8 @@ final class _WallpaperTagsSectionState extends State<WallpaperTagsSection> {
   }
 
   /// Collapsed shows only the preview slice; expanded shows everything.
-  Iterable<Tag> _visibleTags(List<Tag> tags) => _expanded
-      ? tags
-      : tags.take(WallpaperTagsSection.collapsedPreviewCount);
+  Iterable<Tag> _visibleTags(List<Tag> tags) =>
+      _expanded ? tags : tags.take(WallpaperTagsSection.collapsedPreviewCount);
 }
 
 /// Tappable rotating chevron affordance — down when collapsible, up when
@@ -98,8 +99,8 @@ final class _Chevron extends StatelessWidget {
         turns: expanded ? 0.5 : 0,
         duration: AppMotion.transition,
         child: Icon(
-          Icons.keyboard_arrow_down,
-          size: 22,
+          BootstrapIcons.caret_down_fill,
+          size: 20,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
@@ -127,9 +128,8 @@ final class _TagChip extends StatelessWidget {
       ),
       child: Text(
         name,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: scheme.onSecondaryContainer,
-        ),
+        style: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(color: scheme.onSecondaryContainer),
       ),
     );
   }
@@ -159,9 +159,8 @@ final class _OverflowChip extends StatelessWidget {
             ),
             child: Text(
               '+$count',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onPrimaryContainer,
-              ),
+              style: Theme.of(context).textTheme.labelLarge
+                  ?.copyWith(color: scheme.onPrimaryContainer),
             ),
           ),
         ),

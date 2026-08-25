@@ -1,16 +1,15 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../../app/dependencies.dart';
 import '../../../../app/theme/app_motion.dart';
-import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/wallpaper_applier.dart';
 import '../../../../features/settings/application/settings_controller.dart';
 import '../../../../shared/widgets/app_snack.dart';
-import '../../../../shared/widgets/pressable_scale.dart';
 import '../../application/wallpaper_detail_controller.dart';
 import '../wallpaper_theme.dart';
 
@@ -28,10 +27,10 @@ Future<void> showSetWallpaperPopup(
   BuildContext context, {
   required WallpaperDetailController controller,
 }) {
-  return showDialog<void>(
-    context: context,
+  return M3EDialog.show<void>(
+    context,
     barrierDismissible: true,
-    builder: (dialogContext) => _SetWallpaperTheme(
+    dialog: _SetWallpaperTheme(
       controller: controller,
       child: _SetWallpaperDialog(controller: controller),
     ),
@@ -107,11 +106,12 @@ final class _SetWallpaperDialog extends StatefulWidget {
 
 final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
   Future<void> _apply(ApplyTarget target) async {
+    M3EHaptics.trigger(M3EHapticFeedback.light);
     await widget.controller.applyAsWallpaper(target);
     final state = widget.controller.apply.peek();
     if (!mounted) return;
     if (state.succeeded) {
-      AppSnack.show(context, switch (target) {
+      AppSnack.showRoot(switch (target) {
         ApplyTarget.home => 'Wallpaper set for your home screen',
         ApplyTarget.lock => 'Wallpaper set for your lock screen',
         ApplyTarget.both => 'Wallpaper set for home and lock screens',
@@ -122,181 +122,119 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
   }
 
   Future<void> _setWith() async {
+    M3EHaptics.trigger(M3EHapticFeedback.light);
     await widget.controller.setWithSystemPicker();
     final state = widget.controller.apply.peek();
     if (!mounted) return;
     if (state.succeeded) {
-      AppSnack.show(context, 'Opened system wallpaper picker');
+      AppSnack.showRoot('Opened system wallpaper picker');
       Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return SignalBuilder(
+      builder: (context) {
+        final state = widget.controller.apply.value;
+        final busy = state.isBusy;
 
-    return Dialog(
-      backgroundColor: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
-      ),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: SignalBuilder(
-          builder: (context) {
-            final state = widget.controller.apply.value;
-            final busy = state.isBusy;
+        // busyTarget tracks which option is currently applying so only
+        // that row shows the inline wavy indicator (like the Set button).
+        final busyTarget = state.target;
+        final busyPicker = state.isSystemPicker;
+        bool isRowBusy(int index) {
+          if (!busy) return false;
+          return switch (index) {
+            0 => busyTarget == ApplyTarget.home,
+            1 => busyTarget == ApplyTarget.lock,
+            2 => busyTarget == ApplyTarget.both,
+            3 => busyPicker,
+            _ => false,
+          };
+        }
 
-            // Each tile gets its own tonal container role so the wallpaper's
-            // palette paints the whole popup. All pairs are Material-3
-            // guaranteed contrast pairs.
-            // busyTarget tracks which option is currently applying so only
-            // that tile shows the inline wavy indicator (like the Set button).
-            final busyTarget = state.target;
-            final busyPicker = state.isSystemPicker;
-            bool isTileBusy(int index) {
-              if (!busy) return false;
-              return switch (index) {
-                0 => busyTarget == ApplyTarget.home,
-                1 => busyTarget == ApplyTarget.lock,
-                2 => busyTarget == ApplyTarget.both,
-                3 => busyPicker,
-                _ => false,
-              };
-            }
-
-            final tiles = <(IconData, String, Color, Color, VoidCallback)>[
-              (
-                BootstrapIcons.house_fill,
-                'Home Screen',
-                scheme.primaryContainer,
-                scheme.onPrimaryContainer,
-                () => _apply(ApplyTarget.home),
-              ),
-              (
-                BootstrapIcons.lock_fill,
-                'Lock Screen',
-                scheme.primaryContainer,
-                scheme.onPrimaryContainer,
-                () => _apply(ApplyTarget.lock),
-              ),
-              (
-                BootstrapIcons.layers_fill,
-                'Home & Lock Screen',
-                scheme.primaryContainer,
-                scheme.onPrimaryContainer,
-                () => _apply(ApplyTarget.both),
-              ),
-              (
-                BootstrapIcons.grid_fill,
-                'Set With…',
-                scheme.primaryContainer,
-                scheme.onPrimaryContainer,
-                _setWith,
-              ),
-            ];
-
-            return Column(
+        return M3EDialog(
+          // Supplying an icon centers the title above the content, matching
+          // the create-collection dialog's language.
+          icon: const Icon(PhosphorIconsFill.image),
+          title: 'Set wallpaper',
+          // The package's content padding is horizontal-only when no
+          // dividers are used — this restores bottom breathing room below
+          // the last choice button.
+          contentPadding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: 24,
+          ),
+          content: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Set wallpaper',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: scheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
+                _ChoiceButton(
+                  icon: PhosphorIconsFill.house,
+                  label: 'Home Screen',
+                  enabled: !busy,
+                  busy: isRowBusy(0),
+                  onTap: () => _apply(ApplyTarget.home),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                for (var i = 0; i < tiles.length; i++) ...[
-                  _EntranceTile(
-                    delay: i * 40,
-                    reduceMotion: reduceMotion,
-                    child: _PopupTile(
-                      icon: tiles[i].$1,
-                      title: tiles[i].$2,
-                      container: tiles[i].$3,
-                      onContainer: tiles[i].$4,
-                      enabled: !busy,
-                      busy: isTileBusy(i),
-                      onTap: tiles[i].$5,
-                    ),
-                  ),
-                  if (i < tiles.length - 1)
-                    const SizedBox(height: AppSpacing.lg),
-                ],
+                const SizedBox(height: AppSpacing.md),
+                _ChoiceButton(
+                  icon: PhosphorIconsFill.lock,
+                  label: 'Lock Screen',
+                  enabled: !busy,
+                  busy: isRowBusy(1),
+                  onTap: () => _apply(ApplyTarget.lock),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _ChoiceButton(
+                  icon: PhosphorIconsFill.copy,
+                  label: 'Home & Lock Screen',
+                  enabled: !busy,
+                  busy: isRowBusy(2),
+                  onTap: () => _apply(ApplyTarget.both),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _ChoiceButton(
+                  icon: PhosphorIconsFill.gridNine,
+                  label: 'Set With…',
+                  enabled: !busy,
+                  busy: isRowBusy(3),
+                  onTap: _setWith,
+                ),
                 if (state.error != null) ...[
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     state.error!,
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.error,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
               ],
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-/// Staggered entrance: each tile fades and slides up, its motion starting
-/// [delay] ms into the animation. Snaps when reduced motion is requested.
-final class _EntranceTile extends StatelessWidget {
-  final int delay;
-  final bool reduceMotion;
-  final Widget child;
-
-  const _EntranceTile({
-    required this.delay,
-    required this.reduceMotion,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (reduceMotion) return child;
-
-    final totalMs = AppMotion.transition.inMilliseconds + delay;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: totalMs),
-      // Hold still for [delay], then run the arrival curve for the
-      // remaining window — a clean stagger without timers.
-      curve: Interval(delay / totalMs, 1, curve: AppMotion.arrivalCurve),
-      builder: (context, value, child) => Opacity(
-        opacity: value.clamp(0, 1),
-        child: Transform.translate(
-          offset: Offset(0, 16 * (1 - value)),
-          child: child,
-        ),
-      ),
-      child: child,
-    );
-  }
-}
-
-final class _PopupTile extends StatelessWidget {
+/// One destination choice rendered as a full-width expressive tonal button.
+/// The M3E button owns press motion, disabled de-emphasis, and hit target;
+/// only the inline busy indicator is custom.
+final class _ChoiceButton extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final Color container;
-  final Color onContainer;
+  final String label;
   final bool enabled;
   final bool busy;
   final VoidCallback onTap;
 
-  const _PopupTile({
+  const _ChoiceButton({
     required this.icon,
-    required this.title,
-    required this.container,
-    required this.onContainer,
+    required this.label,
     required this.enabled,
     this.busy = false,
     required this.onTap,
@@ -305,71 +243,26 @@ final class _PopupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-
-    // Busy tile keeps its tonal colors so the wavy indicator remains
-    // vibrant; other disabled tiles use neutral + de-emphasized colors.
-    final isActive = busy || enabled;
-    final tileColor = isActive ? container : scheme.surfaceContainerHigh;
-    final contentColor = isActive
-        ? onContainer
-        : scheme.onSurfaceVariant.withValues(alpha: 0.5);
-
-    return PressableScale(
-      child: AnimatedContainer(
-        duration: reduceMotion ? Duration.zero : AppMotion.transition,
-        decoration: BoxDecoration(
-          color: tileColor,
-          borderRadius: BorderRadius.circular(AppShapes.largeIncreased),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppShapes.largeIncreased),
-          ),
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            child: SizedBox(
-              height: 64,
-              child: Center(
-                child: busy
-                    ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: M3EProgressIndicator.circularWavy(
-                          size: 24,
-                          color: contentColor,
-                        ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Tonal icon chip: painted circle in on-container @ 12%.
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: contentColor.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(icon, size: 23, color: contentColor),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Text(
-                            title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: contentColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+    final contentColor = theme.colorScheme.onSecondaryContainer;
+    return M3EButton.tonal(
+      size: M3EButtonSize.custom(height: 58),
+      onPressed: enabled ? onTap : null,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (busy)
+            M3EProgressIndicator.circularWavy(size: 22, color: contentColor)
+          else
+            Icon(icon, size: 22, color: contentColor),
+          const SizedBox(width: AppSpacing.md),
+          Text(
+            label,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: contentColor,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
+        ],
       ),
     );
   }

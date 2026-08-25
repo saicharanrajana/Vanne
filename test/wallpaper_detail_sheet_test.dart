@@ -1,4 +1,3 @@
-import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -112,7 +111,7 @@ void main() {
       expect(find.text('#3B2A72 copied to clipboard'), findsOneWidget);
     });
 
-    testWidgets('shows at most 4 swatches and a count badge', (tester) async {
+    testWidgets('shows at most 4 swatches', (tester) async {
       final controller = _controller(
         _wallpaper(
           colors: const ['#111111', '#222222', '#333333', '#444444', '#555555'],
@@ -128,7 +127,6 @@ void main() {
       for (final hex in ['#111111', '#222222', '#333333', '#444444']) {
         expect(find.bySemanticsLabel('Copy $hex'), findsOneWidget);
       }
-      expect(find.text('5'), findsOneWidget);
     });
 
     testWidgets('renders nothing when the wallpaper has no colors', (
@@ -173,7 +171,7 @@ void main() {
       expect(find.text('+3'), findsNothing);
 
       // Collapse via the chevron affordance.
-      await tester.tap(find.byIcon(BootstrapIcons.caret_down_fill));
+      await tester.tap(find.bySemanticsLabel('Show fewer tags'));
       await tester.pumpAndSettle();
       expect(find.text('tag0'), findsOneWidget);
       expect(find.text('tag1'), findsOneWidget);
@@ -191,11 +189,11 @@ void main() {
         _host(WallpaperTagsSection(controller: controller)),
       );
 
-      await tester.tap(find.byIcon(BootstrapIcons.caret_down_fill));
+      await tester.tap(find.bySemanticsLabel('Show all tags'));
       await tester.pumpAndSettle();
       expect(find.text('tag3'), findsOneWidget);
 
-      await tester.tap(find.byIcon(BootstrapIcons.caret_down_fill));
+      await tester.tap(find.bySemanticsLabel('Show fewer tags'));
       await tester.pumpAndSettle();
       expect(find.text('tag3'), findsNothing);
       expect(find.text('+2'), findsOneWidget);

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,7 +8,9 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/theme/app_motion.dart';
 import '../../../core/domain/feed_filter.dart';
+import '../../../shared/widgets/horizontal_edge_fade.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
 import '../application/search_controller.dart' as app;
@@ -90,17 +92,17 @@ final class _SearchScreenState extends State<SearchScreen> {
       scrolledUnderElevation: 0,
       toolbarHeight: 0,
       collapsedHeight: 0,
-      expandedHeight: 280,
+      expandedHeight: 288,
       flexibleSpace: FlexibleSpaceBar(
         background: SafeArea(
           bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Hero(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Hero(
                   tag: _searchHeroTag,
                   flightShuttleBuilder:
                       (
@@ -128,7 +130,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                       EdgeInsetsDirectional.symmetric(horizontal: 16),
                     ),
                     leading: M3EIconButton(
-                      icon: const Icon(BootstrapIcons.arrow_left, size: 20),
+                      icon: const Icon(PhosphorIconsBold.arrowLeft, size: 20),
                       tooltip: 'Back',
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
@@ -136,23 +138,36 @@ final class _SearchScreenState extends State<SearchScreen> {
                     onSubmitted: (_) => controller.submit(),
                   ),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 76,
+              ),
+              const SizedBox(height: 16),
+              const _FilterHeading('By color'),
+              const SizedBox(height: 8),
+              HorizontalEdgeFade(
+                child: SizedBox(
+                  height: 64,
                   child: SignalBuilder(
                     builder: (context) {
                       final selected = controller.selectedColors.value;
                       return ListView(
                         scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.zero,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsetsDirectional.symmetric(
+                          horizontal: 20,
+                        ),
                         children: [
                           for (final color in FeedColor.values)
                             Padding(
-                              padding: const EdgeInsets.only(right: 14),
+                              padding: const EdgeInsetsDirectional.only(
+                                end: 14,
+                              ),
                               child: _ColorChip(
                                 color: color,
                                 selected: selected.contains(color),
-                                onTap: () => controller.toggleColor(color),
+                                onTap: () {
+                                  M3EHaptics.selection();
+                                  controller.toggleColor(color);
+                                },
                               ),
                             ),
                         ],
@@ -160,32 +175,26 @@ final class _SearchScreenState extends State<SearchScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 64,
+              ),
+              const SizedBox(height: 14),
+              const _FilterHeading('By genre'),
+              const SizedBox(height: 8),
+              HorizontalEdgeFade(
+                child: SizedBox(
+                  height: 40,
                   child: SignalBuilder(
                     builder: (context) {
                       final selected = controller.selectedGenres.value;
-                      return ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.zero,
-                        children: [
-                          for (final genre in FeedGenre.values)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 12),
-                              child: _GenreChip(
-                                genre: genre,
-                                selected: selected.contains(genre),
-                                onTap: () => controller.toggleGenre(genre),
-                              ),
-                            ),
-                        ],
+                      return _GenreStrip(
+                        selected: selected,
+                        onToggle: controller.toggleGenre,
                       );
                     },
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+            ],
           ),
         ),
       ),
@@ -198,6 +207,8 @@ final class _SearchScreenState extends State<SearchScreen> {
           builder: (context) {
             if (!controller.hasCommittedInput.value) {
               return CustomScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 slivers: [
                   headerSliver,
                   SliverFillRemaining(
@@ -209,7 +220,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                       child: const Padding(
                         padding: EdgeInsets.only(top: 32),
                         child: EmptyState(
-                          iconData: BootstrapIcons.search,
+                          iconData: PhosphorIconsFill.magnifyingGlass,
                           title: 'Search wallpapers',
                           message: 'Type a query or pick a color / genre to find wallpapers.',
                         ),
@@ -247,6 +258,8 @@ final class _SearchScreenState extends State<SearchScreen> {
                 return false;
               },
               child: CustomScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 slivers: [headerSliver, ...grid.buildSlivers(context)],
               ),
             );
@@ -307,7 +320,7 @@ final class _ColorChip extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          BootstrapIcons.check_lg,
+                          PhosphorIconsBold.check,
                           size: 18,
                           color: Colors.black87,
                         ),
@@ -322,62 +335,106 @@ final class _ColorChip extends StatelessWidget {
   }
 }
 
-/// Clamshell (clampShell) genre chip — expressive Material shape.
-///
-/// A bigger, more tactile expressive filter target:
-/// 48dp min height via padding, 28dp horizontal breathing room, and the
-/// `clampShell` expressive silhouette. Selected state uses
-/// `secondaryContainer` + primary outline.
-final class _GenreChip extends StatelessWidget {
-  final FeedGenre genre;
-  final bool selected;
-  final VoidCallback onTap;
+/// Section label above a filter strip.
+final class _FilterHeading extends StatelessWidget {
+  final String text;
 
-  const _GenreChip({
-    required this.genre,
-    required this.selected,
-    required this.onTap,
-  });
+  const _FilterHeading(this.text);
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: 'Filter by genre ${genre.label}',
-      child: GestureDetector(
-        onTap: onTap,
-        child: M3EShapeContainer.clamShell(
-          color: selected ? scheme.primary : scheme.outlineVariant,
-          child: Padding(
-            padding: EdgeInsets.all(selected ? 2 : 1),
-            child: M3EShapeContainer.clamShell(
-              color: selected
-                  ? scheme.secondaryContainer
-                  : scheme.surfaceContainerHighest,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                child: Text(
-                  genre.label,
-                  style: textTheme.labelLarge?.copyWith(
-                    color: selected
-                        ? scheme.onSecondaryContainer
-                        : scheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-              ),
-            ),
-          ),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 20),
+      child: Text(
+        text,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
+    );
+  }
+}
+
+/// Horizontally scrolling genre chips that keep the selected chip fully
+/// visible when selection changes.
+final class _GenreStrip extends StatefulWidget {
+  final Set<FeedGenre> selected;
+  final ValueChanged<FeedGenre> onToggle;
+
+  const _GenreStrip({required this.selected, required this.onToggle});
+
+  @override
+  State<_GenreStrip> createState() => _GenreStripState();
+}
+
+final class _GenreStripState extends State<_GenreStrip> {
+  final _controller = ScrollController();
+  late final List<GlobalKey> _keys;
+
+  @override
+  void initState() {
+    super.initState();
+    _keys = List.generate(FeedGenre.values.length, (_) => GlobalKey());
+    if (widget.selected.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelected());
+    }
+  }
+
+  @override
+  void didUpdateWidget(_GenreStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected.isNotEmpty &&
+        widget.selected.first != oldWidget.selected.firstOrNull) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelected());
+    }
+  }
+
+  void _revealSelected() {
+    final genre = widget.selected.firstOrNull;
+    if (genre == null) return;
+    final index = FeedGenre.values.indexOf(genre);
+    final keyContext = index >= 0 && index < _keys.length
+        ? _keys[index].currentContext
+        : null;
+    if (keyContext == null) return;
+    Scrollable.ensureVisible(
+      keyContext,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 200),
+      curve: AppMotion.arrivalCurve,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      controller: _controller,
+      scrollDirection: Axis.horizontal,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 20),
+      children: [
+        for (var i = 0; i < FeedGenre.values.length; i++)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 10),
+            child: M3EChip(
+              key: _keys[i],
+              label: FeedGenre.values[i].label,
+              type: M3EChipType.filter,
+              selected: widget.selected.contains(FeedGenre.values[i]),
+              onPressed: () {
+                M3EHaptics.selection();
+                widget.onToggle(FeedGenre.values[i]);
+              },
+            ),
+          ),
+      ],
     );
   }
 }

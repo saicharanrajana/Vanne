@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme/app_spacing.dart';
@@ -19,9 +20,7 @@ abstract final class AppSnack {
   /// async gaps or route transitions (e.g. a download finishing after
   /// navigation). Context remains a fallback for tests/pre-app code.
   static final GlobalKey<ScaffoldMessengerState> messengerKey =
-      GlobalKey<ScaffoldMessengerState>(
-    debugLabel: 'AppSnack.rootMessenger',
-  );
+      GlobalKey<ScaffoldMessengerState>(debugLabel: 'AppSnack.rootMessenger');
 
   static const Duration _dedupeWindow = Duration(seconds: 2);
   static String? _lastMessage;
@@ -32,8 +31,24 @@ abstract final class AppSnack {
   /// Pass `error: true` for failure feedback; it renders on the scheme's
   /// error container so mistakes read differently from confirmations.
   static void show(BuildContext context, String message, {bool error = false}) {
-    final messenger =
-        messengerKey.currentState ?? ScaffoldMessenger.maybeOf(context);
+    _present(message, error, _resolveMessenger(context));
+  }
+
+  /// Context-free variant for calls that complete after an async gap, where
+  /// the caller's Element may already be defunct. Uses only the root
+  /// messenger installed on [MaterialApp].
+  static void showRoot(String message, {bool error = false}) {
+    _present(message, error, messengerKey.currentState);
+  }
+
+  static ScaffoldMessengerState? _resolveMessenger(BuildContext context) =>
+      messengerKey.currentState ?? ScaffoldMessenger.maybeOf(context);
+
+  static void _present(
+    String message,
+    bool error,
+    ScaffoldMessengerState? messenger,
+  ) {
     if (messenger == null) return;
 
     final now = DateTime.now();
@@ -43,12 +58,25 @@ abstract final class AppSnack {
     _lastShownAt = now;
     if (isDuplicate) return;
 
-    final scheme = Theme.of(context).colorScheme;
+    // Theme is read from the MESSENGER's context, never the caller's: a
+    // caller's Element can be unmounted by the time this runs (signal-driven
+    // rebuilds, route pops across awaits), and reading through it throws
+    // "This widget has been unmounted".
+    final scheme = Theme.of(messenger.context).colorScheme;
+    // One impact per snack: confirmations tick lightly, failures hit harder.
+    // Callers showing a snack should not trigger their own success/error
+    // haptic, or the user feels two impacts for one event.
+    M3EHaptics.trigger(
+      error ? M3EHapticFeedback.medium : M3EHapticFeedback.light,
+    );
 
     if (error) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(message, style: TextStyle(color: scheme.onErrorContainer)),
+          content: Text(
+            message,
+            style: TextStyle(color: scheme.onErrorContainer),
+          ),
           backgroundColor: scheme.errorContainer,
           behavior: SnackBarBehavior.floating,
           shape: const StadiumBorder(),
@@ -63,7 +91,10 @@ abstract final class AppSnack {
 
     messenger.showSnackBar(
       SnackBar(
-        content: Text(message, style: TextStyle(color: scheme.onInverseSurface)),
+        content: Text(
+          message,
+          style: TextStyle(color: scheme.onInverseSurface),
+        ),
         backgroundColor: scheme.inverseSurface,
         behavior: SnackBarBehavior.floating,
         shape: const StadiumBorder(),

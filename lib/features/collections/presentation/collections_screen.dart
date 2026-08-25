@@ -9,7 +9,7 @@ import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../application/collections_controller.dart';
-import 'widgets/create_collection_sheet.dart';
+import 'widgets/create_collection_dialog.dart';
 
 /// Collections destination: user-manageable shortcuts to search queries.
 ///
@@ -202,7 +202,7 @@ final class CollectionsScreen extends StatelessWidget {
           floatingActionButton: hasSelection
               ? null
               : FloatingActionButton.extended(
-                  onPressed: () => showCreateCollectionSheet(context),
+                  onPressed: () => showCreateCollectionDialog(context),
                   icon: const Icon(BootstrapIcons.plus_lg),
                   label: const Text('New collection'),
                 ),

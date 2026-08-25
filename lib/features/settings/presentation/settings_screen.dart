@@ -1,15 +1,18 @@
 import '../../../core/services/image_cache_service.dart';
 
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/router/tab_scroll_coordinator.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../application/settings_controller.dart';
 import '../../../core/storage/settings_store.dart';
+
+import 'package:intl/intl.dart';
 
 /// Grouped, expressive settings screen. Every toggle mutates a
 /// [SettingsController] signal which persists immediately.
@@ -52,6 +55,7 @@ final class SettingsScreen extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: CustomScrollView(
+        controller: locator<TabScrollCoordinator>().settings,
         slivers: [
           headerSliver,
           SliverPadding(
@@ -68,7 +72,7 @@ final class SettingsScreen extends StatelessWidget {
                   children: [
                     SignalBuilder(
                       builder: (context) => _SwitchTile(
-                        icon: BootstrapIcons.palette_fill,
+                        icon: PhosphorIconsFill.palette,
                         title: 'Use dynamic color',
                         subtitle: 'Match app colors to your wallpaper.',
                         value: settings.dynamicColor.value,
@@ -77,7 +81,7 @@ final class SettingsScreen extends StatelessWidget {
                     ),
                     SignalBuilder(
                       builder: (context) => _SwitchTile(
-                        icon: BootstrapIcons.moon_stars_fill,
+                        icon: PhosphorIconsFill.moonStars,
                         title: 'Pitch black mode',
                         subtitle: 'Pure black in dark mode for OLED screens.',
                         value: settings.pitchBlack.value,
@@ -95,7 +99,7 @@ final class SettingsScreen extends StatelessWidget {
                       builder: (context) {
                         final hasKey = settings.hasApiKey.value;
                         return _SwitchTile(
-                          icon: BootstrapIcons.shield_fill,
+                          icon: PhosphorIconsFill.shield,
                           title: 'Show NSFW wallpapers',
                           subtitle: hasKey
                               ? 'Mature content (18+) — filtered by purity.'
@@ -114,7 +118,7 @@ final class SettingsScreen extends StatelessWidget {
                   children: [
                     SignalBuilder(
                       builder: (context) => _ActionTile(
-                        icon: BootstrapIcons.key_fill,
+                        icon: PhosphorIconsFill.key,
                         title: 'API key',
                         subtitle: settings.hasApiKey.value
                             ? 'Connected — NSFW unlock available.'
@@ -123,7 +127,7 @@ final class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     _InfoTile(
-                      icon: BootstrapIcons.download,
+                      icon: PhosphorIconsFill.downloadSimple,
                       title: 'Downloads',
                       subtitle:
                           'Saved to Pictures/WallpaperApp in your gallery.',
@@ -137,12 +141,12 @@ final class SettingsScreen extends StatelessWidget {
                   title: 'About',
                   children: [
                     _InfoTile(
-                      icon: BootstrapIcons.card_image,
+                      icon: PhosphorIconsFill.images,
                       title: 'Source',
                       subtitle: 'Powered by wallhaven.cc',
                     ),
                     _InfoTile(
-                      icon: BootstrapIcons.code_square,
+                      icon: PhosphorIconsFill.codeBlock,
                       title: 'Open source',
                       subtitle: 'Free & open — contributions welcome.',
                     ),
@@ -215,11 +219,21 @@ final class _SwitchTile extends StatelessWidget {
       trailing: M3ESwitch(
         value: value,
         semanticLabel: title,
-        onChanged: onChanged,
+        onChanged: onChanged == null
+            ? null
+            : (v) {
+                M3EHaptics.trigger(M3EHapticFeedback.light);
+                onChanged!.call(v);
+              },
       ),
       onTap:
           onTapOverride ??
-          (onChanged != null ? () => onChanged!(!value) : null),
+          (onChanged != null
+              ? () {
+                  M3EHaptics.trigger(M3EHapticFeedback.light);
+                  onChanged!(!value);
+                }
+              : null),
     );
   }
 }
@@ -246,7 +260,7 @@ final class _ThemeModeSelector extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    BootstrapIcons.brightness_high_fill,
+                    PhosphorIconsFill.sun,
                     size: 20,
                     color: scheme.onSurfaceVariant,
                   ),
@@ -276,6 +290,7 @@ final class _ThemeModeSelector extends StatelessWidget {
                   selected: {mode},
                   onSelectionChanged: (selection) {
                     if (selection.isNotEmpty) {
+                      M3EHaptics.selection();
                       settings.setThemeMode(selection.first);
                     }
                   },
@@ -309,7 +324,7 @@ final class _ActionTile extends StatelessWidget {
       supportingText: subtitle,
       variant: M3ECardVariant.filled,
       leading: Icon(icon),
-      trailing: const Icon(BootstrapIcons.chevron_right),
+      trailing: const Icon(PhosphorIconsFill.caretRight),
       onTap: onTap,
     );
   }
@@ -376,15 +391,22 @@ final class _CacheTileState extends State<_CacheTile> {
     }
   }
 
-  String _format(int? bytes) {
+  String _format(int? bytes, String locale) {
     if (bytes == null) return 'Calculating…';
     if (bytes == 0) return '0 MB • Tap to clear image cache';
     final mb = bytes / (1024 * 1024);
     if (mb < 0.1) {
-      final kb = bytes / 1024;
-      return '${kb.toStringAsFixed(1)} KB • Tap to clear';
+      final kb = NumberFormat.decimalPatternDigits(
+        locale: locale,
+        decimalDigits: 1,
+      ).format(bytes / 1024);
+      return '$kb KB • Tap to clear';
     }
-    return '${mb.toStringAsFixed(1)} MB • Tap to clear image cache';
+    final mbText = NumberFormat.decimalPatternDigits(
+      locale: locale,
+      decimalDigits: 1,
+    ).format(mb);
+    return '$mbText MB • Tap to clear image cache';
   }
 
   Future<void> _clear() async {
@@ -410,18 +432,19 @@ final class _CacheTileState extends State<_CacheTile> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final locale = Localizations.localeOf(context).toLanguageTag();
     return M3EListItem(
       headline: 'Clear image cache',
-      supportingText: _format(_bytes),
+      supportingText: _format(_bytes, locale),
       variant: M3ECardVariant.filled,
-      leading: const Icon(BootstrapIcons.eraser_fill),
+      leading: const Icon(PhosphorIconsFill.eraser),
       trailing: _busy
           ? M3EProgressIndicator.circular(
               size: 20,
               strokeWidth: 2,
               color: scheme.primary,
             )
-          : const Icon(BootstrapIcons.trash_fill),
+          : null,
       onTap: _busy ? null : _clear,
     );
   }

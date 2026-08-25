@@ -135,15 +135,11 @@ enum FeedColor {
 enum FeedGenre {
   anime('Anime'),
   nature('Nature'),
-  space('Space'),
+  art('Art'),
   abstract('Abstract'),
   minimal('Minimal'),
   architecture('Architecture'),
-  cars('Cars'),
-  games('Games'),
-  technology('Technology'),
-  dark('Dark'),
-  amoled('AMOLED');
+  dark('Dark');
 
   final String label;
 

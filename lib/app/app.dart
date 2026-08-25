@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
 import 'package:signals/signals_flutter.dart';
+import 'package:wallpaper_app/l10n/generated/app_localizations.dart';
 import 'package:zenrouter/zenrouter.dart';
 
 import '../core/services/dynamic_palette_refresher.dart';
@@ -65,10 +66,12 @@ final class _WallpaperAppState extends State<WallpaperApp> {
           debugShowCheckedModeBanner: false,
           scaffoldMessengerKey: AppSnack.messengerKey,
           localizationsDelegates: const [
+            AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: AppTheme.build(
             brightness: Brightness.light,
             dynamicScheme: useDynamic ? lightDynamic : null,
@@ -81,9 +84,8 @@ final class _WallpaperAppState extends State<WallpaperApp> {
           themeMode: themeMode,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(
-              textScaler: MediaQuery.textScalerOf(
-                context,
-              ).clamp(minScaleFactor: 0.8, maxScaleFactor: 1.15),
+              textScaler: MediaQuery.textScalerOf(context)
+                  .clamp(minScaleFactor: 0.8, maxScaleFactor: 1.15),
             ),
             child: child ?? const SizedBox.shrink(),
           ),

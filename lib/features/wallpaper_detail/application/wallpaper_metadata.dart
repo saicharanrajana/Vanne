@@ -1,17 +1,22 @@
+import 'package:intl/intl.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 /// Pure formatting helpers for the detail sheet's metadata cards.
 ///
 /// Kept widget-free so the display rules are unit-testable in isolation;
-/// the presentation layer maps these to cards verbatim.
+/// the presentation layer maps these to cards verbatim. All user-facing
+/// output is locale-aware — pass `Localizations.localeOf(context)` from
+/// the call site.
 abstract final class WallpaperMetadata {
   /// Human-readable file size: `2.1 MB` above a megabyte, `512 KB`
   /// below. Null when Wallhaven reports no size (listing entries).
-  static String? fileSize(int bytes) {
+  static String? fileSize(int bytes, String locale) {
     if (bytes <= 0) return null;
     final mb = bytes / (1024 * 1024);
-    if (mb >= 1) return '${mb.toStringAsFixed(1)} MB';
-    return '${(bytes / 1024).round()} KB';
+    if (mb >= 1) {
+      return '${NumberFormat.decimalPatternDigits(locale: locale, decimalDigits: 1).format(mb)} MB';
+    }
+    return '${NumberFormat.decimalPattern(locale).format(bytes ~/ 1024)} KB';
   }
 
   /// Aspect ratio as a reduced fraction of the pixel dimensions,
@@ -28,14 +33,14 @@ abstract final class WallpaperMetadata {
     return ratio.isNotEmpty ? ratio : '—';
   }
 
-  /// Short calendar date, e.g. `Jun 12, 2023`. Null when the listing
-  /// carried no `created_at`.
-  static String? uploadedDate(DateTime? createdAt) {
+  /// Short localized calendar date, e.g. `Jun 12, 2023` (en) or
+  /// `12. Juni 2023` (de). Null when the listing carried no `created_at`.
+  static String? uploadedDate(DateTime? createdAt, String locale) {
     if (createdAt == null) return null;
-    return '${_monthAbbr(createdAt.month)} ${createdAt.day}, ${createdAt.year}';
+    return DateFormat.yMMMd(Intl.canonicalizedLocale(locale)).format(createdAt);
   }
 
-  static String _monthAbbr(int month) =>
-      const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-            'Oct', 'Nov', 'Dec'][month - 1];
+  /// Locale-aware grouping for large counts, e.g. `1,234` / `1.234`.
+  static String count(int value, String locale) =>
+      NumberFormat.decimalPattern(locale).format(value);
 }

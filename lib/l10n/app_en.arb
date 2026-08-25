@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "somethingWentWrong": "Something went wrong",
+  "@somethingWentWrong": {
+    "description": "Heading of the global build-error view."
+  },
+  "restartMayFixIt": "Restarting the app should fix it.",
+  "@restartMayFixIt": {
+    "description": "Recovery hint shown below the error heading."
+  }
+}

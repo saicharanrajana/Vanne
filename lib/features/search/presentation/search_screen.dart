@@ -246,6 +246,7 @@ final class _SearchScreenState extends State<SearchScreen> {
               favoriteIds: favorites.favoriteIds,
               onToggleFavorite: favorites.toggle,
               heroScope: 'search-',
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               emptyState: const EmptyState(
                 title: 'No wallpapers found',
                 message: 'Try another search or remove a filter.',
@@ -255,7 +256,7 @@ final class _SearchScreenState extends State<SearchScreen> {
 
             // Search header with sort/filter chip embedded so floating/snap
             // brings bar + chip back together. Expanded height grows to fit
-            // the extra chip row (288 -> 340).
+            // the extra chip row (288 -> 318).
             final headerSliverWithFilter = SliverAppBar(
               floating: true,
               snap: true,
@@ -267,7 +268,7 @@ final class _SearchScreenState extends State<SearchScreen> {
               scrolledUnderElevation: 0,
               toolbarHeight: 0,
               collapsedHeight: 0,
-              expandedHeight: 340,
+              expandedHeight: 318,
               flexibleSpace: FlexibleSpaceBar(
                 background: SafeArea(
                   bottom: false,
@@ -377,7 +378,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                         child: Align(
                           alignment: AlignmentDirectional.centerStart,
                           child: SignalBuilder(
@@ -406,7 +407,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                   ),
                 ),

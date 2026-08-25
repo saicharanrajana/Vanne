@@ -324,7 +324,7 @@ final class _ActionTile extends StatelessWidget {
       supportingText: subtitle,
       variant: M3ECardVariant.filled,
       leading: Icon(icon),
-      trailing: const Icon(PhosphorIconsFill.caretRight),
+      trailing: const Icon(PhosphorIconsBold.caretRight),
       onTap: onTap,
     );
   }

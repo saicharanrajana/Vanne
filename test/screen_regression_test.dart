@@ -131,10 +131,12 @@ void main() {
     final editable = tester.widget<EditableText>(find.byType(EditableText));
     expect(editable.focusNode.hasFocus, isTrue);
 
-    // Dragging the form dismisses the keyboard.
-    final list = tester.widget<ListView>(find.byType(ListView));
+    // Dragging the form dismisses the keyboard (now CustomScrollView + SliverAppBar).
+    final scroll = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
     expect(
-      list.keyboardDismissBehavior,
+      scroll.keyboardDismissBehavior,
       ScrollViewKeyboardDismissBehavior.onDrag,
     );
 

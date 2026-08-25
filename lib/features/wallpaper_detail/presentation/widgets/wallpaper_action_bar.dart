@@ -44,7 +44,7 @@ final class WallpaperActionBar extends StatelessWidget {
                       height: 24,
                       child: M3EProgressIndicator.circularWavy(size: 24),
                     )
-                  : const Icon(PhosphorIconsFill.cloudArrowDown, size: 22),
+                  : const Icon(PhosphorIconsBold.cloudArrowDown, size: 22),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -60,10 +60,7 @@ final class WallpaperActionBar extends StatelessWidget {
             _ActionButton(
               tooltip: 'Open on Wallhaven',
               onPressed: () => _openSource(context, controller),
-              child: const Icon(
-                PhosphorIconsFill.arrowSquareOut,
-                size: 22,
-              ),
+              child: const Icon(PhosphorIconsBold.linkSimple, size: 22),
             ),
           ],
         );

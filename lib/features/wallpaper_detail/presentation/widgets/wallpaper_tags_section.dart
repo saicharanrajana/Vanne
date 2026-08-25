@@ -22,11 +22,16 @@ import 'wallpaper_section_card.dart';
 ///   detail fetch resolves).
 final class WallpaperTagsSection extends StatefulWidget {
   final WallpaperDetailController controller;
+  final ValueChanged<String>? onTagTap;
 
   /// Tags shown before the `+N` pill in the collapsed state.
   static const int collapsedPreviewCount = 2;
 
-  const WallpaperTagsSection({super.key, required this.controller});
+  const WallpaperTagsSection({
+    super.key,
+    required this.controller,
+    this.onTagTap,
+  });
 
   @override
   State<WallpaperTagsSection> createState() => _WallpaperTagsSectionState();
@@ -62,7 +67,13 @@ final class _WallpaperTagsSectionState extends State<WallpaperTagsSection> {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                for (final tag in _visibleTags(tags)) _TagChip(name: tag.name),
+                for (final tag in _visibleTags(tags))
+                  _TagChip(
+                    name: tag.name,
+                    onTap: widget.onTagTap == null
+                        ? null
+                        : () => widget.onTagTap!(tag.name),
+                  ),
                 if (!_expanded && canExpand)
                   _OverflowChip(
                     count: overflow,
@@ -107,16 +118,18 @@ final class _Chevron extends StatelessWidget {
   }
 }
 
-/// Stadium tag chip on the wallpaper-derived secondary container.
+/// Stadium tag chip on the wallpaper-derived secondary container. Tappable
+/// when [onTap] is provided.
 final class _TagChip extends StatelessWidget {
   final String name;
+  final VoidCallback? onTap;
 
-  const _TagChip({required this.name});
+  const _TagChip({required this.name, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
+    final chip = Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.sm,
@@ -129,6 +142,15 @@ final class _TagChip extends StatelessWidget {
         name,
         style: Theme.of(context).textTheme.labelLarge
             ?.copyWith(color: scheme.onSecondaryContainer),
+      ),
+    );
+    if (onTap == null) return chip;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppShapes.full),
+        child: chip,
       ),
     );
   }

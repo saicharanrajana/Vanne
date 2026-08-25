@@ -38,12 +38,16 @@ final class WallpaperDetailScreen extends StatefulWidget {
   /// Hero-tag namespace matching the originating list, so two lists
   /// showing the same wallpaper never produce duplicate tags.
   final String heroScope;
+  final ValueChanged<String>? onColorTap;
+  final ValueChanged<String>? onTagTap;
 
   const WallpaperDetailScreen({
     super.key,
     required this.controller,
     required this.onBack,
     this.heroScope = '',
+    this.onColorTap,
+    this.onTagTap,
   });
 
   @override
@@ -177,6 +181,8 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                       child: _DraggableInfoSheet(
                         controller: widget.controller,
                         scrollController: scrollController,
+                        onColorTap: widget.onColorTap,
+                        onTagTap: widget.onTagTap,
                       ),
                     );
                   },
@@ -203,10 +209,14 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
 final class _DraggableInfoSheet extends StatelessWidget {
   final WallpaperDetailController controller;
   final ScrollController scrollController;
+  final ValueChanged<String>? onColorTap;
+  final ValueChanged<String>? onTagTap;
 
   const _DraggableInfoSheet({
     required this.controller,
     required this.scrollController,
+    this.onColorTap,
+    this.onTagTap,
   });
 
   @override
@@ -268,9 +278,15 @@ final class _DraggableInfoSheet extends StatelessWidget {
                           children: [
                             _MetadataGrid(wallpaper: wallpaper),
                             AppSpacing.lg.gap,
-                            WallpaperColorPalette(controller: controller),
+                            WallpaperColorPalette(
+                              controller: controller,
+                              onColorTap: onColorTap,
+                            ),
                             AppSpacing.lg.gap,
-                            WallpaperTagsSection(controller: controller),
+                            WallpaperTagsSection(
+                              controller: controller,
+                              onTagTap: onTagTap,
+                            ),
                             AppSpacing.lg.gap,
                             WallpaperActionBar(controller: controller),
                             BottomPadding(),

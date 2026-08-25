@@ -16,16 +16,20 @@ import 'wallpaper_section_card.dart';
 /// "Colors" section: up to four dominant colors from Wallhaven as large
 /// rounded swatches.
 ///
-/// Tapping a swatch copies Wallhaven's **exact hex string** (leading `#`
-/// included) to the clipboard — the raw wire value is used verbatim, never
-/// reconstructed through [Color] — and confirms with a snackbar.
+/// Tap opens a filtered wallpapers list for that color; long-press copies
+/// Wallhaven's **exact hex string** (leading `#` included) to the clipboard.
 final class WallpaperColorPalette extends StatelessWidget {
   final WallpaperDetailController controller;
+  final ValueChanged<String>? onColorTap;
 
   /// Maximum swatches shown; Wallhaven can return more.
   static const int maxSwatches = 4;
 
-  const WallpaperColorPalette({super.key, required this.controller});
+  const WallpaperColorPalette({
+    super.key,
+    required this.controller,
+    this.onColorTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +45,10 @@ final class WallpaperColorPalette extends StatelessWidget {
           child: Wrap(
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.md,
-            children: [for (final hex in swatches) _Swatch(hex: hex)],
+            children: [
+              for (final hex in swatches)
+                _Swatch(hex: hex, onTap: onColorTap),
+            ],
           ),
         );
       },
@@ -52,17 +59,18 @@ final class WallpaperColorPalette extends StatelessWidget {
 /// One tappable color swatch. [hex] is Wallhaven's raw string (`#rrggbb`).
 final class _Swatch extends StatelessWidget {
   final String hex;
+  final ValueChanged<String>? onTap;
 
-  const _Swatch({required this.hex});
+  const _Swatch({required this.hex, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Copy $hex',
+      label: onTap != null ? 'View $hex wallpapers' : 'Copy $hex',
       child: PressableScale(
         child: M3ETooltip(
-          message: 'Copy $hex',
+          message: onTap != null ? 'Tap to view, long-press to copy $hex' : 'Copy $hex',
           child: Material(
             color: parseHexColor(hex) ?? Colors.grey,
             shape: RoundedRectangleBorder(
@@ -71,7 +79,8 @@ final class _Swatch extends StatelessWidget {
               ),
             ),
             child: InkWell(
-              onTap: () => _copy(context, hex),
+              onTap: onTap != null ? () => onTap!(hex) : () => _copy(context, hex),
+              onLongPress: onTap != null ? () => _copy(context, hex) : null,
               customBorder: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(
                   AppShapes.extraLargeIncreased,

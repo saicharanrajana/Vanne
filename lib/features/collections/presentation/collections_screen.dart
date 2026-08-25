@@ -7,6 +7,7 @@ import '../../../app/dependencies.dart';
 import '../../../app/router/tab_scroll_coordinator.dart';
 import '../../../app/theme/app_shapes.dart';
 import '../../../core/collections/collection_entry.dart';
+import '../../../shared/utils/hex_color.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
@@ -324,15 +325,37 @@ final class _CollectionCard extends StatelessWidget {
                                   shape: BoxShape.circle,
                                 ),
                                 alignment: Alignment.center,
-                                child: Text(
-                                  entry.name.isEmpty
-                                      ? '?'
-                                      : entry.name[0].toUpperCase(),
-                                  style: textTheme.titleLarge?.copyWith(
-                                    color: fg,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 22,
-                                  ),
+                                child: Builder(
+                                  builder: (context) {
+                                    final isColorCollection =
+                                        entry.colors.isNotEmpty ||
+                                        entry.name.startsWith('#');
+                                    if (isColorCollection) {
+                                      final parsed = entry.colors.isNotEmpty
+                                          ? parseHexColor(entry.colors.first)
+                                          : parseHexColor(entry.name);
+                                      final hashColor = parsed ?? fg;
+                                      return Text(
+                                        '#',
+                                        style:
+                                            textTheme.titleLarge?.copyWith(
+                                              color: hashColor,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 22,
+                                            ),
+                                      );
+                                    }
+                                    return Text(
+                                      entry.name.isEmpty
+                                          ? '?'
+                                          : entry.name[0].toUpperCase(),
+                                      style: textTheme.titleLarge?.copyWith(
+                                        color: fg,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 22,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                               Text(

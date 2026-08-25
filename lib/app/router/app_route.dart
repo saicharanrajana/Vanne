@@ -10,6 +10,7 @@ import '../../features/collections/presentation/collection_explore_screen.dart';
 import '../../features/collections/presentation/collections_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/favorites/presentation/favorites_screen.dart';
+import '../../features/filtered/presentation/filtered_wallpapers_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/api_key_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -246,6 +247,21 @@ class WallpaperDetailRoute extends AppRoute with RouteTransition {
       controller: controller,
       onBack: () => coordinator.pop(),
       heroScope: heroScope,
+      onColorTap: (hex) {
+        final normalized =
+            hex.startsWith('#') ? hex.toUpperCase() : '#${hex.toUpperCase()}';
+        coordinator.push(
+          FilteredWallpapersRoute(
+            title: normalized,
+            colorHexes: [normalized],
+          ),
+        );
+      },
+      onTagTap: (tag) {
+        coordinator.push(
+          FilteredWallpapersRoute(title: tag, query: tag),
+        );
+      },
     );
   }
 
@@ -259,6 +275,47 @@ class WallpaperDetailRoute extends AppRoute with RouteTransition {
       ),
     );
   }
+}
+
+class FilteredWallpapersRoute extends AppRoute {
+  final String title;
+  final String query;
+  final List<String> colorHexes;
+
+  FilteredWallpapersRoute({
+    required this.title,
+    this.query = '',
+    this.colorHexes = const [],
+  });
+
+  @override
+  Uri toUri() {
+    final params = <String, String>{'title': title};
+    if (query.isNotEmpty) params['q'] = query;
+    if (colorHexes.isNotEmpty) params['colors'] = colorHexes.join(',');
+    return Uri(path: '/filtered', queryParameters: params);
+  }
+
+  String get _heroScope {
+    if (colorHexes.isNotEmpty) return 'color-${colorHexes.first}-';
+    return 'tag-$query-';
+  }
+
+  @override
+  Widget build(AppCoordinator coordinator, BuildContext context) =>
+      FilteredWallpapersScreen(
+        title: title,
+        query: query,
+        colorHexes: colorHexes,
+        onBack: () => coordinator.pop(),
+        onOpenWallpaper: (wallpaper) => coordinator.push(
+          WallpaperDetailRoute(
+            wallpaperId: wallpaper.id,
+            initial: wallpaper,
+            heroScope: _heroScope,
+          ),
+        ),
+      );
 }
 
 class ApiKeySettingsRoute extends AppRoute {
@@ -296,6 +353,14 @@ final class AppCoordinator extends Coordinator<AppRoute> {
     ['search'] => SearchRoute(),
     ['wallpaper', final id] => WallpaperDetailRoute(wallpaperId: id),
     ['collections', final id] => CollectionExploreRoute(collectionId: id),
+    ['filtered'] => FilteredWallpapersRoute(
+        title: uri.queryParameters['title'] ?? '',
+        query: uri.queryParameters['q'] ?? '',
+        colorHexes: (uri.queryParameters['colors'] ?? '')
+            .split(',')
+            .where((s) => s.isNotEmpty)
+            .toList(),
+      ),
     _ => DiscoverTab(),
   };
 }

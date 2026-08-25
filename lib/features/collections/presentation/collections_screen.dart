@@ -1,9 +1,11 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/router/tab_scroll_coordinator.dart';
+import '../../../app/theme/app_shapes.dart';
 import '../../../core/collections/collection_entry.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
@@ -15,8 +17,9 @@ import 'widgets/create_collection_dialog.dart';
 ///
 /// Grid of [CollectionEntry] cards styled like the old category cards
 /// (centered initial + title on an expressive M3E shape). Long-press enters
-/// multi-select; a filled trash appears in the header while anything is
-/// selected. Creating happens via the FAB; deleting asks for confirmation.
+/// multi-select; a floating toolbar with clear/delete actions replaces the
+/// FAB while anything is selected. Creating happens via the FAB; deleting
+/// asks for confirmation.
 final class CollectionsScreen extends StatelessWidget {
   final ValueChanged<String> onOpenCollection;
 
@@ -72,17 +75,12 @@ final class CollectionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = locator<CollectionsController>();
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
 
     return SignalBuilder(
       builder: (context) {
         final entries = controller.entries.value;
         final hasSelection = controller.hasSelection.value;
 
-        // Selection chrome lives INSIDE flexibleSpace: SliverAppBar.actions
-        // render in the toolbar row whose height is 0 here, so they'd be
-        // invisible. The Row below is proven-visible (same slot as the old
-        // title).
         final headerSliver = SliverAppBar(
           floating: true,
           snap: true,
@@ -100,35 +98,12 @@ final class CollectionsScreen extends StatelessWidget {
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomLeft,
-                        child: Text(
-                          'Collections',
-                          style: theme.textTheme.displaySmall,
-                        ),
-                      ),
-                    ),
-                    if (hasSelection) ...[
-                      M3EIconButton(
-                        tooltip: 'Clear selection',
-                        icon: const Icon(BootstrapIcons.x_lg),
-                        onPressed: controller.clearSelection,
-                      ),
-                      M3EIconButton(
-                        tooltip: 'Delete selected',
-                        icon: Icon(
-                          BootstrapIcons.trash_fill,
-                          color: scheme.error,
-                        ),
-                        onPressed: () =>
-                            _confirmDelete(context, controller, entries),
-                      ),
-                    ],
-                  ],
+                child: Align(
+                  alignment: AlignmentDirectional.bottomStart,
+                  child: Text(
+                    'Collections',
+                    style: theme.textTheme.displaySmall,
+                  ),
                 ),
               ),
             ),
@@ -138,12 +113,13 @@ final class CollectionsScreen extends StatelessWidget {
         final Widget list;
         if (entries.isEmpty) {
           list = CustomScrollView(
+            controller: locator<TabScrollCoordinator>().collections,
             slivers: [
               headerSliver,
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyState(
-                  iconData: BootstrapIcons.collection_fill,
+                  iconData: PhosphorIconsFill.stack,
                   title: 'No collections yet',
                   message:
                       'Create a collection to save a search — they’re just '
@@ -155,6 +131,7 @@ final class CollectionsScreen extends StatelessWidget {
           );
         } else {
           list = CustomScrollView(
+            controller: locator<TabScrollCoordinator>().collections,
             slivers: [
               headerSliver,
               SliverPadding(
@@ -185,7 +162,10 @@ final class CollectionsScreen extends StatelessWidget {
                           onOpenCollection(entry.id);
                         }
                       },
-                      onLongPress: () => controller.toggleSelection(entry.id),
+                      onLongPress: () {
+                        M3EHaptics.trigger(M3EHapticFeedback.medium);
+                        controller.toggleSelection(entry.id);
+                      },
                     );
                   },
                 ),
@@ -197,13 +177,49 @@ final class CollectionsScreen extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
-          body: SafeArea(bottom: false, child: list),
-          // Add lives on a FAB; the header stays clean unless deleting.
+          body: Stack(
+            children: [
+              SafeArea(bottom: false, child: list),
+              if (hasSelection)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Center(
+                        child: M3EToolbar(
+                          colorStyle: M3EToolbarColorStyle.vibrant,
+                          actions: [
+                            M3EToolbarAction(
+                              icon: PhosphorIconsBold.x,
+                              tooltip: 'Clear selection',
+                              onPressed: controller.clearSelection,
+                            ),
+                            M3EToolbarAction(
+                              icon: PhosphorIconsFill.trash,
+                              tooltip: 'Delete selected',
+                              isDestructive: true,
+                              onPressed: () =>
+                                  _confirmDelete(context, controller, entries),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // Add lives on a FAB; while selecting, it's replaced by the
+          // floating toolbar above.
           floatingActionButton: hasSelection
               ? null
               : M3EExtendedFab(
                   onPressed: () => showCreateCollectionDialog(context),
-                  icon: const Icon(BootstrapIcons.plus_lg),
+                  icon: const Icon(PhosphorIconsBold.plus),
                   label: 'New collection',
                 ),
         );
@@ -226,15 +242,7 @@ final class _CollectionCard extends StatelessWidget {
     required this.onLongPress,
   });
 
-  static const _shapes = [
-    M3EShapeKind.circle,
-    M3EShapeKind.square,
-    M3EShapeKind.cookie9Sided,
-    M3EShapeKind.cookie12Sided,
-    M3EShapeKind.gem,
-    M3EShapeKind.arch,
-    M3EShapeKind.clamShell,
-  ];
+  static const _shape = M3EShapeKind.cookie12Sided;
 
   @override
   Widget build(BuildContext context) {
@@ -252,8 +260,7 @@ final class _CollectionCard extends StatelessWidget {
   Widget _buildCard(BuildContext context, bool selected) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final hash = entry.id.hashCode.abs();
-    final shape = _shapes[hash % _shapes.length];
+    const shape = _shape;
     final bg = selected ? scheme.tertiaryContainer : scheme.secondaryContainer;
     final fg = selected
         ? scheme.onTertiaryContainer
@@ -328,6 +335,20 @@ final class _CollectionCard extends StatelessWidget {
               ),
             ),
             if (selected)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: scheme.secondary, width: 2.5),
+                        borderRadius: BorderRadius.circular(AppShapes.large),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (selected)
               Positioned.directional(
                 textDirection: Directionality.of(context),
                 top: 0,
@@ -340,7 +361,7 @@ final class _CollectionCard extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.all(3),
                   child: Icon(
-                    BootstrapIcons.check_lg,
+                    PhosphorIconsBold.check,
                     size: 14,
                     color: scheme.onPrimary,
                   ),

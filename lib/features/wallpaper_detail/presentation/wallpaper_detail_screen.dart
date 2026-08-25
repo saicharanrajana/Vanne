@@ -1,5 +1,5 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -10,6 +10,7 @@ import '../../../app/theme/app_shapes.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../shared/extensions/gap_extensions.dart';
 import '../../../shared/widgets/bottom_padding.dart';
+import '../../../shared/widgets/favorite_toggle_button.dart';
 import '../../../shared/widgets/smart_network_image.dart';
 import '../../../shared/utils/hex_color.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -139,16 +140,19 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                             tooltip: 'Back',
                             variant: M3EIconButtonVariant.tonal,
                             icon: Icon(
-                              BootstrapIcons.arrow_left,
+                              PhosphorIconsBold.arrowLeft,
                               size: 22,
                               color:
                                   wallpaperTheme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          _FavoriteHeroButton(
-                            wallpaperId: wallpaper.id,
-                            favoriteIds: favorites.favoriteIds,
-                            onPressed: () => favorites.toggle(wallpaper),
+                          SignalBuilder(
+                            builder: (context) => FavoriteToggleButton(
+                              selected: favorites.favoriteIds.value.contains(
+                                wallpaper.id,
+                              ),
+                              onPressed: () => favorites.toggle(wallpaper),
+                            ),
                           ),
                         ],
                       ),
@@ -336,7 +340,7 @@ final class _FullBleedImage extends StatelessWidget {
             child: url.isEmpty
                 ? Center(
                     child: Icon(
-                      BootstrapIcons.image_fill,
+                      PhosphorIconsFill.image,
                       size: 32,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -367,37 +371,37 @@ final class _MetadataGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = WallpaperMetadata.fileSize(wallpaper.fileSizeBytes);
-    final uploaded = WallpaperMetadata.uploadedDate(wallpaper.createdAt);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final size = WallpaperMetadata.fileSize(wallpaper.fileSizeBytes, locale);
+    final uploaded = WallpaperMetadata.uploadedDate(
+      wallpaper.createdAt,
+      locale,
+    );
 
     final cells = <({IconData icon, String label, String value})>[
       (
-        icon: BootstrapIcons.aspect_ratio_fill,
+        icon: PhosphorIconsFill.frameCorners,
         label: 'Resolution',
         value: wallpaper.resolution.isNotEmpty ? wallpaper.resolution : '—',
       ),
+      (icon: PhosphorIconsFill.file, label: 'File size', value: size ?? '—'),
       (
-        icon: BootstrapIcons.file_earmark_fill,
-        label: 'File size',
-        value: size ?? '—',
-      ),
-      (
-        icon: BootstrapIcons.display_fill,
+        icon: PhosphorIconsFill.crop,
         label: 'Aspect ratio',
         value: WallpaperMetadata.aspectRatio(wallpaper),
       ),
       (
-        icon: BootstrapIcons.heart_fill,
+        icon: PhosphorIconsFill.heart,
         label: 'Favorites',
-        value: '${wallpaper.favorites}',
+        value: WallpaperMetadata.count(wallpaper.favorites, locale),
       ),
       (
-        icon: BootstrapIcons.person_fill,
+        icon: PhosphorIconsFill.user,
         label: 'Uploader',
         value: wallpaper.uploader?.username ?? '—',
       ),
       (
-        icon: BootstrapIcons.calendar_fill,
+        icon: PhosphorIconsFill.calendar,
         label: 'Uploaded',
         value: uploaded ?? '—',
       ),
@@ -428,45 +432,4 @@ final class _MetadataGrid extends StatelessWidget {
 extension on ({IconData icon, String label, String value}) {
   WallpaperInfoCard toCard() =>
       WallpaperInfoCard(icon: icon, label: label, value: value);
-}
-
-/// Heart toggle overlaid on the hero image; mirrors the grid tile style.
-final class _FavoriteHeroButton extends StatelessWidget {
-  final String wallpaperId;
-  final ReadonlySignal<Set<String>> favoriteIds;
-  final VoidCallback onPressed;
-
-  const _FavoriteHeroButton({
-    required this.wallpaperId,
-    required this.favoriteIds,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return SignalBuilder(
-      builder: (context) {
-        final selected = favoriteIds.value.contains(wallpaperId);
-        return M3EIconButton(
-          onPressed: onPressed,
-          tooltip: 'Save to favorites',
-          icon: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            padding: const EdgeInsets.all(8),
-            child: Icon(
-              selected ? BootstrapIcons.heart_fill : BootstrapIcons.heart,
-              size: 20,
-              color: selected ? scheme.error : scheme.onSurfaceVariant,
-            ),
-          ),
-        );
-      },
-    );
-  }
 }

@@ -1,6 +1,4 @@
-import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
 
 import '../../app/theme/app_shapes.dart';
 import '../../app/theme/app_spacing.dart';
@@ -9,6 +7,7 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import 'pressable_scale.dart';
+import 'favorite_toggle_button.dart';
 import 'smart_network_image.dart';
 import '../utils/hex_color.dart';
 
@@ -157,49 +156,15 @@ final class _FavoriteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final ids = favoriteIds;
-
-    Widget icon(bool selected, {required Color color}) => AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      transitionBuilder: (child, animation) => ScaleTransition(
-        scale: Tween(begin: 0.6, end: 1.0).animate(animation),
-        child: child,
+    if (ids == null) {
+      return FavoriteToggleButton(selected: false, onPressed: onPressed);
+    }
+    return SignalBuilder(
+      builder: (context) => FavoriteToggleButton(
+        selected: ids.value.contains(wallpaperId),
+        onPressed: onPressed,
       ),
-      child: Icon(
-        selected ? BootstrapIcons.heart_fill : BootstrapIcons.heart,
-        key: ValueKey(selected),
-        size: 18,
-        color: color,
-      ),
-    );
-
-    final button = ids == null
-        ? icon(false, color: scheme.onSurface)
-        : SignalBuilder(
-            builder: (context) {
-              final selected = ids.value.contains(wallpaperId);
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? scheme.primaryContainer
-                      : scheme.surfaceContainerHighest,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(6),
-                child: icon(
-                  selected,
-                  color: selected ? scheme.error : scheme.onSurfaceVariant,
-                ),
-              );
-            },
-          );
-
-    return M3EIconButton(
-      onPressed: onPressed,
-      tooltip: 'Save to favorites',
-      icon: button,
     );
   }
 }

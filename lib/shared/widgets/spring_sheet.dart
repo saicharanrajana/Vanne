@@ -28,12 +28,9 @@ Future<T?> showSpringBottomSheet<T>({
   required WidgetBuilder builder,
 }) {
   final capturedTheme = Theme.of(context);
-  return Navigator.of(context).push(
-    SpringSheetRoute<T>(
-      capturedTheme: capturedTheme,
-      builder: builder,
-    ),
-  );
+  return Navigator.of(
+    context,
+  ).push(SpringSheetRoute<T>(capturedTheme: capturedTheme, builder: builder));
 }
 
 /// A route that shows a spring-driven modal sheet at the bottom of the
@@ -153,8 +150,13 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
       final double damped =
           relativeVelocity / (1 + overshoot * _overdragResistance);
       controller.animateWith(
-        SpringSimulation(AppMotion.sheetEnter, value, 1, -damped,
-            snapToEnd: true),
+        SpringSimulation(
+          AppMotion.sheetEnter,
+          value,
+          1,
+          -damped,
+          snapToEnd: true,
+        ),
       );
 
       return;
@@ -238,10 +240,7 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
 /// inside a sheet picks `AppShapes.extraLarge - padding` so nested curves
 /// share centers (see [AppShapes]).
 class SheetContainer extends StatelessWidget {
-  const SheetContainer({
-    super.key,
-    required this.child,
-  });
+  const SheetContainer({super.key, required this.child});
 
   final Widget child;
 
@@ -254,10 +253,7 @@ class SheetContainer extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppShapes.extraLarge),
         ),
-        child: ColoredBox(
-          color: scheme.surfaceContainerLow,
-          child: child,
-        ),
+        child: ColoredBox(color: scheme.surfaceContainerLow, child: child),
       ),
     );
   }

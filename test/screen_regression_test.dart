@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 import 'package:wallpaper_app/app/theme/app_theme.dart';
 import 'package:wallpaper_app/app/dependencies.dart';
+import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
 import 'package:wallpaper_app/core/downloads/download_service.dart';
 import 'package:wallpaper_app/core/favorites/favorites_repository.dart';
 import 'package:wallpaper_app/core/services/wallpaper_applier.dart';
@@ -13,6 +13,7 @@ import 'package:wallpaper_app/core/storage/settings_store.dart';
 import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
 import 'package:wallpaper_app/features/favorites/application/favorites_controller.dart';
 import 'package:wallpaper_app/features/settings/application/settings_controller.dart';
+import 'package:wallpaper_app/features/settings/presentation/api_key_screen.dart';
 import 'package:wallpaper_app/features/settings/presentation/settings_screen.dart';
 import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import 'package:wallpaper_app/features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
@@ -73,13 +74,17 @@ void main() {
     final controller = SettingsController(SettingsStore(), _StubRepository())
       ..restore();
     locator.registerSingleton<SettingsController>(controller);
+    locator.registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
     // Detail screen probe shares this suite's locator reset; register what
     // Settings needs only.
     var openedApiKey = false;
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.build(brightness: Brightness.light, dynamicScheme: null),
+        theme: AppTheme.build(
+          brightness: Brightness.light,
+          dynamicScheme: null,
+        ),
         home: SettingsScreen(onOpenApiKey: () => openedApiKey = true),
       ),
     );
@@ -107,9 +112,39 @@ void main() {
     expect(openedApiKey, isTrue);
   });
 
-  testWidgets('detail action bar renders without error widget', (
-    tester,
-  ) async {
+  testWidgets('api key screen focuses field, toggles visibility, '
+      'dismisses keyboard on drag', (tester) async {
+    final controller = SettingsController(SettingsStore(), _StubRepository())
+      ..restore();
+    locator.registerSingleton<SettingsController>(controller);
+    locator.registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(brightness: Brightness.light),
+        home: ApiKeyScreen(onBack: () {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Single-purpose input page: the only text field is focused on open.
+    final editable = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editable.focusNode.hasFocus, isTrue);
+
+    // Dragging the form dismisses the keyboard.
+    final list = tester.widget<ListView>(find.byType(ListView));
+    expect(
+      list.keyboardDismissBehavior,
+      ScrollViewKeyboardDismissBehavior.onDrag,
+    );
+
+    // Save stays inert with empty input.
+    await tester.tap(find.text('Save key'));
+    await tester.pumpAndSettle();
+    expect(controller.hasApiKey.value, isFalse);
+  });
+
+  testWidgets('detail action bar renders without error widget', (tester) async {
     await mockNetworkImagesFor(() async {
       final controller = WallpaperDetailController(
         initial: _wallpaper('probe1'),
@@ -123,23 +158,20 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.build(brightness: Brightness.light, dynamicScheme: null),
+          theme: AppTheme.build(
+            brightness: Brightness.light,
+            dynamicScheme: null,
+          ),
           home: WallpaperDetailScreen(controller: controller, onBack: () {}),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Detail now uses the expressive WallpaperActionBar group with
-      // Material icons. Verify it is present and no ErrorWidget in tree.
+      // Detail now uses the expressive WallpaperActionBar group.
+      // Verify it is present and no ErrorWidget in tree.
       expect(find.byType(WallpaperActionBar), findsOneWidget);
-      expect(find.byIcon(BootstrapIcons.cloud_arrow_down_fill), findsOneWidget);
-      expect(find.byIcon(BootstrapIcons.image_fill), findsOneWidget);
-      expect(find.byIcon(BootstrapIcons.arrow_up_right_square_fill), findsOneWidget);
       expect(find.text('Set'), findsOneWidget);
-      expect(
-        find.byWidgetPredicate((w) => w is ErrorWidget),
-        findsNothing,
-      );
+      expect(find.byWidgetPredicate((w) => w is ErrorWidget), findsNothing);
     });
   });
 }

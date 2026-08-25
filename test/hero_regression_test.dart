@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart' hide SearchController;
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 import 'package:wallpaper_app/app/dependencies.dart';
+import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
 import 'package:wallpaper_app/app/router/app_route.dart';
 import 'package:wallpaper_app/app/theme/app_theme.dart';
 import 'package:wallpaper_app/core/domain/feed_filter.dart';
@@ -27,39 +28,38 @@ class _StubRepo implements WallpaperRepository {
     FeedFilter filter = const FeedFilter(),
     int page = 1,
     String? seed,
-  }) async =>
-      SearchOutcome(
-        page: PaginatedResult<Wallpaper>(
-          items: const [],
-          meta: const SearchMeta(currentPage: 1, lastPage: 1, perPage: 24),
-        ),
-        nsfwClamped: false,
-      );
+  }) async => SearchOutcome(
+    page: PaginatedResult<Wallpaper>(
+      items: const [],
+      meta: const SearchMeta(currentPage: 1, lastPage: 1, perPage: 24),
+    ),
+    nsfwClamped: false,
+  );
   @override
   Future<Wallpaper> wallpaperDetails(String id) async => _wallpaper(id);
 }
 
 Wallpaper _wallpaper(String id) => Wallpaper(
-      id: id,
-      url: 'https://wallhaven.cc/w/$id',
-      source: '',
-      purity: Purity.sfw,
-      category: Category.general,
-      width: 1080,
-      height: 1920,
-      resolution: '1080x1920',
-      ratio: '0.56',
-      fileSizeBytes: 1000,
-      fileType: 'image/jpeg',
-      colors: const [],
-      views: 0,
-      favorites: 0,
-      path: 'https://w.wallhaven.cc/full/$id.jpg',
-      thumbnails: Thumbnails(
-        small: 'https://th.wallhaven.cc/small/$id.jpg',
-        large: 'https://th.wallhaven.cc/lg/$id.jpg',
-      ),
-    );
+  id: id,
+  url: 'https://wallhaven.cc/w/$id',
+  source: '',
+  purity: Purity.sfw,
+  category: Category.general,
+  width: 1080,
+  height: 1920,
+  resolution: '1080x1920',
+  ratio: '0.56',
+  fileSizeBytes: 1000,
+  fileType: 'image/jpeg',
+  colors: const [],
+  views: 0,
+  favorites: 0,
+  path: 'https://w.wallhaven.cc/full/$id.jpg',
+  thumbnails: Thumbnails(
+    small: 'https://th.wallhaven.cc/small/$id.jpg',
+    large: 'https://th.wallhaven.cc/lg/$id.jpg',
+  ),
+);
 
 void main() {
   tearDown(() async => locator.reset());
@@ -68,13 +68,20 @@ void main() {
     const heroScope = 'discover-';
     const id = 'abc123';
     final wallpaper = _wallpaper(id);
-    final tile = WallpaperTile(wallpaper: wallpaper, heroScope: heroScope, onOpen: () {});
+    final tile = WallpaperTile(
+      wallpaper: wallpaper,
+      heroScope: heroScope,
+      onOpen: () {},
+    );
     expect(tile.heroTag, 'wallpaper-$heroScope$id');
   });
 
   test('SearchRoute and WallpaperDetailRoute use hero-compatible material transitions', () {
     final search = SearchRoute(query: 'test');
-    final detail = WallpaperDetailRoute(wallpaperId: 'abc', heroScope: 'discover-');
+    final detail = WallpaperDetailRoute(
+      wallpaperId: 'abc',
+      heroScope: 'discover-',
+    );
     final coordinator = AppCoordinator();
     expect(() => search.transition(coordinator), returnsNormally);
     expect(() => detail.transition(coordinator), returnsNormally);
@@ -84,7 +91,9 @@ void main() {
     expect(detailT, isA<StackTransition>());
   });
 
-  testWidgets('Discover SearchBar hero exists and SearchScreen hero matches', (tester) async {
+  testWidgets('Discover SearchBar hero exists and SearchScreen hero matches', (
+    tester,
+  ) async {
     await locator.reset();
     final repo = _StubRepo();
     locator.registerSingleton<WallpaperRepository>(repo as WallpaperRepository);
@@ -92,8 +101,13 @@ void main() {
     final fav = FavoritesController(FavoritesRepository());
     await fav.restore();
     locator.registerSingleton<FavoritesController>(fav);
-    locator.registerFactory<DiscoverController>(() => DiscoverController(repo as WallpaperRepository));
-    locator.registerFactory<SearchController>(() => SearchController(repo as WallpaperRepository));
+    locator.registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
+    locator.registerFactory<DiscoverController>(
+      () => DiscoverController(repo as WallpaperRepository),
+    );
+    locator.registerFactory<SearchController>(
+      () => SearchController(repo as WallpaperRepository),
+    );
 
     const heroTag = 'search-bar-hero';
 
@@ -107,8 +121,13 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag), findsOneWidget);
-      final discoverHero = tester.widget<Hero>(find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag));
+      expect(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag),
+        findsOneWidget,
+      );
+      final discoverHero = tester.widget<Hero>(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag),
+      );
       expect(discoverHero.flightShuttleBuilder, isNotNull);
 
       await tester.pumpWidget(
@@ -119,8 +138,13 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag), findsOneWidget);
-      final searchHero = tester.widget<Hero>(find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag));
+      expect(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag),
+        findsOneWidget,
+      );
+      final searchHero = tester.widget<Hero>(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == heroTag),
+      );
       expect(searchHero.tag, heroTag);
       expect(searchHero.flightShuttleBuilder, isNotNull);
 
@@ -129,19 +153,34 @@ void main() {
     });
   });
 
-  testWidgets('WallpaperTile renders Hero with correct tag inside grid', (tester) async {
+  testWidgets('WallpaperTile renders Hero with correct tag inside grid', (
+    tester,
+  ) async {
     final wallpaper = _wallpaper('hero123');
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(brightness: Brightness.light),
         home: Scaffold(
-          body: WallpaperTile(wallpaper: wallpaper, heroScope: 'discover-', onOpen: () {}),
+          body: WallpaperTile(
+            wallpaper: wallpaper,
+            heroScope: 'discover-',
+            onOpen: () {},
+          ),
         ),
       ),
     );
     await tester.pump();
-    expect(find.byWidgetPredicate((w) => w is Hero && w.tag == 'wallpaper-discover-hero123'), findsOneWidget);
-    final hero = tester.widget<Hero>(find.byWidgetPredicate((w) => w is Hero && w.tag == 'wallpaper-discover-hero123'));
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Hero && w.tag == 'wallpaper-discover-hero123',
+      ),
+      findsOneWidget,
+    );
+    final hero = tester.widget<Hero>(
+      find.byWidgetPredicate(
+        (w) => w is Hero && w.tag == 'wallpaper-discover-hero123',
+      ),
+    );
     expect(hero.flightShuttleBuilder, isNotNull);
   });
 
@@ -150,7 +189,11 @@ void main() {
     final dark = AppTheme.build(brightness: Brightness.dark);
     final pitch = AppTheme.build(brightness: Brightness.dark, pitchBlack: true);
     for (final t in [light, dark, pitch]) {
-      expect(t.scaffoldBackgroundColor.a, closeTo(1.0, 0.01), reason: 'scaffold must be opaque to hide window white');
+      expect(
+        t.scaffoldBackgroundColor.a,
+        closeTo(1.0, 0.01),
+        reason: 'scaffold must be opaque to hide window white',
+      );
       expect(t.scaffoldBackgroundColor, t.colorScheme.surface);
     }
     expect(light.scaffoldBackgroundColor, isNot(Colors.white));

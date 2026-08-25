@@ -2,7 +2,7 @@
 // runs on the material_ui widget tree.
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -44,7 +44,7 @@ final class WallpaperActionBar extends StatelessWidget {
                       height: 24,
                       child: M3EProgressIndicator.circularWavy(size: 24),
                     )
-                  : const Icon(BootstrapIcons.cloud_arrow_down_fill, size: 22),
+                  : const Icon(PhosphorIconsFill.cloudArrowDown, size: 22),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -61,7 +61,7 @@ final class WallpaperActionBar extends StatelessWidget {
               tooltip: 'Open on Wallhaven',
               onPressed: () => _openSource(context, controller),
               child: const Icon(
-                BootstrapIcons.arrow_up_right_square_fill,
+                PhosphorIconsFill.arrowSquareOut,
                 size: 22,
               ),
             ),
@@ -195,7 +195,7 @@ final class _PrimaryActionButton extends StatelessWidget {
               ),
             )
           else
-            Icon(BootstrapIcons.image_fill, color: scheme.onPrimary, size: 22),
+            Icon(PhosphorIconsFill.image, color: scheme.onPrimary, size: 22),
           const SizedBox(width: AppSpacing.sm),
           Text(
             label,

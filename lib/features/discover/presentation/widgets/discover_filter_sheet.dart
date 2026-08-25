@@ -1,8 +1,9 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/domain/feed_filter.dart';
 import '../../../../shared/widgets/spring_sheet.dart';
 import '../../application/discover_controller.dart';
@@ -44,7 +45,7 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, AppSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -53,7 +54,7 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                 child: Container(
                   width: 32,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                   decoration: BoxDecoration(
                     color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
@@ -68,12 +69,12 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Sort by'),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   for (final sorting in FeedSorting.values)
                     M3EChip(
@@ -86,12 +87,12 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Popular time window'),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   for (final range in FeedTopRange.values)
                     M3EChip(
@@ -106,12 +107,12 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Minimum resolution'),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   for (final resolution in const ['1920x1080', '2560x1440'])
                     M3EChip(
@@ -126,7 +127,7 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.xxl),
               Row(
                 children: [
                   Expanded(
@@ -139,13 +140,13 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                         });
                       },
                       icon: const Icon(
-                        BootstrapIcons.arrow_clockwise,
+                        PhosphorIconsFill.arrowClockwise,
                         size: 18,
                       ),
                       label: const Text('Reset'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: M3EButton(
                       style: M3EButtonStyle.filled,

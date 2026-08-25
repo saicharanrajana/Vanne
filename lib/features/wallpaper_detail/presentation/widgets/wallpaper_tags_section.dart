@@ -2,7 +2,7 @@
 // runs on the material_ui widget tree.
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -98,7 +98,7 @@ final class _Chevron extends StatelessWidget {
         turns: expanded ? 0.5 : 0,
         duration: AppMotion.transition,
         child: Icon(
-          BootstrapIcons.caret_down_fill,
+          PhosphorIconsFill.caretDown,
           size: 20,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),

@@ -1,5 +1,5 @@
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
@@ -102,7 +102,7 @@ final class WallpaperGrid extends StatelessWidget {
   /// content is one masonry sliver plus the pagination footer. Hosts may
   /// embed these in their own [CustomScrollView].
   List<Widget> buildSlivers(BuildContext context) {
-    if (isLoadingFirst) return const [_SkeletonSliver()];
+    if (isLoadingFirst) return [_SkeletonSliver(padding: padding)];
     if (error != null) {
       return [
         SliverFillRemaining(
@@ -245,7 +245,9 @@ final class _GridFooter extends StatelessWidget {
 /// First-load skeleton: tonal masonry placeholders in mixed heights so
 /// the layout matches incoming content instead of a generic spinner.
 final class _SkeletonSliver extends StatelessWidget {
-  const _SkeletonSliver();
+  final EdgeInsets padding;
+
+  const _SkeletonSliver({required this.padding});
 
   static const _ratios = [9 / 16.0, 9 / 18.0, 9 / 14.0, 9 / 17.0, 9 / 15.0];
 
@@ -254,7 +256,7 @@ final class _SkeletonSliver extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: padding,
       sliver: SliverMasonryGrid.count(
         crossAxisCount: 2,
         mainAxisSpacing: 10,
@@ -296,7 +298,7 @@ final class FeedErrorView extends StatelessWidget {
               height: 72,
               color: theme.colorScheme.errorContainer,
               child: Icon(
-                BootstrapIcons.wifi_off,
+                PhosphorIconsFill.wifiSlash,
                 size: 30,
                 color: theme.colorScheme.onErrorContainer,
               ),
@@ -353,7 +355,7 @@ final class EmptyState extends StatelessWidget {
               height: 72,
               color: theme.colorScheme.surfaceContainerHigh,
               child: Icon(
-                iconData ?? BootstrapIcons.image_fill,
+                iconData ?? PhosphorIconsFill.image,
                 size: 30,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

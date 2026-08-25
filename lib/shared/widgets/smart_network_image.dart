@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 // Prefer material_ui over package:flutter/material.dart: the app runs on the
 // material_ui widget tree — flutter-material Theme.of lookups here would
@@ -46,7 +46,7 @@ class SmartNetworkImage extends StatelessWidget {
         color: placeholderColor ?? scheme.surfaceContainerHighest,
         alignment: Alignment.center,
         child: Icon(
-          BootstrapIcons.image_fill,
+          PhosphorIconsFill.image,
           size: 20,
           color: scheme.onSurfaceVariant,
         ),
@@ -81,7 +81,7 @@ class SmartNetworkImage extends StatelessWidget {
         color: fallback,
         alignment: Alignment.center,
         child: Icon(
-          BootstrapIcons.image_fill,
+          PhosphorIconsFill.image,
           size: 20,
           color: scheme.onSurfaceVariant,
         ),

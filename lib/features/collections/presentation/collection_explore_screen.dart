@@ -1,6 +1,6 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -66,7 +66,7 @@ final class _CollectionExploreScreenState
           automaticallyImplyLeading: true,
         ),
         body: const EmptyState(
-          iconData: BootstrapIcons.search,
+          iconData: PhosphorIconsFill.magnifyingGlass,
           title: 'Collection not found',
           message: 'It may have been deleted.',
         ),

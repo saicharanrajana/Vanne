@@ -38,7 +38,6 @@ final class WallpaperColorPalette extends StatelessWidget {
 
         return WallpaperSectionCard(
           title: 'Colors',
-          trailing: _CountBadge(count: colors.length),
           child: Wrap(
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.md,
@@ -46,33 +45,6 @@ final class WallpaperColorPalette extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// Small rounded count pill in the section header.
-final class _CountBadge extends StatelessWidget {
-  final int count;
-
-  const _CountBadge({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppShapes.full),
-      ),
-      child: Text(
-        '$count',
-        style: Theme.of(context).textTheme.labelMedium
-            ?.copyWith(color: scheme.onSurfaceVariant),
-      ),
     );
   }
 }

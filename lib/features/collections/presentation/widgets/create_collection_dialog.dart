@@ -1,4 +1,4 @@
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
@@ -81,7 +81,7 @@ final class _CreateCollectionDialogState
     final scheme = Theme.of(context).colorScheme;
     return M3EDialog(
       title: 'New collection',
-      icon: const Icon(BootstrapIcons.collection_fill),
+      icon: const Icon(PhosphorIconsFill.stack),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,12 +95,11 @@ final class _CreateCollectionDialogState
           M3ETextField(
             controller: _nameCtrl,
             focusNode: _nameFocus,
-            label: 'Title',
-            supportingText: 'e.g. Dark Minimal',
+            supportingText: 'For example, Dark Minimal',
             errorText: _error,
             variant: M3ETextFieldVariant.outlined,
             leading: Icon(
-              BootstrapIcons.collection_fill,
+              PhosphorIconsFill.stack,
               size: 18,
               color: scheme.onSurfaceVariant,
             ),
@@ -132,7 +131,7 @@ final class _CreateCollectionDialogState
                     color: scheme.onPrimary,
                   ),
                 )
-              : const Icon(BootstrapIcons.plus_lg, size: 15),
+              : const Icon(PhosphorIconsFill.plus, size: 15),
           label: Text(_saving ? 'Creating…' : 'Create'),
         ),
       ],

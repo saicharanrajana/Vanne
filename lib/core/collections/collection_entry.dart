@@ -14,6 +14,7 @@ final class CollectionEntry {
   final String query;
   final List<WallhavenCategory> kinds;
   final FeedFilter filter;
+  final List<String> colors;
   final DateTime createdAt;
 
   const CollectionEntry({
@@ -22,16 +23,22 @@ final class CollectionEntry {
     required this.query,
     this.kinds = const [],
     this.filter = const FeedFilter(),
+    this.colors = const [],
     required this.createdAt,
   });
 
   /// Display name in Pascal casing per word, e.g. `dark minimal` →
   /// `Dark Minimal`. Storage keeps the raw input; only presentation cases.
-  String get displayName => name
-      .split(RegExp(r'\s+'))
-      .where((w) => w.isNotEmpty)
-      .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
-      .join(' ');
+  /// Hex names (`#RRGGBB`) are returned verbatim uppercased so `#ff0000`
+  /// does not become `#Ff0000`.
+  String get displayName {
+    if (name.startsWith('#')) return name.toUpperCase();
+    return name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -43,6 +50,7 @@ final class CollectionEntry {
       'topRange': filter.topRange?.name,
       'minResolution': filter.minResolution,
     },
+    'colors': colors,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -73,6 +81,12 @@ final class CollectionEntry {
     }
     final minRes = filterRaw['minResolution'] as String?;
 
+    final colorsRaw = json['colors'] as List<dynamic>? ?? const [];
+    final colors = [
+      for (final raw in colorsRaw)
+        if (raw is String && raw.isNotEmpty) raw,
+    ];
+
     return CollectionEntry(
       id: json['id'] as String,
       name: json['name'] as String? ?? '',
@@ -83,6 +97,7 @@ final class CollectionEntry {
         topRange: topRange,
         minResolution: minRes,
       ),
+      colors: colors,
       createdAt: json['createdAt'] == null
           ? DateTime.now()
           : DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now(),

@@ -43,6 +43,7 @@ final class CollectionsController {
     required String query,
     List<WallhavenCategory> kinds = const [],
     FeedFilter filter = const FeedFilter(),
+    List<String> colors = const [],
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return 'Name required';
@@ -58,6 +59,7 @@ final class CollectionsController {
       query: query.trim(),
       kinds: List.unmodifiable(kinds),
       filter: filter,
+      colors: List.unmodifiable(colors),
       createdAt: DateTime.now(),
     );
     final prev = Map<String, CollectionEntry>.from(_entries.value);

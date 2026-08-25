@@ -49,6 +49,11 @@ abstract final class AppTheme {
       canvasColor: effective.surface,
       useMaterial3: true,
       textTheme: buildAppTextTheme(effective),
+      textSelectionTheme: TextSelectionThemeData(
+        selectionColor: effective.primary.withValues(alpha: 0.30),
+        selectionHandleColor: effective.primary,
+        cursorColor: effective.primary,
+      ),
       // Disable ripple/highlight globally — custom design language.
       splashColor: Colors.transparent,
       splashFactory: NoSplash.splashFactory,
@@ -121,12 +126,9 @@ abstract final class AppTheme {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
       ),
-      searchViewTheme: SearchViewThemeData(
-        backgroundColor: effective.surface,
-      ),
+      searchViewTheme: SearchViewThemeData(backgroundColor: effective.surface),
     );
   }
-
 
   /// Collapses dark surfaces to a true-black ladder while keeping every
   /// other role (primary, containers, error, expressive accents) intact.
@@ -139,12 +141,12 @@ abstract final class AppTheme {
   /// Public so wallpaper-derived schemes (detail sheet) can honor
   /// pitch-black mode without duplicating the ladder.
   static ColorScheme toPitchBlack(ColorScheme dark) => dark.copyWith(
-        surface: const Color(0xFF000000),
-        surfaceDim: const Color(0xFF000000),
-        surfaceContainerLowest: const Color(0xFF000000),
-        surfaceContainerLow: const Color(0xFF050505),
-        surfaceContainer: const Color(0xFF0A0A0A),
-        surfaceContainerHigh: const Color(0xFF101010),
-        surfaceContainerHighest: const Color(0xFF161616),
-      );
+    surface: const Color(0xFF000000),
+    surfaceDim: const Color(0xFF000000),
+    surfaceContainerLowest: const Color(0xFF000000),
+    surfaceContainerLow: const Color(0xFF050505),
+    surfaceContainer: const Color(0xFF0A0A0A),
+    surfaceContainerHigh: const Color(0xFF101010),
+    surfaceContainerHighest: const Color(0xFF161616),
+  );
 }

@@ -85,6 +85,11 @@ ThemeData wallpaperThemeData(ColorScheme scheme, ThemeData base) {
     scaffoldBackgroundColor: scheme.surface,
     canvasColor: scheme.surface,
     textTheme: buildAppTextTheme(scheme),
+    textSelectionTheme: TextSelectionThemeData(
+      selectionColor: scheme.primary.withValues(alpha: 0.30),
+      selectionHandleColor: scheme.primary,
+      cursorColor: scheme.primary,
+    ),
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: scheme.surfaceContainerLow,
       selectedColor: scheme.secondaryContainer,

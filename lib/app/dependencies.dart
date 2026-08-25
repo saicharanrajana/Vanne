@@ -19,6 +19,7 @@ import '../features/favorites/application/favorites_controller.dart';
 import '../features/search/application/search_controller.dart';
 import '../features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import '../features/settings/application/settings_controller.dart';
+import 'router/tab_scroll_coordinator.dart';
 
 /// Global service locator. Registered once in [bootstrap]; everything is
 /// concrete — interfaces exist only where a real seam (platform, secure
@@ -62,7 +63,11 @@ Future<void> bootstrap() async {
     ..registerSingleton<CollectionsRepository>(collectionsRepository)
     ..registerLazySingleton<DownloadService>(DownloadService.new)
     ..registerLazySingleton<WallpaperApplier>(WallpaperApplier.new)
-    ..registerLazySingleton<UrlLauncherService>(UrlLauncherService.new);
+    ..registerLazySingleton<UrlLauncherService>(UrlLauncherService.new)
+    ..registerSingleton<TabScrollCoordinator>(
+      TabScrollCoordinator(),
+      dispose: (coordinator) => coordinator.dispose(),
+    );
 
   // Controllers owning app-wide reactive state.
   final settingsController = SettingsController(settingsStore, repository)

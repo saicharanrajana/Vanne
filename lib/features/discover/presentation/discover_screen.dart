@@ -1,10 +1,11 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/router/tab_scroll_coordinator.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
 import '../application/discover_controller.dart';
@@ -49,7 +50,7 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
       scrolledUnderElevation: 0,
       toolbarHeight: 0,
       collapsedHeight: 0,
-      expandedHeight: 200,
+      expandedHeight: 188,
       flexibleSpace: FlexibleSpaceBar(
         background: SafeArea(
           bottom: false,
@@ -83,15 +84,22 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
                       SizedBox.fromSize(size: size, child: child),
                   child: M3ESearchBar(
                     hintText: 'Search wallpapers',
+                    // Zero the resting expand inset: the bar otherwise pads
+                    // itself 8px horizontally while idle, misaligning its
+                    // left edge from the heading and filter chip.
+                    expandRestPadding: 0,
                     padding: const WidgetStatePropertyAll(
                       EdgeInsetsDirectional.symmetric(horizontal: 16),
                     ),
                     readOnly: true,
                     onTap: widget.onOpenSearch,
-                    leading: Icon(
-                      BootstrapIcons.search,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
+                    leading: Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 4),
+                      child: Icon(
+                        PhosphorIconsBold.magnifyingGlass,
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -122,6 +130,7 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
             favoriteIds: favorites.favoriteIds,
             onToggleFavorite: favorites.toggle,
             heroScope: 'discover-',
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             onOpen: widget.onOpenWallpaper,
           );
           return NotificationListener<ScrollNotification>(
@@ -130,6 +139,7 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
               return false;
             },
             child: CustomScrollView(
+              controller: locator<TabScrollCoordinator>().discover,
               slivers: [headerSliver, ...grid.buildSlivers(context)],
             ),
           );
@@ -161,12 +171,14 @@ final class _FilterRow extends StatelessWidget {
               type: M3EChipType.filter,
               selected: true,
               leading: Icon(
-                BootstrapIcons.sliders,
+                PhosphorIconsFill.slidersHorizontal,
                 size: 16,
                 color: scheme.onSecondaryContainer,
               ),
-              onPressed: () =>
-                  showDiscoverFilterSheet(context, controller: controller),
+              onPressed: () {
+                M3EHaptics.trigger(M3EHapticFeedback.light);
+                showDiscoverFilterSheet(context, controller: controller);
+              },
             );
           },
         ),

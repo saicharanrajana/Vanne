@@ -1,7 +1,7 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/navigation_bar/models/m3e_navigation_bar_destination.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 import 'package:zenrouter/zenrouter.dart';
 
@@ -15,6 +15,7 @@ import '../../features/settings/presentation/api_key_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import '../../features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
+import 'tab_scroll_coordinator.dart';
 
 /// Route hierarchy.
 ///
@@ -118,26 +119,34 @@ class MainShell extends AppRoute with RouteLayout<AppRoute> {
           return M3ENavigationBar(
             selectedIndex: path.activeIndex,
             backgroundColor: Theme.of(context).colorScheme.surface,
-            onDestinationSelected: (index) => path.goToIndexed(index),
+            onDestinationSelected: (index) {
+              M3EHaptics.trigger(M3EHapticFeedback.light);
+              if (index == path.activeIndex) {
+                // Reselecting the active destination scrolls it back to top.
+                locator<TabScrollCoordinator>().scrollToTop(index);
+                return;
+              }
+              path.goToIndexed(index);
+            },
             destinations: const [
               M3ENavigationBarDestination(
-                icon: Icon(BootstrapIcons.compass),
-                selectedIcon: Icon(BootstrapIcons.compass_fill),
+                icon: Icon(PhosphorIconsBold.compass),
+                selectedIcon: Icon(PhosphorIconsFill.compass),
                 label: 'Discover',
               ),
               M3ENavigationBarDestination(
-                icon: Icon(BootstrapIcons.collection),
-                selectedIcon: Icon(BootstrapIcons.collection_fill),
+                icon: Icon(PhosphorIconsBold.stack),
+                selectedIcon: Icon(PhosphorIconsFill.stack),
                 label: 'Collections',
               ),
               M3ENavigationBarDestination(
-                icon: Icon(BootstrapIcons.heart),
-                selectedIcon: Icon(BootstrapIcons.heart_fill),
+                icon: Icon(PhosphorIconsBold.heart),
+                selectedIcon: Icon(PhosphorIconsFill.heart),
                 label: 'Favorites',
               ),
               M3ENavigationBarDestination(
-                icon: Icon(BootstrapIcons.gear),
-                selectedIcon: Icon(BootstrapIcons.gear_fill),
+                icon: Icon(PhosphorIconsBold.gear),
+                selectedIcon: Icon(PhosphorIconsFill.gear),
                 label: 'Settings',
               ),
             ],

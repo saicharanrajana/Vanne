@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -90,8 +91,8 @@ void main() {
     expect(find.text('Show NSFW wallpapers'), findsOneWidget);
     expect(find.text('Portrait wallpapers only'), findsNothing);
     expect(find.text('API key'), findsOneWidget);
-    expect(find.byType(Switch), findsNWidgets(3));
-    expect(find.byType(SegmentedButton<AppThemeMode>), findsOneWidget);
+    expect(find.byType(M3ESwitch), findsNWidgets(3));
+    expect(find.byType(M3ESegmentedButton<AppThemeMode>), findsOneWidget);
     // Scroll to reveal About footer (CustomScrollView with SliverAppBar — was ListView).
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
     await tester.pumpAndSettle();

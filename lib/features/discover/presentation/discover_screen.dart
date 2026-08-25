@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
@@ -80,7 +81,7 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
                       },
                   placeholderBuilder: (context, size, child) =>
                       SizedBox.fromSize(size: size, child: child),
-                  child: SearchBar(
+                  child: M3ESearchBar(
                     hintText: 'Search wallpapers',
                     padding: const WidgetStatePropertyAll(
                       EdgeInsetsDirectional.symmetric(horizontal: 16),
@@ -155,22 +156,16 @@ final class _FilterRow extends StatelessWidget {
         child: SignalBuilder(
           builder: (context) {
             final filter = controller.filter.value;
-            return FilterChip(
-              label: Text(
-                filter.summary,
-                style: TextStyle(color: scheme.onSecondaryContainer),
-              ),
-              avatar: Icon(
+            return M3EChip(
+              label: filter.summary,
+              type: M3EChipType.filter,
+              selected: true,
+              leading: Icon(
                 BootstrapIcons.sliders,
                 size: 16,
                 color: scheme.onSecondaryContainer,
               ),
-              backgroundColor: scheme.secondaryContainer,
-              selectedColor: scheme.secondaryContainer,
-              checkmarkColor: scheme.onSecondaryContainer,
-              side: BorderSide(color: scheme.outlineVariant),
-              selected: false,
-              onSelected: (_) =>
+              onPressed: () =>
                   showDiscoverFilterSheet(context, controller: controller),
             );
           },

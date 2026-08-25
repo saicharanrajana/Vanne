@@ -1,8 +1,6 @@
-// Prefer material_ui over package:flutter widgets/material imports: the app
-// runs on the material_ui widget tree.
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
 
 /// One expressive rounded metadata card in the detail sheet's 2-column
@@ -27,12 +25,9 @@ final class WallpaperInfoCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Container(
+    return M3ECard(
+      variant: M3ECardVariant.filled,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
-      ),
       child: Row(
         children: [
           Icon(icon, size: 23, color: scheme.primary),

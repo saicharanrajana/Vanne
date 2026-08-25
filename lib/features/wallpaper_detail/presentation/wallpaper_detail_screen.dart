@@ -1,4 +1,4 @@
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -10,7 +10,6 @@ import '../../../app/theme/app_shapes.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../shared/extensions/gap_extensions.dart';
 import '../../../shared/widgets/bottom_padding.dart';
-import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/smart_network_image.dart';
 import '../../../shared/utils/hex_color.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -51,7 +50,7 @@ final class WallpaperDetailScreen extends StatefulWidget {
 }
 
 final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
-  /// Memoized wallpaper-derived scheme; [M3EColorScheme.generate] is too
+  /// Memoized wallpaper-derived scheme; scheme generation is too
   /// expensive to re-run on every signal tick.
   ColorScheme? _cachedScheme;
   Object? _schemeKey;
@@ -135,21 +134,15 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          PressableScale(
-                            child: IconButton(
-                              onPressed: widget.onBack,
-                              tooltip: 'Back',
-                              style: IconButton.styleFrom(
-                                backgroundColor: wallpaperTheme
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                              ),
-                              icon: Icon(
-                                BootstrapIcons.arrow_left,
-                                size: 22,
-                                color:
-                                    wallpaperTheme.colorScheme.onSurfaceVariant,
-                              ),
+                          M3EIconButton(
+                            onPressed: widget.onBack,
+                            tooltip: 'Back',
+                            variant: M3EIconButtonVariant.tonal,
+                            icon: Icon(
+                              BootstrapIcons.arrow_left,
+                              size: 22,
+                              color:
+                                  wallpaperTheme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                           _FavoriteHeroButton(
@@ -252,7 +245,11 @@ final class _DraggableInfoSheet extends StatelessWidget {
               if (isLoading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(child: M3EContainedLoadingIndicator()),
+                  child: Center(
+                    child: M3ELoadingIndicator(
+                      variant: M3ELoadingIndicatorVariant.contained,
+                    ),
+                  ),
                 )
               else
                 SliverPadding(
@@ -452,7 +449,7 @@ final class _FavoriteHeroButton extends StatelessWidget {
     return SignalBuilder(
       builder: (context) {
         final selected = favoriteIds.value.contains(wallpaperId);
-        return IconButton(
+        return M3EIconButton(
           onPressed: onPressed,
           tooltip: 'Save to favorites',
           icon: AnimatedContainer(

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -111,6 +111,32 @@ void main() {
       final lightPitch = AppTheme.build(brightness: Brightness.light, pitchBlack: true);
       expect(light.colorScheme.surface, lightPitch.colorScheme.surface);
     });
+
+    test('dynamic fixed and surface roles survive theme construction', () {
+      final dynamic = ColorScheme.fromSeed(seedColor: const Color(0xFF123456)).copyWith(
+        primaryFixed: const Color(0xFF010101),
+        primaryFixedDim: const Color(0xFF020202),
+        onPrimaryFixed: const Color(0xFF030303),
+        onPrimaryFixedVariant: const Color(0xFF040404),
+        secondaryFixed: const Color(0xFF050505),
+        tertiaryFixed: const Color(0xFF060606),
+        surfaceContainerLow: const Color(0xFF070707),
+        surfaceContainerHigh: const Color(0xFF080808),
+      );
+      final effective = AppTheme.build(
+        brightness: Brightness.light,
+        dynamicScheme: dynamic,
+      ).colorScheme;
+
+      expect(effective.primaryFixed, dynamic.primaryFixed);
+      expect(effective.primaryFixedDim, dynamic.primaryFixedDim);
+      expect(effective.onPrimaryFixed, dynamic.onPrimaryFixed);
+      expect(effective.onPrimaryFixedVariant, dynamic.onPrimaryFixedVariant);
+      expect(effective.secondaryFixed, dynamic.secondaryFixed);
+      expect(effective.tertiaryFixed, dynamic.tertiaryFixed);
+      expect(effective.surfaceContainerLow, dynamic.surfaceContainerLow);
+      expect(effective.surfaceContainerHigh, dynamic.surfaceContainerHigh);
+    });
   });
 
   group('Widget regression: Discover/Search honor ThemeData across LookupBoundary', () {
@@ -160,21 +186,17 @@ void main() {
           final text = tester.widget<Text>(find.text('Discover'));
           expect(text.style?.color, themeData.colorScheme.onSurface);
 
-          // SearchBar must exist and be inside a Material (LookupBoundary fix)
-          expect(find.byType(SearchBar), findsOneWidget);
+          expect(find.byType(M3ESearchBar), findsOneWidget);
           // Since we now rely on theme, backgroundColor may be null (uses theme). Resolve via theme.
           final barThemeBg = themeData.searchBarTheme.backgroundColor!.resolve({});
           expect(barThemeBg, themeData.colorScheme.surfaceContainerHigh);
 
-          // FilterChip trigger must exist inside Material
-          expect(find.byType(FilterChip), findsWidgets);
-          // Ensure FilterChip is descendant of Material (LookupBoundary fix)
-          final chipContext = tester.element(find.byType(FilterChip).first);
+          final chipContext = tester.element(find.byType(M3EChip).first);
           expect(
             chipContext.findAncestorWidgetOfExactType<Material>() != null ||
                 chipContext.findAncestorWidgetOfExactType<Scaffold>() != null,
             isTrue,
-            reason: 'FilterChip must have Material ancestor within LookupBoundary',
+            reason: 'M3EChip must have a Material ancestor',
           );
         });
       });
@@ -194,11 +216,11 @@ void main() {
           // Allow debounce / signals + hero focus timer (320ms)
           await tester.pump(const Duration(milliseconds: 500));
           expect(find.byWidgetPredicate((w) => w is ErrorWidget), findsNothing);
-          expect(find.byType(SearchBar), findsOneWidget);
+          expect(find.byType(M3ESearchBar), findsOneWidget);
           // Genre chips are now expressive M3E clampShell containers (60×60 clover + clampShell)
           // instead of stock FilterChip — verify they render and have material ancestor.
           await tester.pump(const Duration(milliseconds: 100));
-          expect(find.byType(M3EContainer), findsWidgets);
+          expect(find.byType(M3EShapeContainer), findsWidgets);
           // Spot-check a couple of genre labels still present for accessibility.
           expect(find.text('Anime'), findsOneWidget);
           expect(find.text('Nature'), findsOneWidget);
@@ -231,8 +253,36 @@ void main() {
 
         expect(find.byWidgetPredicate((w) => w is ErrorWidget), findsNothing);
         expect(find.text('Sort & filter'), findsOneWidget);
-        expect(find.byType(FilterChip), findsWidgets);
+        expect(find.byType(M3EChip), findsWidgets);
       });
     }
+  });
+
+  testWidgets('M3E fallback resolves the nearest local Material theme', (tester) async {
+    final root = AppTheme.build(brightness: Brightness.light);
+    final localScheme = ColorScheme.fromSeed(seedColor: const Color(0xFFAA3300)).copyWith(
+      primaryFixed: const Color(0xFF123123),
+    );
+    final local = root.copyWith(colorScheme: localScheme);
+    late M3EThemeData expressive;
+    late ColorScheme material;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: root,
+        home: Theme(
+          data: local,
+          child: Builder(builder: (context) {
+            expressive = M3ETheme.of(context);
+            material = Theme.of(context).colorScheme;
+            return const M3EButton(onPressed: null, child: Text('Probe'));
+          }),
+        ),
+      ),
+    );
+
+    expect(expressive.colorScheme.primary, localScheme.primary);
+    expect(material.primary, localScheme.primary);
+    expect(material.primaryFixed, const Color(0xFF123123));
   });
 }

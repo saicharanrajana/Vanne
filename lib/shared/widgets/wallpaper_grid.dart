@@ -1,6 +1,7 @@
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals.dart';
 import 'package:signals/signals_flutter.dart';
@@ -236,7 +237,7 @@ final class _GridFooter extends StatelessWidget {
     }
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 18),
-      child: Center(child: M3ECircularWavyProgressIndicator(size: 28)),
+      child: Center(child: M3EProgressIndicator.circularWavy(size: 28)),
     );
   }
 }
@@ -290,7 +291,7 @@ final class FeedErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            M3EContainer.c9SidedCookie(
+            M3EShapeContainer.cookie9Sided(
               width: 72,
               height: 72,
               color: theme.colorScheme.errorContainer,
@@ -347,7 +348,7 @@ final class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            M3EContainer.l4LeafClover(
+            M3EShapeContainer.clover4Leaf(
               width: 72,
               height: 72,
               color: theme.colorScheme.surfaceContainerHigh,

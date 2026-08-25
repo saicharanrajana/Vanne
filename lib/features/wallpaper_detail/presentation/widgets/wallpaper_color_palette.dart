@@ -1,6 +1,7 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
@@ -41,9 +42,7 @@ final class WallpaperColorPalette extends StatelessWidget {
           child: Wrap(
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.md,
-            children: [
-              for (final hex in swatches) _Swatch(hex: hex),
-            ],
+            children: [for (final hex in swatches) _Swatch(hex: hex)],
           ),
         );
       },
@@ -71,9 +70,8 @@ final class _CountBadge extends StatelessWidget {
       ),
       child: Text(
         '$count',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: scheme.onSurfaceVariant,
-        ),
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: scheme.onSurfaceVariant),
       ),
     );
   }
@@ -87,20 +85,28 @@ final class _Swatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PressableScale(
-      child: Tooltip(
-        message: 'Copy $hex',
-        child: Material(
-          color: parseHexColor(hex) ?? Colors.grey,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
-          ),
-          child: InkWell(
-            onTap: () => _copy(context, hex),
-            customBorder: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
+    return Semantics(
+      button: true,
+      label: 'Copy $hex',
+      child: PressableScale(
+        child: M3ETooltip(
+          message: 'Copy $hex',
+          child: Material(
+            color: parseHexColor(hex) ?? Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                AppShapes.extraLargeIncreased,
+              ),
             ),
-            child: const SizedBox(width: 64, height: 64),
+            child: InkWell(
+              onTap: () => _copy(context, hex),
+              customBorder: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  AppShapes.extraLargeIncreased,
+                ),
+              ),
+              child: const SizedBox(width: 64, height: 64),
+            ),
           ),
         ),
       ),

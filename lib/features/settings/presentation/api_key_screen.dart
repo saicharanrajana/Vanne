@@ -1,4 +1,5 @@
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -60,8 +61,8 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
+      appBar: M3EAppBar.top(
+        leading: M3EIconButton(
           onPressed: widget.onBack,
           tooltip: 'Back',
           icon: const Icon(BootstrapIcons.arrow_left),
@@ -140,16 +141,14 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                       ),
                     )
                   else
-                    TextField(
+                    M3ETextField(
                       controller: _keyField,
-                      decoration: InputDecoration(
-                        labelText: 'Paste your API key',
-                        border: const OutlineInputBorder(),
-                        prefixIcon: Icon(
+                      label: 'Paste your API key',
+                      variant: M3ETextFieldVariant.outlined,
+                      leading: Icon(
                         BootstrapIcons.key_fill,
                         size: 20,
                         color: theme.colorScheme.onSurfaceVariant,
-                      ),
                       ),
                       obscureText: _obscured,
                       onChanged: (_) => setState(() {}),
@@ -158,10 +157,13 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                     const SizedBox(height: 4),
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
-                      child: TextButton.icon(
+                      child: M3EButton.icon(
+                        style: M3EButtonStyle.text,
                         onPressed: () => setState(() => _obscured = !_obscured),
                         icon: Icon(
-                          _obscured ? BootstrapIcons.eye_fill : BootstrapIcons.eye_slash_fill,
+                          _obscured
+                              ? BootstrapIcons.eye_fill
+                              : BootstrapIcons.eye_slash_fill,
                           size: 20,
                         ),
                         label: Text(_obscured ? 'Show key' : 'Hide key'),
@@ -170,22 +172,27 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                   ],
                   const SizedBox(height: 16),
                   if (hasKey && !_replacing) ...[
-                    M3EButton(style: M3EButtonStyle.filled,
+                    M3EButton(
+                      style: M3EButtonStyle.filled,
                       size: M3EButtonSize.lg,
                       onPressed: () => setState(() => _replacing = true),
                       child: const Text('Replace key'),
                     ),
                     const SizedBox(height: 10),
-                    M3EButton(style: M3EButtonStyle.outlined, 
+                    M3EButton(
+                      style: M3EButtonStyle.outlined,
                       size: M3EButtonSize.lg,
                       onPressed: _remove,
                       child: const Text('Remove key'),
                     ),
                   ] else
-                    M3EButton(style: M3EButtonStyle.filled,
+                    M3EButton(
+                      style: M3EButtonStyle.filled,
                       size: M3EButtonSize.lg,
                       onPressed: _keyField.text.trim().isEmpty ? null : _save,
-                      child: Text(_replacing && hasKey ? 'Save new key' : 'Save key'),
+                      child: Text(
+                        _replacing && hasKey ? 'Save new key' : 'Save key',
+                      ),
                     ),
                 ],
               );

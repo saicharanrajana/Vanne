@@ -14,7 +14,7 @@ import '../../app/theme/app_motion.dart';
 /// on release/cancel.
 ///
 /// Uses a [Listener] (not [GestureDetector]) so it never competes with
-/// the child's own tap handling — safe to wrap [IconButton], tiles, chips.
+/// the child's own tap handling; safe to wrap tiles and custom controls.
 ///
 /// Honors reduced-motion: when the platform requests fewer animations the
 /// scale snaps instead of springing (`motion.active` off).

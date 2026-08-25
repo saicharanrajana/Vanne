@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
@@ -39,9 +40,7 @@ final class _CollectionExploreScreenState
   @override
   void initState() {
     super.initState();
-    final entry = locator<CollectionsController>()
-        .entries
-        .value
+    final entry = locator<CollectionsController>().entries.value
         .where((e) => e.id == widget.collectionId)
         .firstOrNull;
     if (entry != null) {
@@ -62,7 +61,10 @@ final class _CollectionExploreScreenState
     final entry = _entry;
     if (controller == null || entry == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Not found')),
+        appBar: const M3EAppBar.top(
+          titleText: 'Not found',
+          automaticallyImplyLeading: true,
+        ),
         body: const EmptyState(
           iconData: BootstrapIcons.search,
           title: 'Collection not found',
@@ -73,7 +75,10 @@ final class _CollectionExploreScreenState
     final favorites = locator<FavoritesController>();
 
     return Scaffold(
-      appBar: AppBar(title: Text(entry.displayName)),
+      appBar: M3EAppBar.top(
+        titleText: entry.displayName,
+        automaticallyImplyLeading: true,
+      ),
       body: SignalBuilder(
         builder: (context) {
           final state = controller.state.value;

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -17,7 +17,7 @@ const _searchHeroTag = 'search-bar-hero';
 
 /// Dedicated search destination: search field + expressive filter rows live
 /// inside a collapsing [SliverAppBar] (like Discover) so they scroll away,
-/// leaving the staggered grid full-screen. The `SearchBar` itself lives in
+/// leaving the staggered grid full-screen. The search bar itself lives in
 /// the app-bar with a back-prefix, not a separate Scaffold AppBar.
 final class SearchScreen extends StatefulWidget {
   final String? initialQuery;
@@ -120,16 +120,15 @@ final class _SearchScreenState extends State<SearchScreen> {
                       },
                   placeholderBuilder: (context, size, child) =>
                       SizedBox.fromSize(size: size, child: child),
-                  child: SearchBar(
+                  child: M3ESearchBar(
                     controller: _textEditing,
                     focusNode: _focusNode,
                     hintText: 'Search wallpapers',
                     padding: const WidgetStatePropertyAll(
                       EdgeInsetsDirectional.symmetric(horizontal: 16),
                     ),
-                    leading: IconButton(
+                    leading: M3EIconButton(
                       icon: const Icon(BootstrapIcons.arrow_left, size: 20),
-                      color: theme.colorScheme.onSurfaceVariant,
                       tooltip: 'Back',
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
@@ -260,7 +259,7 @@ final class _SearchScreenState extends State<SearchScreen> {
 
 /// 8-leaf clover swatch — expressive Material shape for color filters.
 ///
-/// Uses [M3EContainer.l8LeafClover] so each color reads as a tangible
+/// Uses an expressive shape so each color reads as a tangible
 /// expressive chip. 72×64 gives a generous wide hit target while the lobed
 /// shape adds delight. Selection is a primary ring + soft shadow + check.
 final class _ColorChip extends StatelessWidget {
@@ -286,42 +285,37 @@ final class _ColorChip extends StatelessWidget {
       label: 'Filter by color ${color.name}',
       child: GestureDetector(
         onTap: onTap,
-        child: M3EContainer.square(
+        child: M3EShapeContainer(
+          kind: M3EShapeKind.square,
           width: 72,
           height: 64,
-          color: display,
-          border: BorderSide(
-            color: selected
-                ? scheme.primary
-                : scheme.outlineVariant.withValues(alpha: 0.8),
-            width: selected ? 3 : 1.2,
+          color: selected
+              ? scheme.primary
+              : scheme.outlineVariant.withValues(alpha: 0.8),
+          child: Padding(
+            padding: EdgeInsets.all(selected ? 3 : 1.2),
+            child: M3EShapeContainer(
+              kind: M3EShapeKind.square,
+              color: display,
+              child: selected
+                  ? Center(
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          BootstrapIcons.check_lg,
+                          size: 18,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: scheme.primary.withValues(alpha: 0.28),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-          child: selected
-              ? Center(
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      BootstrapIcons.check_lg,
-                      size: 18,
-                      color: Colors.black87,
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
         ),
       ),
     );
@@ -330,7 +324,7 @@ final class _ColorChip extends StatelessWidget {
 
 /// Clamshell (clampShell) genre chip — expressive Material shape.
 ///
-/// Replaces the stock [FilterChip] with a bigger, more tactile target:
+/// A bigger, more tactile expressive filter target:
 /// 48dp min height via padding, 28dp horizontal breathing room, and the
 /// `clampShell` expressive silhouette. Selected state uses
 /// `secondaryContainer` + primary outline.
@@ -356,32 +350,30 @@ final class _GenreChip extends StatelessWidget {
       label: 'Filter by genre ${genre.label}',
       child: GestureDetector(
         onTap: onTap,
-        child: M3EContainer.clampShell(
-          color: selected
-              ? scheme.secondaryContainer
-              : scheme.surfaceContainerHighest,
-          border: BorderSide(
-            color: selected ? scheme.primary : scheme.outlineVariant,
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: scheme.primary.withValues(alpha: 0.18),
-                    blurRadius: 8,
-                    spreadRadius: 0.5,
-                  ),
-                ]
-              : null,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-          child: Text(
-            genre.label,
-            style: textTheme.labelLarge?.copyWith(
+        child: M3EShapeContainer.clamShell(
+          color: selected ? scheme.primary : scheme.outlineVariant,
+          child: Padding(
+            padding: EdgeInsets.all(selected ? 2 : 1),
+            child: M3EShapeContainer.clamShell(
               color: selected
-                  ? scheme.onSecondaryContainer
-                  : scheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-              letterSpacing: 0.1,
+                  ? scheme.secondaryContainer
+                  : scheme.surfaceContainerHighest,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
+                child: Text(
+                  genre.label,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: selected
+                        ? scheme.onSecondaryContainer
+                        : scheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
             ),
           ),
         ),

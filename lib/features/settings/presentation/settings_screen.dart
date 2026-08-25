@@ -1,10 +1,10 @@
 import '../../../core/services/image_cache_service.dart';
 
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
-import '../../../app/theme/app_shapes.dart';
 import '../../../app/dependencies.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
@@ -112,20 +112,15 @@ final class SettingsScreen extends StatelessWidget {
                 _Section(
                   title: 'Wallhaven account',
                   children: [
-                    _ActionTile(
-                      icon: BootstrapIcons.key_fill,
-                      title: 'API key',
-                      subtitle: SignalBuilder(
-                        builder: (context) => Text(
-                          settings.hasApiKey.value
-                              ? 'Connected — NSFW unlock available.'
-                              : 'Add your Wallhaven API key.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                    SignalBuilder(
+                      builder: (context) => _ActionTile(
+                        icon: BootstrapIcons.key_fill,
+                        title: 'API key',
+                        subtitle: settings.hasApiKey.value
+                            ? 'Connected — NSFW unlock available.'
+                            : 'Add your Wallhaven API key.',
+                        onTap: onOpenApiKey,
                       ),
-                      onTap: onOpenApiKey,
                     ),
                     _InfoTile(
                       icon: BootstrapIcons.download,
@@ -212,66 +207,19 @@ final class _SwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLarge),
+    return M3EListItem(
+      headline: title,
+      supportingText: subtitle,
+      variant: M3ECardVariant.filled,
+      leading: Icon(icon),
+      trailing: M3ESwitch(
+        value: value,
+        semanticLabel: title,
+        onChanged: onChanged,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap:
-            onTapOverride ??
-            (onChanged != null ? () => onChanged!(!value) : null),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(icon, size: 23, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: textTheme.titleSmall?.copyWith(height: 1.2),
-                      ),
-                      if (subtitle != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            subtitle!,
-                            style: textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Semantics(
-                  label: title,
-                  child: Switch(
-                    value: value,
-                    onChanged: onChanged == null
-                        ? null
-                        : (v) => onChanged!.call(v),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      onTap:
+          onTapOverride ??
+          (onChanged != null ? () => onChanged!(!value) : null),
     );
   }
 }
@@ -290,14 +238,8 @@ final class _ThemeModeSelector extends StatelessWidget {
     return SignalBuilder(
       builder: (context) {
         final mode = settings.themeMode.value;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: ShapeDecoration(
-            color: scheme.surfaceContainerLowest,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppShapes.extraLarge),
-            ),
-          ),
+        return M3ECard(
+          variant: M3ECardVariant.filled,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -319,16 +261,16 @@ final class _ThemeModeSelector extends StatelessWidget {
               // width), which crashes layout.
               SizedBox(
                 width: double.infinity,
-                child: SegmentedButton<AppThemeMode>(
+                child: M3ESegmentedButton<AppThemeMode>(
                   segments: [
                     for (final m in AppThemeMode.values)
-                      ButtonSegment<AppThemeMode>(
+                      M3ESegment<AppThemeMode>(
                         value: m,
-                        label: Text(switch (m) {
+                        label: switch (m) {
                           AppThemeMode.system => 'Auto',
                           AppThemeMode.light => 'Light',
                           AppThemeMode.dark => 'Dark',
-                        }),
+                        },
                       ),
                   ],
                   selected: {mode},
@@ -350,7 +292,7 @@ final class _ThemeModeSelector extends StatelessWidget {
 final class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final Widget subtitle;
+  final String subtitle;
   final VoidCallback onTap;
 
   const _ActionTile({
@@ -362,49 +304,13 @@ final class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLarge),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(icon, size: 23, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: textTheme.titleSmall?.copyWith(height: 1.2),
-                      ),
-                      subtitle,
-                    ],
-                  ),
-                ),
-                Icon(
-                  BootstrapIcons.chevron_right,
-                  size: 18,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return M3EListItem(
+      headline: title,
+      supportingText: subtitle,
+      variant: M3ECardVariant.filled,
+      leading: Icon(icon),
+      trailing: const Icon(BootstrapIcons.chevron_right),
+      onTap: onTap,
     );
   }
 }
@@ -422,41 +328,11 @@ final class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      constraints: const BoxConstraints(minHeight: 64),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: ShapeDecoration(
-        color: scheme.surfaceContainerLowest,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppShapes.extraLarge),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 23, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: textTheme.titleSmall?.copyWith(height: 1.2)),
-                Text(
-                  subtitle,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return M3EListItem(
+      headline: title,
+      supportingText: subtitle,
+      variant: M3ECardVariant.filled,
+      leading: Icon(icon),
     );
   }
 }
@@ -534,69 +410,19 @@ final class _CacheTileState extends State<_CacheTile> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLarge),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _busy ? null : _clear,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  BootstrapIcons.eraser_fill,
-                  size: 20,
-                  color: scheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Clear image cache',
-                        style: textTheme.titleSmall?.copyWith(height: 1.2),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _format(_bytes),
-                        style: textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (_busy)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: scheme.primary,
-                    ),
-                  )
-                else
-                  Icon(
-                    BootstrapIcons.trash_fill,
-                    size: 20,
-                    color: scheme.onSurfaceVariant,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return M3EListItem(
+      headline: 'Clear image cache',
+      supportingText: _format(_bytes),
+      variant: M3ECardVariant.filled,
+      leading: const Icon(BootstrapIcons.eraser_fill),
+      trailing: _busy
+          ? M3EProgressIndicator.circular(
+              size: 20,
+              strokeWidth: 2,
+              color: scheme.primary,
+            )
+          : const Icon(BootstrapIcons.trash_fill),
+      onTap: _busy ? null : _clear,
     );
   }
 }

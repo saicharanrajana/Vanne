@@ -1,4 +1,5 @@
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -75,19 +76,11 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                 runSpacing: 8,
                 children: [
                   for (final sorting in FeedSorting.values)
-                    FilterChip(
-                      label: Text(sorting.label),
+                    M3EChip(
+                      label: sorting.label,
+                      type: M3EChipType.filter,
                       selected: _draft.sorting == sorting,
-                      backgroundColor: scheme.surfaceContainerHigh,
-                      selectedColor: scheme.secondaryContainer,
-                      checkmarkColor: scheme.onSecondaryContainer,
-                      labelStyle: TextStyle(
-                        color: _draft.sorting == sorting
-                            ? scheme.onSecondaryContainer
-                            : scheme.onSurfaceVariant,
-                      ),
-                      side: BorderSide(color: scheme.outlineVariant),
-                      onSelected: (_) => setState(() {
+                      onPressed: () => setState(() {
                         _draft = _withSorting(_draft, sorting);
                       }),
                     ),
@@ -101,20 +94,12 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                 runSpacing: 8,
                 children: [
                   for (final range in FeedTopRange.values)
-                    FilterChip(
-                      label: Text(range.label),
+                    M3EChip(
+                      label: range.label,
+                      type: M3EChipType.filter,
                       selected: _draft.topRange == range,
-                      backgroundColor: scheme.surfaceContainerHigh,
-                      selectedColor: scheme.secondaryContainer,
-                      checkmarkColor: scheme.onSecondaryContainer,
-                      labelStyle: TextStyle(
-                        color: _draft.topRange == range
-                            ? scheme.onSecondaryContainer
-                            : scheme.onSurfaceVariant,
-                      ),
-                      side: BorderSide(color: scheme.outlineVariant),
-                      onSelected: _draft.sorting == FeedSorting.popular
-                          ? (_) => setState(() {
+                      onPressed: _draft.sorting == FeedSorting.popular
+                          ? () => setState(() {
                               _draft = _draft.copyWith(topRange: range);
                             })
                           : null,
@@ -129,19 +114,11 @@ final class _DiscoverFilterSheetState extends State<_DiscoverFilterSheet> {
                 runSpacing: 8,
                 children: [
                   for (final resolution in const ['1920x1080', '2560x1440'])
-                    FilterChip(
-                      label: Text('$resolution+'),
+                    M3EChip(
+                      label: '$resolution+',
+                      type: M3EChipType.filter,
                       selected: _draft.minResolution == resolution,
-                      backgroundColor: scheme.surfaceContainerHigh,
-                      selectedColor: scheme.secondaryContainer,
-                      checkmarkColor: scheme.onSecondaryContainer,
-                      labelStyle: TextStyle(
-                        color: _draft.minResolution == resolution
-                            ? scheme.onSecondaryContainer
-                            : scheme.onSurfaceVariant,
-                      ),
-                      side: BorderSide(color: scheme.outlineVariant),
-                      onSelected: (_) => setState(() {
+                      onPressed: () => setState(() {
                         _draft = _draft.minResolution == resolution
                             ? _draft.copyWith(clearMinResolution: true)
                             : _draft.copyWith(minResolution: resolution);

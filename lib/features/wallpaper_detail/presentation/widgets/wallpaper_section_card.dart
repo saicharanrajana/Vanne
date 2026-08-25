@@ -1,8 +1,6 @@
-// Prefer material_ui over package:flutter widgets/material imports: the app
-// runs on the material_ui widget tree.
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
 
 /// Full-width rounded section container for the detail sheet (Colors,
@@ -24,13 +22,10 @@ final class WallpaperSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
+    return M3ECard(
+      variant: M3ECardVariant.filled,
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -42,9 +37,8 @@ final class WallpaperSectionCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title!,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: scheme.onSurface,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(color: scheme.onSurface),
                     ),
                   ),
                 ?trailing,

@@ -1,4 +1,3 @@
-import 'package:m3e_core/m3e_core.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -64,7 +63,7 @@ ColorScheme wallpaperScheme(
   // secondary (app's blue) and only overrides surfaces — which is why
   // variety wallpapers still looked blue. Passing null makes primary,
   // primaryContainer, secondary etc come from the wallpaper seed.
-  final scheme = M3EColorScheme.generate(
+  final scheme = ColorScheme.fromSeed(
     seedColor: chosen.toColor(),
     brightness: brightness,
   );

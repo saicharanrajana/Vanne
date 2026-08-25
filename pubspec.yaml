@@ -37,10 +37,10 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  m3e_core: ^1.1.0
-  material_ui: ^1.0.1
-  # Motion tokens & spring-driven builders (already a transitive dep of
-  # m3e_core); promoted to direct so app/theme/app_motion.dart can rely on it.
+  material_3_expressive: ^1.1.0
+  material_ui: ^1.1.0
+  # Motion tokens are also transitive through material_3_expressive; keep a
+  # direct dependency because app/theme/app_motion.dart imports them.
   motor: ^1.1.0
   zenrouter: ^2.3.0
   hive_ce_flutter: ^2.3.4

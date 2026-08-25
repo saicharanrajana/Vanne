@@ -1,4 +1,4 @@
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -338,7 +338,7 @@ final class _PopupTile extends StatelessWidget {
                     ? SizedBox(
                         width: 24,
                         height: 24,
-                        child: M3ECircularWavyProgressIndicator(
+                        child: M3EProgressIndicator.circularWavy(
                           size: 24,
                           color: contentColor,
                         ),

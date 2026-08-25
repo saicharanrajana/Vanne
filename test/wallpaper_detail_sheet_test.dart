@@ -102,7 +102,7 @@ void main() {
         _host(WallpaperColorPalette(controller: controller)),
       );
 
-      await tester.tap(find.byTooltip('Copy #3B2A72'));
+      await tester.tap(find.bySemanticsLabel('Copy #3B2A72'));
       await tester.pump();
 
       expect(clipboardSetCalled, isTrue);
@@ -124,9 +124,9 @@ void main() {
         _host(WallpaperColorPalette(controller: controller)),
       );
 
-      expect(find.byTooltip('Copy #555555'), findsNothing);
+      expect(find.bySemanticsLabel('Copy #555555'), findsNothing);
       for (final hex in ['#111111', '#222222', '#333333', '#444444']) {
-        expect(find.byTooltip('Copy $hex'), findsOneWidget);
+        expect(find.bySemanticsLabel('Copy $hex'), findsOneWidget);
       }
       expect(find.text('5'), findsOneWidget);
     });

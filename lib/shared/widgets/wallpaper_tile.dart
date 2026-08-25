@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 
@@ -195,11 +196,10 @@ final class _FavoriteButton extends StatelessWidget {
             },
           );
 
-    return IconButton(
+    return M3EIconButton(
       onPressed: onPressed,
       tooltip: 'Save to favorites',
       icon: button,
-      visualDensity: VisualDensity.compact,
     );
   }
 }

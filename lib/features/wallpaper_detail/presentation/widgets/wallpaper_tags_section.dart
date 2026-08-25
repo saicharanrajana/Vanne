@@ -1,5 +1,6 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:signals/signals_flutter.dart';
@@ -8,7 +9,6 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../../app/theme/app_motion.dart';
 import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../shared/widgets/pressable_scale.dart';
 import '../../application/wallpaper_detail_controller.dart';
 import 'wallpaper_section_card.dart';
 
@@ -91,10 +91,9 @@ final class _Chevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    return M3EIconButton(
       onPressed: onTap,
       tooltip: expanded ? 'Show fewer tags' : 'Show all tags',
-      visualDensity: VisualDensity.compact,
       icon: AnimatedRotation(
         turns: expanded ? 0.5 : 0,
         duration: AppMotion.transition,
@@ -144,27 +143,11 @@ final class _OverflowChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return PressableScale(
-      child: Material(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(AppShapes.full),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppShapes.full),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.sm,
-            ),
-            child: Text(
-              '+$count',
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(color: scheme.onPrimaryContainer),
-            ),
-          ),
-        ),
-      ),
+    return M3EChip(
+      label: '+$count',
+      type: M3EChipType.assist,
+      elevated: true,
+      onPressed: onTap,
     );
   }
 }

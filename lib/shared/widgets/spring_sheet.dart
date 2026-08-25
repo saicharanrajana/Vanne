@@ -50,7 +50,7 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
 
   /// Theme captured from the caller's context at `showSpringBottomSheet` time.
   /// Re-applied in [buildPage] so the sheet's `SheetContainer` and its
-  /// `FilterChip`s read the app's `ColorScheme` (teal seed / dynamic /
+  /// Controls read the app's `ColorScheme` (teal seed / dynamic /
   /// pitch-black) instead of the baseline Flutter fallback.
   final ThemeData capturedTheme;
 

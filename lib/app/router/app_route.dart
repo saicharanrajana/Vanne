@@ -1,3 +1,5 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:material_3_expressive/components/navigation_bar/models/m3e_navigation_bar_destination.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -113,27 +115,27 @@ class MainShell extends AppRoute with RouteLayout<AppRoute> {
       bottomNavigationBar: ListenableBuilder(
         listenable: path,
         builder: (context, _) {
-          return NavigationBar(
+          return M3ENavigationBar(
             selectedIndex: path.activeIndex,
             backgroundColor: Theme.of(context).colorScheme.surface,
             onDestinationSelected: (index) => path.goToIndexed(index),
             destinations: const [
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: Icon(BootstrapIcons.compass),
                 selectedIcon: Icon(BootstrapIcons.compass_fill),
                 label: 'Discover',
               ),
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: Icon(BootstrapIcons.collection),
                 selectedIcon: Icon(BootstrapIcons.collection_fill),
                 label: 'Collections',
               ),
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: Icon(BootstrapIcons.heart),
                 selectedIcon: Icon(BootstrapIcons.heart_fill),
                 label: 'Favorites',
               ),
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: Icon(BootstrapIcons.gear),
                 selectedIcon: Icon(BootstrapIcons.gear_fill),
                 label: 'Settings',

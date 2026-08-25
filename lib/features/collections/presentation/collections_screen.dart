@@ -1,4 +1,4 @@
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -34,25 +34,25 @@ final class CollectionsScreen extends StatelessWidget {
         .toList();
     final count = names.length;
     final scheme = Theme.of(context).colorScheme;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete $count collection${count == 1 ? '' : 's'}?'),
+    final ok = await M3EDialog.show<bool>(
+      context,
+      dialog: M3EDialog(
+        title: 'Delete $count collection${count == 1 ? '' : 's'}?',
         content: Text(
           '${names.join(', ')}\n\nWallpapers aren’t deleted — only these '
           'shortcuts.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+          M3EButton.text(
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: scheme.error,
-              foregroundColor: scheme.onError,
+          M3EButton.filled(
+            decoration: M3EButtonDecoration(
+              backgroundColor: WidgetStatePropertyAll(scheme.error),
+              foregroundColor: WidgetStatePropertyAll(scheme.onError),
             ),
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
         ],
@@ -113,12 +113,12 @@ final class CollectionsScreen extends StatelessWidget {
                       ),
                     ),
                     if (hasSelection) ...[
-                      IconButton(
+                      M3EIconButton(
                         tooltip: 'Clear selection',
                         icon: const Icon(BootstrapIcons.x_lg),
                         onPressed: controller.clearSelection,
                       ),
-                      IconButton(
+                      M3EIconButton(
                         tooltip: 'Delete selected',
                         icon: Icon(
                           BootstrapIcons.trash_fill,
@@ -171,7 +171,7 @@ final class CollectionsScreen extends StatelessWidget {
                     final entry = entries[i];
                     // Keyed by id: after deletions shift positions, each
                     // card must remount fresh instead of the sliver reusing
-                    // the index's element — M3EContainer morphs between
+                    // the index's element; the shape container morphs between
                     // silhouettes on config change, which painted the old
                     // shape underneath the new one ("ghost" overlap).
                     return _CollectionCard(
@@ -201,10 +201,10 @@ final class CollectionsScreen extends StatelessWidget {
           // Add lives on a FAB; the header stays clean unless deleting.
           floatingActionButton: hasSelection
               ? null
-              : FloatingActionButton.extended(
+              : M3EExtendedFab(
                   onPressed: () => showCreateCollectionDialog(context),
                   icon: const Icon(BootstrapIcons.plus_lg),
-                  label: const Text('New collection'),
+                  label: 'New collection',
                 ),
         );
       },
@@ -227,13 +227,13 @@ final class _CollectionCard extends StatelessWidget {
   });
 
   static const _shapes = [
-    Shapes.circle,
-    Shapes.square,
-    Shapes.c9SidedCookie,
-    Shapes.c12SidedCookie,
-    Shapes.gem,
-    Shapes.arch,
-    Shapes.clampShell,
+    M3EShapeKind.circle,
+    M3EShapeKind.square,
+    M3EShapeKind.cookie9Sided,
+    M3EShapeKind.cookie12Sided,
+    M3EShapeKind.gem,
+    M3EShapeKind.arch,
+    M3EShapeKind.clamShell,
   ];
 
   @override
@@ -272,59 +272,55 @@ final class _CollectionCard extends StatelessWidget {
             Positioned.fill(
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                child: M3EContainer(
-                  shape,
-                  color: bg,
-                  border: BorderSide(
-                    color: accent.withValues(alpha: 0.18),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.shadow.withValues(alpha: 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: onTap,
-                      onLongPress: onLongPress,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: fg.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              entry.name.isEmpty
-                                  ? '?'
-                                  : entry.name[0].toUpperCase(),
-                              style: textTheme.titleLarge?.copyWith(
-                                color: fg,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22,
+                child: M3EShapeContainer(
+                  kind: shape,
+                  color: accent.withValues(alpha: 0.18),
+                  child: Padding(
+                    padding: const EdgeInsets.all(1.2),
+                    child: M3EShapeContainer(
+                      kind: shape,
+                      color: bg,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: onTap,
+                          onLongPress: onLongPress,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: fg.withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  entry.name.isEmpty
+                                      ? '?'
+                                      : entry.name[0].toUpperCase(),
+                                  style: textTheme.titleLarge?.copyWith(
+                                    color: fg,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 22,
+                                  ),
+                                ),
                               ),
-                            ),
+                              Text(
+                                entry.displayName,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: textTheme.titleMedium?.copyWith(
+                                  color: fg,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            entry.displayName,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.titleMedium?.copyWith(
-                              color: fg,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

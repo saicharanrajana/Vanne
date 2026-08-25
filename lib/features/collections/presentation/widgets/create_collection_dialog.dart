@@ -1,10 +1,10 @@
 import 'package:bootstrap_icons/bootstrap_icons.dart';
-import 'package:m3e_core/m3e_core.dart';
+import 'package:flutter/services.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../app/dependencies.dart';
-import '../../../../app/theme/app_motion.dart';
-import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../application/collections_controller.dart';
 
@@ -16,10 +16,10 @@ import '../../application/collections_controller.dart';
 /// `SetWallpaperDialog` language (tonal surface, expressive shape, staggered
 /// entrance).
 Future<void> showCreateCollectionDialog(BuildContext context) {
-  return showDialog<void>(
-    context: context,
+  return M3EDialog.show<void>(
+    context,
+    dialog: const _CreateCollectionDialog(),
     barrierDismissible: true,
-    builder: (_) => const _CreateCollectionDialog(),
   );
 }
 
@@ -35,14 +35,25 @@ final class _CreateCollectionDialog extends StatefulWidget {
       _CreateCollectionDialogState();
 }
 
-final class _CreateCollectionDialogState extends State<_CreateCollectionDialog> {
+final class _CreateCollectionDialogState
+    extends State<_CreateCollectionDialog> {
   final _nameCtrl = TextEditingController();
+  final _nameFocus = FocusNode();
   String? _error;
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _nameFocus.requestFocus();
+    });
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
+    _nameFocus.dispose();
     super.dispose();
   }
 
@@ -68,171 +79,63 @@ final class _CreateCollectionDialogState extends State<_CreateCollectionDialog> 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-
-    return Dialog(
-      backgroundColor: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
+    return M3EDialog(
+      title: 'New collection',
+      icon: const Icon(BootstrapIcons.collection_fill),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'A collection is a shortcut to a search — we’ll use the title '
+            'as the search term.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          M3ETextField(
+            controller: _nameCtrl,
+            focusNode: _nameFocus,
+            label: 'Title',
+            supportingText: 'e.g. Dark Minimal',
+            errorText: _error,
+            variant: M3ETextFieldVariant.outlined,
+            leading: Icon(
+              BootstrapIcons.collection_fill,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
+            inputFormatters: [LengthLimitingTextInputFormatter(30)],
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _save(),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
+        ],
       ),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _EntranceTile(
-              delay: 0,
-              reduceMotion: reduceMotion,
-              child: Column(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: scheme.secondaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      BootstrapIcons.collection_fill,
-                      size: 22,
-                      color: scheme.onSecondaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'New collection',
-                    style: textTheme.titleLarge?.copyWith(
-                      color: scheme.onSurface,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'A collection is a shortcut to a search — we’ll use the '
-                    'title as the search term.',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            _EntranceTile(
-              delay: 40,
-              reduceMotion: reduceMotion,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _nameCtrl,
-                    autofocus: true,
-                    maxLength: 30,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _save(),
-                    onChanged: (_) {
-                      if (_error != null) setState(() => _error = null);
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Title',
-                      hintText: 'e.g. Dark Minimal',
-                      prefixIcon: Icon(
-                        BootstrapIcons.collection_fill,
-                        size: 18,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppShapes.large),
-                      ),
-                    ),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      _error!,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: scheme.error,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            _EntranceTile(
-              delay: 80,
-              reduceMotion: reduceMotion,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: M3EButton(
-                      style: M3EButtonStyle.outlined,
-                      size: M3EButtonSize.md,
-                      onPressed: _saving ? null : () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: M3EButton.icon(
-                      style: M3EButtonStyle.filled,
-                      size: M3EButtonSize.md,
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: M3ECircularWavyProgressIndicator(
-                                size: 16,
-                                color: scheme.onPrimary,
-                              ),
-                            )
-                          : const Icon(BootstrapIcons.plus_lg, size: 15),
-                      label: Text(_saving ? 'Creating…' : 'Create'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+      actions: [
+        M3EButton.outlined(
+          size: M3EButtonSize.md,
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
         ),
-      ),
-    );
-  }
-}
-
-final class _EntranceTile extends StatelessWidget {
-  final int delay;
-  final bool reduceMotion;
-  final Widget child;
-
-  const _EntranceTile({
-    required this.delay,
-    required this.reduceMotion,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (reduceMotion) return child;
-
-    final totalMs = AppMotion.transition.inMilliseconds + delay;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: totalMs),
-      curve: Interval(delay / totalMs, 1, curve: AppMotion.arrivalCurve),
-      builder: (context, value, child) => Opacity(
-        opacity: value.clamp(0, 1),
-        child: Transform.translate(
-          offset: Offset(0, 16 * (1 - value)),
-          child: child,
+        M3EButton.icon(
+          style: M3EButtonStyle.filled,
+          size: M3EButtonSize.md,
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: M3EProgressIndicator.circularWavy(
+                    size: 16,
+                    color: scheme.onPrimary,
+                  ),
+                )
+              : const Icon(BootstrapIcons.plus_lg, size: 15),
+          label: Text(_saving ? 'Creating…' : 'Create'),
         ),
-      ),
-      child: child,
+      ],
     );
   }
 }

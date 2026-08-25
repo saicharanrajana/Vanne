@@ -1,17 +1,16 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
-import 'package:m3e_core/m3e_core.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../../app/dependencies.dart';
-import '../../../../app/theme/app_shapes.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/downloads/download_service.dart';
 import '../../../../core/services/url_launcher_service.dart';
 import '../../../../shared/widgets/app_snack.dart';
-import '../../../../shared/widgets/pressable_scale.dart';
 import '../../application/wallpaper_detail_controller.dart';
 import 'set_wallpaper_sheet.dart';
 
@@ -43,7 +42,7 @@ final class WallpaperActionBar extends StatelessWidget {
                   ? const SizedBox(
                       width: 24,
                       height: 24,
-                      child: M3ECircularWavyProgressIndicator(size: 24),
+                      child: M3EProgressIndicator.circularWavy(size: 24),
                     )
                   : const Icon(BootstrapIcons.cloud_arrow_down_fill, size: 22),
             ),
@@ -152,31 +151,13 @@ final class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppShapes.extraLargeIncreased),
-    );
-
-    return PressableScale(
-      child: Tooltip(
-        message: tooltip,
-        child: Material(
-          color: scheme.secondaryContainer,
-          shape: shape,
-          child: InkWell(
-            onTap: onPressed,
-            customBorder: shape,
-            child: SizedBox(
-              width: 64,
-              height: 64,
-              child: IconTheme.merge(
-                data: IconThemeData(color: scheme.onSecondaryContainer),
-                child: Center(child: child),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return M3EIconButton(
+      icon: child,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      variant: M3EIconButtonVariant.tonal,
+      size: M3EIconButtonSize.md,
+      visualSize: const Size.square(64),
     );
   }
 }
@@ -198,51 +179,32 @@ final class _PrimaryActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppShapes.full),
-    );
-
-    return PressableScale(
-      child: Material(
-        color: scheme.primary,
-        shape: shape,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: shape,
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (busy)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: M3ECircularWavyProgressIndicator(
-                      size: 20,
-                      color: scheme.onPrimary,
-                    ),
-                  )
-                else
-                  Icon(
-                    BootstrapIcons.image_fill,
-                    color: scheme.onPrimary,
-                    size: 22,
-                  ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  label,
-                  // Slightly larger/heavier than labelLarge so the short
-                  // "Set" label still carries primary-action presence.
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: scheme.onPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+    return M3EButton.filled(
+      onPressed: onPressed,
+      size: M3EButtonSize.custom(height: 64),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (busy)
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: M3EProgressIndicator.circularWavy(
+                size: 20,
+                color: scheme.onPrimary,
+              ),
+            )
+          else
+            Icon(BootstrapIcons.image_fill, color: scheme.onPrimary, size: 22),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            label,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: scheme.onPrimary,
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ),
+        ],
       ),
     );
   }

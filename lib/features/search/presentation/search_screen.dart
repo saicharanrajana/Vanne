@@ -10,6 +10,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../app/dependencies.dart';
 import '../../../app/theme/app_motion.dart';
 import '../../../core/domain/feed_filter.dart';
+import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/horizontal_edge_fade.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -252,6 +253,166 @@ final class _SearchScreenState extends State<SearchScreen> {
               onOpen: widget.onOpenWallpaper,
             );
 
+            // Search header with sort/filter chip embedded so floating/snap
+            // brings bar + chip back together. Expanded height grows to fit
+            // the extra chip row (288 -> 340).
+            final headerSliverWithFilter = SliverAppBar(
+              floating: true,
+              snap: true,
+              pinned: false,
+              automaticallyImplyLeading: false,
+              backgroundColor: theme.scaffoldBackgroundColor,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              toolbarHeight: 0,
+              collapsedHeight: 0,
+              expandedHeight: 340,
+              flexibleSpace: FlexibleSpaceBar(
+                background: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: Hero(
+                          tag: _searchHeroTag,
+                          flightShuttleBuilder:
+                              (
+                                flightContext,
+                                animation,
+                                direction,
+                                fromHeroContext,
+                                toHeroContext,
+                              ) {
+                                final hero =
+                                    direction == HeroFlightDirection.push
+                                        ? toHeroContext.widget as Hero
+                                        : fromHeroContext.widget as Hero;
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: hero.child,
+                                );
+                              },
+                          placeholderBuilder: (context, size, child) =>
+                              SizedBox.fromSize(size: size, child: child),
+                          child: M3ESearchBar(
+                            controller: _textEditing,
+                            focusNode: _focusNode,
+                            hintText: 'Search wallpapers',
+                            padding: const WidgetStatePropertyAll(
+                              EdgeInsetsDirectional.symmetric(horizontal: 16),
+                            ),
+                            leading: M3EIconButton(
+                              icon: const Icon(
+                                PhosphorIconsBold.arrowLeft,
+                                size: 20,
+                              ),
+                              tooltip: 'Back',
+                              onPressed: () =>
+                                  Navigator.of(context).maybePop(),
+                            ),
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => controller.submit(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const _FilterHeading('By color'),
+                      const SizedBox(height: 8),
+                      HorizontalEdgeFade(
+                        child: SizedBox(
+                          height: 64,
+                          child: SignalBuilder(
+                            builder: (context) {
+                              final selected = controller.selectedColors.value;
+                              return ListView(
+                                scrollDirection: Axis.horizontal,
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                padding:
+                                    const EdgeInsetsDirectional.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                children: [
+                                  for (final color in FeedColor.values)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsetsDirectional.only(
+                                            end: 14,
+                                          ),
+                                      child: _ColorChip(
+                                        color: color,
+                                        selected: selected.contains(color),
+                                        onTap: () {
+                                          M3EHaptics.selection();
+                                          controller.toggleColor(color);
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const _FilterHeading('By genre'),
+                      const SizedBox(height: 8),
+                      HorizontalEdgeFade(
+                        child: SizedBox(
+                          height: 40,
+                          child: SignalBuilder(
+                            builder: (context) {
+                              final selected =
+                                  controller.selectedGenres.value;
+                              return _GenreStrip(
+                                selected: selected,
+                                onToggle: controller.toggleGenre,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: SignalBuilder(
+                            builder: (context) {
+                              final filter = controller.filter.value;
+                              return M3EChip(
+                                label: filter.summary,
+                                type: M3EChipType.filter,
+                                selected: true,
+                                leading: Icon(
+                                  PhosphorIconsFill.slidersHorizontal,
+                                  size: 16,
+                                  color:
+                                      theme.colorScheme.onSecondaryContainer,
+                                ),
+                                onPressed: () {
+                                  M3EHaptics.trigger(M3EHapticFeedback.light);
+                                  showFeedFilterSheet(
+                                    context,
+                                    initial: controller.filter.value,
+                                    onApply: (f) => controller.applyFilter(f),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            );
+
             return NotificationListener<ScrollNotification>(
               onNotification: (notification) {
                 grid.maybeTriggerLoadMore(notification);
@@ -260,7 +421,10 @@ final class _SearchScreenState extends State<SearchScreen> {
               child: CustomScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                slivers: [headerSliver, ...grid.buildSlivers(context)],
+                slivers: [
+                  headerSliverWithFilter,
+                  ...grid.buildSlivers(context),
+                ],
               ),
             );
           },

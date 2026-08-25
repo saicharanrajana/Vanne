@@ -39,6 +39,21 @@ final class SearchController extends FeedController {
         selectedGenres.value.isNotEmpty,
   );
 
+  /// Sort/filter for search results (session-only).
+  // TODO(settings-persist-filter): Make filter persistence configurable via
+  // Settings. Currently session-only (signal local, not persisted). If a
+  // global toggle is added it should apply to all locations (Discover,
+  // Search, Collections/Filtered).
+  final filter = signal(const FeedFilter());
+
+  Future<void> applyFilter(FeedFilter newFilter) async {
+    if (newFilter == filter.value) return;
+    filter.set(newFilter);
+    // TODO(settings-persist-filter): branch on settings toggle to persist
+    // globally if enabled.
+    await reload();
+  }
+
   @override
   SearchRequestSpec buildSpec() {
     // Genre chips append fuzzy terms to the typed query, mirroring how
@@ -58,9 +73,7 @@ final class SearchController extends FeedController {
         for (final color in selectedColors.value)
           WallhavenColor.values.firstWhere((wire) => wire.hex == color.hex),
       },
-      // Newest fits chip-driven browsing; a committed query naturally
-      // ranks server-side.
-      filter: const FeedFilter(),
+      filter: filter.value,
     );
   }
 
@@ -123,6 +136,7 @@ final class SearchController extends FeedController {
     selectedColors.dispose();
     selectedGenres.dispose();
     hasCommittedInput.dispose();
+    filter.dispose();
     super.dispose();
   }
 }

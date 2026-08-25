@@ -6,6 +6,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
 import '../../../core/collections/collection_entry.dart';
+import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
 import '../application/collection_explore_controller.dart';
@@ -59,30 +60,55 @@ final class _CollectionExploreScreenState
   Widget build(BuildContext context) {
     final controller = _controller;
     final entry = _entry;
+    final theme = Theme.of(context);
     if (controller == null || entry == null) {
       return Scaffold(
-        appBar: const M3EAppBar.top(
-          titleText: 'Not found',
-          automaticallyImplyLeading: true,
-        ),
-        body: const EmptyState(
-          iconData: PhosphorIconsFill.magnifyingGlass,
-          title: 'Collection not found',
-          message: 'It may have been deleted.',
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              floating: true,
+              snap: true,
+              backgroundColor: theme.scaffoldBackgroundColor,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: Padding(
+                padding: const EdgeInsetsDirectional.only(start: 8),
+                child: M3EIconButton(
+                  variant: M3EIconButtonVariant.tonal,
+                  size: M3EIconButtonSize.xs,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  tooltip: 'Back',
+                  icon: Icon(
+                    PhosphorIconsBold.arrowLeft,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              title: const Text('Not found'),
+            ),
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                iconData: PhosphorIconsFill.magnifyingGlass,
+                title: 'Collection not found',
+                message: 'It may have been deleted.',
+              ),
+            ),
+          ],
         ),
       );
     }
     final favorites = locator<FavoritesController>();
 
     return Scaffold(
-      appBar: M3EAppBar.top(
-        titleText: entry.displayName,
-        automaticallyImplyLeading: true,
-      ),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SignalBuilder(
         builder: (context) {
           final state = controller.state.value;
-          return WallpaperGrid(
+          final grid = WallpaperGrid(
             items: state.items.toList(growable: false),
             isLoadingFirst: state.loadingFirst,
             isLoadingMore: state.loadingMore,
@@ -100,6 +126,73 @@ final class _CollectionExploreScreenState
               message: 'No wallpapers matched ${entry.name}.',
             ),
             onOpen: widget.onOpenWallpaper,
+          );
+          return NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              grid.maybeTriggerLoadMore(n);
+              return false;
+            },
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  floating: true,
+                  snap: true,
+                  pinned: false,
+                  backgroundColor: theme.scaffoldBackgroundColor,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  leading: Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 8),
+                    child: M3EIconButton(
+                      variant: M3EIconButtonVariant.tonal,
+                      size: M3EIconButtonSize.xs,
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      tooltip: 'Back',
+                      icon: Icon(
+                        PhosphorIconsBold.arrowLeft,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  title: Text(entry.displayName),
+                  bottom: PreferredSize(
+                    preferredSize: const Size.fromHeight(48),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        child: SignalBuilder(
+                          builder: (context) {
+                            final filter = controller.filter.value;
+                            return M3EChip(
+                              label: filter.summary,
+                              type: M3EChipType.filter,
+                              selected: true,
+                              leading: Icon(
+                                PhosphorIconsFill.slidersHorizontal,
+                                size: 16,
+                                color: theme.colorScheme.onSecondaryContainer,
+                              ),
+                              onPressed: () {
+                                M3EHaptics.trigger(M3EHapticFeedback.light);
+                                showFeedFilterSheet(
+                                  context,
+                                  initial: controller.filter.value,
+                                  onApply: (f) => controller.applyFilter(f),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                ...grid.buildSlivers(context),
+              ],
+            ),
           );
         },
       ),

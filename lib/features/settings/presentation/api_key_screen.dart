@@ -5,8 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
-import '../../../../shared/widgets/app_snack.dart';
 import '../application/settings_controller.dart';
 
 /// Dedicated Wallhaven API key screen.
@@ -129,137 +129,156 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: M3EAppBar.top(
-        leading: M3EIconButton(
-          onPressed: widget.onBack,
-          tooltip: 'Back',
-          icon: const Icon(PhosphorIconsBold.arrowLeft),
-        ),
-        title: const Text('Wallhaven API key'),
-      ),
-      body: ListView(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: CustomScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          BottomPadding.of(context, minimum: 20),
-        ),
-        children: [
-          // Row(
-          //   crossAxisAlignment: CrossAxisAlignment.start,
-          //   children: [
-          //     Icon(
-          //       PhosphorIconsFill.info,
-          //       size: 22,
-          //       color: theme.colorScheme.primary,
-          //     ),
-          //     const SizedBox(width: 10),
-          //     Expanded(
-          //       child: Text(
-          //         'A key is optional. Normal browsing works without one. '
-          //         'Adding your own key unlocks NSFW content and personal '
-          //         'account features.',
-          //         style: theme.textTheme.bodyMedium?.copyWith(
-          //           color: theme.colorScheme.onSurfaceVariant,
-          //         ),
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          const SizedBox(height: 8),
-          Text(
-            'The key is stored in your device\u2019s secure storage and is '
-            'only ever sent to wallhaven.cc. It is never shown again after '
-            'saving — not even here.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        slivers: [
+          SliverAppBar(
+            floating: true,
+            snap: true,
+            pinned: false,
+            backgroundColor: theme.scaffoldBackgroundColor,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 8),
+              child: M3EIconButton(
+                onPressed: widget.onBack,
+                tooltip: 'Back',
+                size: M3EIconButtonSize.xs,
+                variant: M3EIconButtonVariant.tonal,
+                icon: Icon(
+                  PhosphorIconsBold.arrowLeft,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
+            title: const Text('Wallhaven API key'),
           ),
-          const SizedBox(height: 20),
-          SignalBuilder(
-            builder: (context) {
-              final hasKey = settings.hasApiKey.value;
-              return Column(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                BottomPadding.of(context, minimum: 20),
+              ),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (hasKey && !_replacing)
-                    const M3EListItem(
-                      headline: 'A key is configured on this device.',
-                      variant: M3ECardVariant.filled,
-                      leading: Icon(PhosphorIconsBold.checkCircle),
-                    )
-                  else
-                    M3ETextField(
-                      controller: _keyField,
-                      focusNode: _keyFocus,
-                      supportingText: 'Paste your Wallhaven API key.',
-                      variant: M3ETextFieldVariant.outlined,
-                      leading: Icon(
-                        PhosphorIconsFill.key,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      trailing: M3EIconButton(
-                        tooltip: _obscured ? 'Show key' : 'Hide key',
-                        semanticLabel: _obscured ? 'Show key' : 'Hide key',
-                        size: M3EIconButtonSize.xs,
-                        onPressed: () => setState(() => _obscured = !_obscured),
-                        icon: Icon(
-                          _obscured
-                              ? PhosphorIconsFill.eye
-                              : PhosphorIconsFill.eyeSlash,
-                          size: 20,
-                        ),
-                      ),
-                      obscureText: _obscured,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) {
-                        if (_keyField.text.trim().isNotEmpty && !_busy) _save();
-                      },
-                      onChanged: (_) => setState(() {}),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The key is stored in your device\u2019s secure storage and is '
+                    'only ever sent to wallhaven.cc. It is never shown again after '
+                    'saving — not even here.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  const SizedBox(height: 16),
-                  if (hasKey && !_replacing) ...[
-                    M3EButton.tonal(
-                      size: M3EButtonSize.md,
-                      onPressed: _busy ? null : _replace,
-                      child: const Text('Replace key'),
-                    ),
-                    const SizedBox(height: 10),
-                    M3EButton.icon(
-                      style: M3EButtonStyle.outlined,
-                      size: M3EButtonSize.md,
-                      onPressed: _busy ? null : _remove,
-                      icon: _removing
-                          ? const M3EProgressIndicator.circularWavy(size: 16)
-                          : const Icon(PhosphorIconsFill.trash, size: 16),
-                      label: Text(_removing ? 'Removing…' : 'Remove key'),
-                    ),
-                  ] else
-                    M3EButton.icon(
-                      style: M3EButtonStyle.filled,
-                      size: M3EButtonSize.md,
-                      onPressed: _keyField.text.trim().isEmpty || _busy
-                          ? null
-                          : _save,
-                      icon: _saving
-                          ? M3EProgressIndicator.circularWavy(
-                              size: 16,
-                              color: theme.colorScheme.onPrimary,
+                  ),
+                  const SizedBox(height: 20),
+                  SignalBuilder(
+                    builder: (context) {
+                      final hasKey = settings.hasApiKey.value;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (hasKey && !_replacing)
+                            const M3EListItem(
+                              headline: 'A key is configured on this device.',
+                              variant: M3ECardVariant.filled,
+                              leading: Icon(PhosphorIconsBold.checkCircle),
                             )
-                          : const Icon(PhosphorIconsBold.check, size: 16),
-                      label: Text(
-                        _saving
-                            ? 'Saving…'
-                            : _replacing && hasKey
-                            ? 'Save new key'
-                            : 'Save key',
-                      ),
-                    ),
+                          else
+                            M3ETextField(
+                              controller: _keyField,
+                              focusNode: _keyFocus,
+                              supportingText: 'Paste your Wallhaven API key.',
+                              variant: M3ETextFieldVariant.outlined,
+                              leading: Icon(
+                                PhosphorIconsFill.key,
+                                size: 20,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              trailing: M3EIconButton(
+                                tooltip: _obscured ? 'Show key' : 'Hide key',
+                                semanticLabel: _obscured
+                                    ? 'Show key'
+                                    : 'Hide key',
+                                size: M3EIconButtonSize.xs,
+                                onPressed: () =>
+                                    setState(() => _obscured = !_obscured),
+                                icon: Icon(
+                                  _obscured
+                                      ? PhosphorIconsFill.eye
+                                      : PhosphorIconsFill.eyeSlash,
+                                  size: 20,
+                                ),
+                              ),
+                              obscureText: _obscured,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) {
+                                if (_keyField.text.trim().isNotEmpty && !_busy)
+                                  _save();
+                              },
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          const SizedBox(height: 16),
+                          if (hasKey && !_replacing) ...[
+                            M3EButton.tonal(
+                              size: M3EButtonSize.md,
+                              onPressed: _busy ? null : _replace,
+                              child: const Text('Replace key'),
+                            ),
+                            const SizedBox(height: 10),
+                            M3EButton.icon(
+                              style: M3EButtonStyle.outlined,
+                              size: M3EButtonSize.md,
+                              onPressed: _busy ? null : _remove,
+                              icon: _removing
+                                  ? const M3EProgressIndicator.circularWavy(
+                                      size: 16,
+                                    )
+                                  : const Icon(
+                                      PhosphorIconsFill.trash,
+                                      size: 16,
+                                    ),
+                              label: Text(
+                                _removing ? 'Removing…' : 'Remove key',
+                              ),
+                            ),
+                          ] else
+                            M3EButton.icon(
+                              style: M3EButtonStyle.filled,
+                              size: M3EButtonSize.md,
+                              onPressed: _keyField.text.trim().isEmpty || _busy
+                                  ? null
+                                  : _save,
+                              icon: _saving
+                                  ? M3EProgressIndicator.circularWavy(
+                                      size: 16,
+                                      color: theme.colorScheme.onPrimary,
+                                    )
+                                  : const Icon(
+                                      PhosphorIconsBold.check,
+                                      size: 16,
+                                    ),
+                              label: Text(
+                                _saving
+                                    ? 'Saving…'
+                                    : _replacing && hasKey
+                                    ? 'Save new key'
+                                    : 'Save key',
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ],
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),

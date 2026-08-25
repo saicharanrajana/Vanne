@@ -40,17 +40,10 @@ final seedCollections = <CollectionEntry>[
     createdAt: DateTime(2025, 1, 5),
   ),
   CollectionEntry(
-    id: 'seed-animals',
-    name: 'Animals',
-    query: 'animal wildlife',
+    id: 'seed-art',
+    name: 'Art',
+    query: 'art',
     kinds: const [],
     createdAt: DateTime(2025, 1, 6),
-  ),
-  CollectionEntry(
-    id: 'seed-dark',
-    name: 'Dark',
-    query: 'dark',
-    kinds: const [],
-    createdAt: DateTime(2025, 1, 7),
   ),
 ];

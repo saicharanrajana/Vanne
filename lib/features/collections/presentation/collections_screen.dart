@@ -33,41 +33,61 @@ final class CollectionsScreen extends StatelessWidget {
     final selected = controller.selectedIds.value;
     final names = entries
         .where((e) => selected.contains(e.id))
-        .map((e) => e.name)
+        .map((e) => e.displayName)
         .toList();
     final count = names.length;
-    final scheme = Theme.of(context).colorScheme;
     final ok = await M3EDialog.show<bool>(
       context,
-      dialog: M3EDialog(
-        title: 'Delete $count collection${count == 1 ? '' : 's'}?',
-        content: Text(
-          '${names.join(', ')}\n\nWallpapers aren’t deleted — only these '
-          'shortcuts.',
-        ),
-        actions: [
-          M3EButton.text(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          M3EButton.filled(
-            decoration: M3EButtonDecoration(
-              backgroundColor: WidgetStatePropertyAll(scheme.error),
-              foregroundColor: WidgetStatePropertyAll(scheme.onError),
+      dialog: Builder(
+        builder: (dialogContext) {
+          final scheme = Theme.of(dialogContext).colorScheme;
+          final textTheme = Theme.of(dialogContext).textTheme;
+          return M3EDialog(
+            title: 'Delete $count collection${count == 1 ? '' : 's'}?',
+            content: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: names.join(', '),
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  TextSpan(
+                    text:
+                        '\n\nWallpapers aren’t deleted — only these shortcuts.',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
+            actions: [
+              M3EButton.text(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              M3EButton.filled(
+                decoration: M3EButtonDecoration(
+                  backgroundColor: WidgetStatePropertyAll(scheme.error),
+                  foregroundColor: WidgetStatePropertyAll(scheme.onError),
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          );
+        },
       ),
     );
     if (ok != true) return;
     final deleted = await controller.removeMany(Set<String>.from(selected));
     controller.clearSelection();
-    if (!context.mounted) return;
-    AppSnack.show(
-      context,
+    AppSnack.showRoot(
       deleted ? 'Deleted $count' : 'Couldn’t delete — please try again.',
+      error: !deleted,
     );
   }
 
@@ -202,6 +222,7 @@ final class CollectionsScreen extends StatelessWidget {
                               icon: PhosphorIconsFill.trash,
                               tooltip: 'Delete selected',
                               isDestructive: true,
+                              active: true,
                               onPressed: () =>
                                   _confirmDelete(context, controller, entries),
                             ),

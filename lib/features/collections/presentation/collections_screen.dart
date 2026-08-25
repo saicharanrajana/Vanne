@@ -227,22 +227,13 @@ final class _CollectionCard extends StatelessWidget {
   });
 
   static const _shapes = [
+    Shapes.circle,
+    Shapes.square,
+    Shapes.c9SidedCookie,
+    Shapes.c12SidedCookie,
     Shapes.gem,
-    Shapes.slanted,
     Shapes.arch,
     Shapes.clampShell,
-    Shapes.c9SidedCookie,
-    Shapes.pentagon,
-    Shapes.sunny,
-    Shapes.flower,
-    Shapes.puffy,
-    Shapes.burst,
-    Shapes.bun,
-    Shapes.heart,
-    Shapes.l4LeafClover,
-    Shapes.l8LeafClover,
-    Shapes.c4SidedCookie,
-    Shapes.c6SidedCookie,
   ];
 
   @override
@@ -263,9 +254,11 @@ final class _CollectionCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final hash = entry.id.hashCode.abs();
     final shape = _shapes[hash % _shapes.length];
-    final bg = selected ? scheme.primaryContainer : scheme.secondaryContainer;
-    final fg = scheme.onSecondaryContainer;
-    final accent = selected ? scheme.primary : scheme.secondary;
+    final bg = selected ? scheme.tertiaryContainer : scheme.secondaryContainer;
+    final fg = selected
+        ? scheme.onTertiaryContainer
+        : scheme.onSecondaryContainer;
+    final accent = selected ? scheme.tertiary : scheme.secondary;
 
     // Consistent transparent square: the shape floats inside it, leaving
     // clear margin so the selection badge NEVER clips on the silhouette.

@@ -18,8 +18,8 @@ String describeWallhavenError(WallhavenException error) {
   if (error is WallhavenRateLimitExceededException) {
     final retry = error.retryAfter;
     return retry == null
-        ? 'Rate limit reached — try again in a minute.'
-        : 'Rate limit reached — retry in ${retry.inSeconds}s.';
+        ? 'Rate limit reached. Try again in a minute.'
+        : 'Rate limit reached. Retry in ${retry.inSeconds}s.';
   }
   if (error is WallhavenNotFoundException) {
     return 'Not found on Wallhaven.';

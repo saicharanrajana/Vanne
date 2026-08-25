@@ -188,7 +188,7 @@ First-party Android plugin replacing `async_wallpaper`. Four operations:
 * Home / Lock / Both — `WallpaperManager.setStream` with
   `FLAG_SYSTEM`/`FLAG_LOCK` on `Dispatchers.IO` (no bitmap decode, no
   Picasso, no main-thread work).
-* **Set With…** — system picker via `getCropAndSetWallpaperIntent`
+* **Crop and set** — system picker via `getCropAndSetWallpaperIntent`
   (fallback `ACTION_ATTACH_DATA` → `SET_WALLPAPER` → `VIEW`), served from a
   `FileProvider` URI with `FLAG_GRANT_READ_URI_PERMISSION` + `ClipData`.
 

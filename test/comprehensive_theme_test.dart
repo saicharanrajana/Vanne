@@ -337,7 +337,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 400));
 
           expect(find.byWidgetPredicate((w) => w is ErrorWidget), findsNothing);
-          expect(find.text('Sort & filter'), findsOneWidget);
+          expect(find.text('Sort & Filter'), findsOneWidget);
           expect(find.byType(M3EChip), findsWidgets);
         },
       );

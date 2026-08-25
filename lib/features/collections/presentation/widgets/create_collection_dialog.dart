@@ -87,7 +87,7 @@ final class _CreateCollectionDialogState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'A collection is a shortcut to a search — we’ll use the title '
+            'A collection is a shortcut to a search. We’ll use the title '
             'as the search term.',
             textAlign: TextAlign.center,
           ),
@@ -95,7 +95,7 @@ final class _CreateCollectionDialogState
           M3ETextField(
             controller: _nameCtrl,
             focusNode: _nameFocus,
-            supportingText: 'For example, Dark Minimal',
+            supportingText: 'For example, Abstract',
             errorText: _error,
             variant: M3ETextFieldVariant.outlined,
             leading: Icon(

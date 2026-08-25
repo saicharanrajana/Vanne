@@ -63,7 +63,7 @@ final class DownloadService {
       }
       throw DownloadException(
         error.type == DioExceptionType.connectionError
-            ? 'Network unavailable — check your connection.'
+            ? 'Network unavailable. Check your connection.'
             : 'Download failed. Please try again.',
       );
     }

@@ -57,7 +57,7 @@ final class CollectionsScreen extends StatelessWidget {
                   ),
                   TextSpan(
                     text:
-                        '\n\nWallpapers aren’t deleted — only these shortcuts.',
+                        '\n\nWallpapers aren’t deleted. Only these shortcuts.',
                     style: textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -87,7 +87,7 @@ final class CollectionsScreen extends StatelessWidget {
     final deleted = await controller.removeMany(Set<String>.from(selected));
     controller.clearSelection();
     AppSnack.showRoot(
-      deleted ? 'Deleted $count' : 'Couldn’t delete — please try again.',
+      deleted ? 'Deleted $count' : 'Couldn’t delete. Please try again.',
       error: !deleted,
     );
   }
@@ -143,8 +143,8 @@ final class CollectionsScreen extends StatelessWidget {
                   iconData: PhosphorIconsFill.stack,
                   title: 'No collections yet',
                   message:
-                      'Create a collection to save a search — they’re just '
-                      'shortcuts, e.g. “Anime” or “Dark minimal”.',
+                      'Create a collection to save a search. They’re just '
+                      'shortcuts, e.g. “Anime” or “Minimal”.',
                 ),
               ),
               const SliverToBoxAdapter(child: BottomPadding()),
@@ -337,12 +337,11 @@ final class _CollectionCard extends StatelessWidget {
                                       final hashColor = parsed ?? fg;
                                       return Text(
                                         '#',
-                                        style:
-                                            textTheme.titleLarge?.copyWith(
-                                              color: hashColor,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 22,
-                                            ),
+                                        style: textTheme.titleLarge?.copyWith(
+                                          color: hashColor,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 22,
+                                        ),
                                       );
                                     }
                                     return Text(

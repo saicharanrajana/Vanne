@@ -13,7 +13,7 @@ import '../../../../shared/widgets/app_snack.dart';
 import '../../application/wallpaper_detail_controller.dart';
 import '../wallpaper_theme.dart';
 
-/// Opens the "Set wallpaper" dialog — home / lock / both / Set With….
+/// Opens the "Set wallpaper" dialog — home / lock / both / Crop and Set.
 ///
 /// Rendered on the root navigator, so the ambient app theme would win;
 /// the dialog re-derives the wallpaper scheme (same helper the detail
@@ -198,8 +198,8 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _ChoiceButton(
-                  icon: PhosphorIconsFill.gridNine,
-                  label: 'Set With…',
+                  icon: PhosphorIconsFill.crop,
+                  label: 'Crop and set',
                   enabled: !busy,
                   busy: isRowBusy(3),
                   onTap: _setWith,

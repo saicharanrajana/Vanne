@@ -82,8 +82,8 @@ void main() {
       expect(WallpaperMetadata.aspectRatio(wallpaper(ratio: '1.91')), '1.91');
     });
 
-    test('falls back to an em dash when nothing usable exists', () {
-      expect(WallpaperMetadata.aspectRatio(wallpaper()), '—');
+    test('falls back to a dash when nothing usable exists', () {
+      expect(WallpaperMetadata.aspectRatio(wallpaper()), '-');
     });
   });
 

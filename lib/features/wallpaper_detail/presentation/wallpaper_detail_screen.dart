@@ -60,6 +60,19 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   ColorScheme? _cachedScheme;
   Object? _schemeKey;
 
+  final _sheetController = DraggableScrollableController();
+
+  Future<void> _collapseSheet() async {
+    if (!_sheetController.isAttached) return;
+    try {
+      await _sheetController.animateTo(
+        0.1,
+        duration: AppMotion.transition,
+        curve: AppMotion.arrivalCurve,
+      );
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +81,7 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
 
   @override
   void dispose() {
+    _sheetController.dispose();
     widget.controller.dispose();
     super.dispose();
   }
@@ -168,6 +182,7 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                 // actions content; content scrolls once expanded. Uses
                 // native DraggableScrollableSheet for consistency.
                 DraggableScrollableSheet(
+                  controller: _sheetController,
                   initialChildSize: 0.3,
                   minChildSize: 0.1,
                   maxChildSize: 0.8,
@@ -183,6 +198,7 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                         scrollController: scrollController,
                         onColorTap: widget.onColorTap,
                         onTagTap: widget.onTagTap,
+                        onCollapseForSet: _collapseSheet,
                       ),
                     );
                   },
@@ -211,12 +227,14 @@ final class _DraggableInfoSheet extends StatelessWidget {
   final ScrollController scrollController;
   final ValueChanged<String>? onColorTap;
   final ValueChanged<String>? onTagTap;
+  final Future<void> Function()? onCollapseForSet;
 
   const _DraggableInfoSheet({
     required this.controller,
     required this.scrollController,
     this.onColorTap,
     this.onTagTap,
+    this.onCollapseForSet,
   });
 
   @override
@@ -288,7 +306,10 @@ final class _DraggableInfoSheet extends StatelessWidget {
                               onTagTap: onTagTap,
                             ),
                             AppSpacing.lg.gap,
-                            WallpaperActionBar(controller: controller),
+                            WallpaperActionBar(
+                              controller: controller,
+                              onBeforeSetPopup: onCollapseForSet,
+                            ),
                             BottomPadding(),
                           ],
                         ),
@@ -398,9 +419,9 @@ final class _MetadataGrid extends StatelessWidget {
       (
         icon: PhosphorIconsFill.frameCorners,
         label: 'Resolution',
-        value: wallpaper.resolution.isNotEmpty ? wallpaper.resolution : '—',
+        value: wallpaper.resolution.isNotEmpty ? wallpaper.resolution : '-',
       ),
-      (icon: PhosphorIconsFill.file, label: 'File size', value: size ?? '—'),
+      (icon: PhosphorIconsFill.file, label: 'File size', value: size ?? '-'),
       (
         icon: PhosphorIconsFill.crop,
         label: 'Aspect ratio',
@@ -414,12 +435,12 @@ final class _MetadataGrid extends StatelessWidget {
       (
         icon: PhosphorIconsFill.user,
         label: 'Uploader',
-        value: wallpaper.uploader?.username ?? '—',
+        value: wallpaper.uploader?.username ?? '-',
       ),
       (
         icon: PhosphorIconsFill.calendar,
         label: 'Uploaded',
-        value: uploaded ?? '—',
+        value: uploaded ?? '-',
       ),
     ];
 

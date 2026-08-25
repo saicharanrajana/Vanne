@@ -18,10 +18,7 @@ Future<void> showFeedFilterSheet(
 }) {
   return showSpringBottomSheet<void>(
     context: context,
-    builder: (context) => _FeedFilterSheet(
-      initial: initial,
-      onApply: onApply,
-    ),
+    builder: (context) => _FeedFilterSheet(initial: initial, onApply: onApply),
   );
 }
 
@@ -66,7 +63,7 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
               ),
               Center(
                 child: Text(
-                  'Sort & filter',
+                  'Sort & Filter',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: scheme.onSurface,
                   ),
@@ -74,7 +71,7 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
               ),
               const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Sort by'),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
@@ -92,7 +89,7 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
               ),
               const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Popular time window'),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
@@ -112,7 +109,7 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
               ),
               const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Minimum resolution'),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,

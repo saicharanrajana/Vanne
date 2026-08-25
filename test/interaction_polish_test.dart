@@ -103,7 +103,7 @@ void main() {
       expect(find.text('Home Screen'), findsOneWidget);
       expect(find.text('Lock Screen'), findsOneWidget);
       expect(find.text('Home & Lock Screen'), findsOneWidget);
-      expect(find.text('Set With…'), findsOneWidget);
+      expect(find.text('Crop and set'), findsOneWidget);
     });
   });
 

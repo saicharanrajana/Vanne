@@ -102,7 +102,7 @@ final class SettingsScreen extends StatelessWidget {
                           icon: PhosphorIconsFill.shield,
                           title: 'Show NSFW wallpapers',
                           subtitle: hasKey
-                              ? 'Mature content (18+) — filtered by purity.'
+                              ? 'Mature content (18+). Filtered by purity.'
                               : 'Requires a Wallhaven API key.',
                           value: hasKey && settings.nsfwEnabled.value,
                           onChanged: hasKey ? settings.setNsfwEnabled : null,
@@ -121,7 +121,7 @@ final class SettingsScreen extends StatelessWidget {
                         icon: PhosphorIconsFill.key,
                         title: 'API key',
                         subtitle: settings.hasApiKey.value
-                            ? 'Connected — NSFW unlock available.'
+                            ? 'Connected. NSFW unlock available.'
                             : 'Add your Wallhaven API key.',
                         onTap: onOpenApiKey,
                       ),
@@ -148,7 +148,7 @@ final class SettingsScreen extends StatelessWidget {
                     _InfoTile(
                       icon: PhosphorIconsFill.codeBlock,
                       title: 'Open source',
-                      subtitle: 'Free & open — contributions welcome.',
+                      subtitle: 'Free & open. Contributions welcome.',
                     ),
                   ],
                 ),

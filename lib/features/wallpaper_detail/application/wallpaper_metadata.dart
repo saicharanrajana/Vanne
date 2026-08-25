@@ -23,14 +23,14 @@ abstract final class WallpaperMetadata {
   /// e.g. `1920x1080` → `16:9`, `1080x2400` → `9:20`.
   ///
   /// Falls back to Wallhaven's preformatted decimal `ratio` string when
-  /// dimensions are missing, and to `—` when nothing usable exists.
+  /// dimensions are missing, and to `-` when nothing usable exists.
   static String aspectRatio(Wallpaper wallpaper) {
     if (wallpaper.width > 0 && wallpaper.height > 0) {
       final divisor = wallpaper.width.gcd(wallpaper.height);
       return '${wallpaper.width ~/ divisor}:${wallpaper.height ~/ divisor}';
     }
     final ratio = wallpaper.ratio;
-    return ratio.isNotEmpty ? ratio : '—';
+    return ratio.isNotEmpty ? ratio : '-';
   }
 
   /// Short localized calendar date, e.g. `Jun 12, 2023` (en) or

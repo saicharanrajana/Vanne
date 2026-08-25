@@ -172,7 +172,7 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                   Text(
                     'The key is stored in your device\u2019s secure storage and is '
                     'only ever sent to wallhaven.cc. It is never shown again after '
-                    'saving — not even here.',
+                    'saving. Not even here.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

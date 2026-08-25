@@ -14,7 +14,7 @@ import '../../../core/wallpaper/wallpaper_repository.dart';
 /// progress, and apply-wallpaper outcomes.
 ///
 /// New flow: "Set" first resolves a local file (with wavy indicator), then
-/// poses 4 options (home/lock/both/Set With… system picker via ATTACH_DATA).
+/// poses 4 options (home/lock/both/Crop and set system picker via ATTACH_DATA).
 final class WallpaperDetailController {
   final WallpaperRepository _repository;
   final DownloadService _downloader;
@@ -36,7 +36,7 @@ final class WallpaperDetailController {
   /// Preparation lifecycle for the "Set" flow (download to tmp before sheet).
   final prepare = signal(const PrepareState.idle());
 
-  /// Apply-wallpaper lifecycle for the Set sheet (home/lock/both/Set With…).
+  /// Apply-wallpaper lifecycle for the Set sheet (home/lock/both/Crop and set).
   final apply = signal(const ApplyState.idle());
 
   /// Cache path produced by a previous "Set" attempt, reused when valid.

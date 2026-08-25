@@ -19,11 +19,16 @@ import 'set_wallpaper_sheet.dart';
 /// a wide filled primary button.
 ///
 /// "Set" now follows: tap → wavy indicator while tmp file resolves →
-/// then 4-option sheet (Home/Lock/Both/Set With… via ATTACH_DATA).
+/// then 4-option sheet (Home/Lock/Both/Crop and set via ATTACH_DATA).
 final class WallpaperActionBar extends StatelessWidget {
   final WallpaperDetailController controller;
+  final Future<void> Function()? onBeforeSetPopup;
 
-  const WallpaperActionBar({super.key, required this.controller});
+  const WallpaperActionBar({
+    super.key,
+    required this.controller,
+    this.onBeforeSetPopup,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +58,11 @@ final class WallpaperActionBar extends StatelessWidget {
                 busy: isPreparing,
                 onPressed: isPreparing
                     ? null
-                    : () => _prepareAndShowSheet(context, controller),
+                    : () => _prepareAndShowSheet(
+                        context,
+                        controller,
+                        onBeforeSetPopup: onBeforeSetPopup,
+                      ),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -70,8 +79,9 @@ final class WallpaperActionBar extends StatelessWidget {
 
   static Future<void> _prepareAndShowSheet(
     BuildContext context,
-    WallpaperDetailController controller,
-  ) async {
+    WallpaperDetailController controller, {
+    Future<void> Function()? onBeforeSetPopup,
+  }) async {
     try {
       await controller.prepareForSet();
     } on DownloadException catch (e) {
@@ -92,6 +102,11 @@ final class WallpaperActionBar extends StatelessWidget {
       if (!context.mounted) return;
       AppSnack.show(context, prepError, error: true);
       return;
+    }
+    if (onBeforeSetPopup != null) {
+      try {
+        await onBeforeSetPopup();
+      } catch (_) {}
     }
     if (!context.mounted) return;
     await showSetWallpaperPopup(context, controller: controller);

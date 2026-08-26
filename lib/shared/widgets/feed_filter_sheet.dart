@@ -3,6 +3,8 @@ import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:wallhaven_client/wallhaven_client.dart';
+
 import '../../app/theme/app_spacing.dart';
 import '../../core/domain/feed_filter.dart';
 import 'spring_sheet.dart';
@@ -33,7 +35,21 @@ final class _FeedFilterSheet extends StatefulWidget {
 }
 
 final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
-  late FeedFilter _draft = widget.initial;
+  late FeedFilter _draft = _sanitize(widget.initial);
+
+  static FeedFilter _sanitize(FeedFilter filter) {
+    final withoutPeople = filter.categories
+        .where((c) => c != WallhavenCategory.people)
+        .toSet();
+    final sanitized = withoutPeople.isEmpty
+        ? const {WallhavenCategory.general}
+        : withoutPeople;
+    if (sanitized.length == filter.categories.length &&
+        sanitized.containsAll(filter.categories)) {
+      return filter;
+    }
+    return filter.copyWith(categories: sanitized);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +124,34 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.xl),
+              _SectionLabel('Categories'),
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  for (final cat
+                      in WallhavenCategory.values.where(
+                        (c) => c != WallhavenCategory.people,
+                      ))
+                    M3EChip(
+                      label: cat.name[0].toUpperCase() + cat.name.substring(1),
+                      type: M3EChipType.filter,
+                      selected: _draft.categories.contains(cat),
+                      onPressed: () => setState(() {
+                        final next = Set<WallhavenCategory>.from(_draft.categories);
+                        if (next.contains(cat)) {
+                          if (next.length == 1) return;
+                          next.remove(cat);
+                        } else {
+                          next.add(cat);
+                        }
+                        _draft = _draft.copyWith(categories: next);
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
               _SectionLabel('Minimum resolution'),
               const SizedBox(height: AppSpacing.md),
               Wrap(
@@ -169,11 +213,11 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
 
   static FeedFilter _withSorting(FeedFilter filter, FeedSorting sorting) =>
       sorting == FeedSorting.popular
-      ? filter.copyWith(
-          sorting: sorting,
-          topRange: filter.topRange ?? FeedTopRange.month,
-        )
-      : filter.copyWith(sorting: sorting);
+          ? filter.copyWith(
+              sorting: sorting,
+              topRange: filter.topRange ?? FeedTopRange.month,
+            )
+          : filter.copyWith(sorting: sorting, clearTopRange: true);
 }
 
 final class _SectionLabel extends StatelessWidget {

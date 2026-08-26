@@ -58,7 +58,8 @@ enum WallhavenSorting {
   random('random'),
   views('views'),
   favorites('favorites'),
-  toplist('toplist');
+  toplist('toplist'),
+  hot('hot');
 
   const WallhavenSorting(this.wireName);
 

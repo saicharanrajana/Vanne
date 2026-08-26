@@ -17,30 +17,43 @@ final class FeedFilter {
   /// Minimum resolution in `WIDTHxHEIGHT` form, or `null` for no floor.
   final String? minResolution;
 
+  /// Category filters. Defaults to General only per product choice.
+  /// Encoding omits the param only when all three are set (`111`).
+  final Set<WallhavenCategory> categories;
+
   const FeedFilter({
     this.sorting = FeedSorting.newest,
     this.topRange,
     this.minResolution,
+    this.categories = const {WallhavenCategory.general},
   });
 
-  /// The product default for the Discover feed.
-  static const discoverDefault = FeedFilter();
+  /// The product default for the Discover feed — General only.
+  static const discoverDefault = FeedFilter(
+    categories: {WallhavenCategory.general},
+  );
+
+  bool get isDefaultCategories =>
+      categories.length == WallhavenCategory.values.length;
 
   FeedFilter copyWith({
     FeedSorting? sorting,
     FeedTopRange? topRange,
     String? minResolution,
+    Set<WallhavenCategory>? categories,
     bool clearMinResolution = false,
+    bool clearTopRange = false,
   }) => FeedFilter(
     sorting: sorting ?? this.sorting,
-    topRange: topRange ?? this.topRange,
+    topRange: clearTopRange ? null : (topRange ?? this.topRange),
     minResolution: clearMinResolution
         ? null
         : (minResolution ?? this.minResolution),
+    categories: categories ?? this.categories,
   );
 
   /// Human-readable summary shown on the filter button, e.g. `Popular ·
-  /// This week · 1080p+`. Empty string when everything is default.
+  /// This week · 1080p+`. Categories are deliberately omitted from the chip.
   String get summary {
     final parts = <String>[
       sorting.label,
@@ -56,31 +69,47 @@ final class FeedFilter {
       other is FeedFilter &&
           other.sorting == sorting &&
           other.topRange == topRange &&
-          other.minResolution == minResolution;
+          other.minResolution == minResolution &&
+          other.categories.length == categories.length &&
+          other.categories.containsAll(categories);
 
   @override
-  int get hashCode => Object.hash(sorting, topRange, minResolution);
+  int get hashCode => Object.hash(
+    sorting,
+    topRange,
+    minResolution,
+    Object.hashAllUnordered(categories),
+  );
 }
 
 /// Ordering options surfaced in the UI.
 enum FeedSorting {
   newest,
-  popular,
+  relevance,
   random,
-  views;
+  views,
+  favorites,
+  popular,
+  hot;
 
   String get label => switch (this) {
     FeedSorting.newest => 'Newest',
-    FeedSorting.popular => 'Popular',
+    FeedSorting.relevance => 'Relevance',
     FeedSorting.random => 'Random',
     FeedSorting.views => 'Most viewed',
+    FeedSorting.favorites => 'Most favorited',
+    FeedSorting.popular => 'Popular',
+    FeedSorting.hot => 'Hot',
   };
 
   WallhavenSorting get wire => switch (this) {
     FeedSorting.newest => WallhavenSorting.dateAdded,
-    FeedSorting.popular => WallhavenSorting.toplist,
+    FeedSorting.relevance => WallhavenSorting.relevance,
     FeedSorting.random => WallhavenSorting.random,
     FeedSorting.views => WallhavenSorting.views,
+    FeedSorting.favorites => WallhavenSorting.favorites,
+    FeedSorting.popular => WallhavenSorting.toplist,
+    FeedSorting.hot => WallhavenSorting.hot,
   };
 }
 

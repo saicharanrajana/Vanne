@@ -46,8 +46,7 @@ final class WallpaperColorPalette extends StatelessWidget {
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.md,
             children: [
-              for (final hex in swatches)
-                _Swatch(hex: hex, onTap: onColorTap),
+              for (final hex in swatches) _Swatch(hex: hex, onTap: onColorTap),
             ],
           ),
         );
@@ -70,16 +69,21 @@ final class _Swatch extends StatelessWidget {
       label: onTap != null ? 'View $hex wallpapers' : 'Copy $hex',
       child: PressableScale(
         child: M3ETooltip(
-          message: onTap != null ? 'Tap to view, long-press to copy $hex' : 'Copy $hex',
+          message: onTap != null
+              ? 'Tap to view, long-press to copy $hex'
+              : 'Copy $hex',
           child: Material(
             color: parseHexColor(hex) ?? Colors.grey,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(
                 AppShapes.extraLargeIncreased,
               ),
+              side: BorderSide(width: 0.5),
             ),
             child: InkWell(
-              onTap: onTap != null ? () => onTap!(hex) : () => _copy(context, hex),
+              onTap: onTap != null
+                  ? () => onTap!(hex)
+                  : () => _copy(context, hex),
               onLongPress: onTap != null ? () => _copy(context, hex) : null,
               customBorder: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(

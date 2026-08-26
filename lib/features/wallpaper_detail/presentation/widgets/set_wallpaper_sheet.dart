@@ -243,22 +243,25 @@ final class _ChoiceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final contentColor = theme.colorScheme.onSecondaryContainer;
+    final scheme = theme.colorScheme;
     return M3EButton.tonal(
       size: M3EButtonSize.custom(height: 58),
+      decoration: M3EButtonDecoration(
+        backgroundColor: WidgetStatePropertyAll(scheme.primary),
+      ),
       onPressed: enabled ? onTap : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (busy)
-            M3EProgressIndicator.circularWavy(size: 22, color: contentColor)
+            M3EProgressIndicator.circularWavy(size: 22, color: scheme.onPrimary)
           else
-            Icon(icon, size: 22, color: contentColor),
+            Icon(icon, size: 22, color: scheme.onPrimary),
           const SizedBox(width: AppSpacing.md),
           Text(
             label,
             style: theme.textTheme.titleMedium?.copyWith(
-              color: contentColor,
+              color: scheme.onPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),

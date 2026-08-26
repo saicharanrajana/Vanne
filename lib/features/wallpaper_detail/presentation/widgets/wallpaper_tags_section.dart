@@ -109,7 +109,7 @@ final class _Chevron extends StatelessWidget {
         turns: expanded ? 0.5 : 0,
         duration: AppMotion.transition,
         child: Icon(
-          PhosphorIconsFill.caretDown,
+          PhosphorIconsBold.caretDown,
           size: 20,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -135,13 +135,13 @@ final class _TagChip extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: scheme.secondaryContainer,
+        color: scheme.tertiary,
         borderRadius: BorderRadius.circular(AppShapes.full),
       ),
       child: Text(
         name,
         style: Theme.of(context).textTheme.labelLarge
-            ?.copyWith(color: scheme.onSecondaryContainer),
+            ?.copyWith(color: scheme.onTertiary),
       ),
     );
     if (onTap == null) return chip;

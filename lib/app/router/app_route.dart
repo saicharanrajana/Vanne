@@ -13,6 +13,7 @@ import '../../features/favorites/presentation/favorites_screen.dart';
 import '../../features/filtered/presentation/filtered_wallpapers_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/api_key_screen.dart';
+import '../../features/settings/presentation/blocked_tags_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import '../../features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
@@ -100,6 +101,7 @@ class SettingsTab extends AppRoute {
   Widget build(AppCoordinator coordinator, BuildContext context) =>
       SettingsScreen(
         onOpenApiKey: () => coordinator.push(ApiKeySettingsRoute()),
+        onOpenBlockedTags: () => coordinator.push(BlockedTagsRoute()),
       );
 }
 
@@ -327,6 +329,15 @@ class ApiKeySettingsRoute extends AppRoute {
       ApiKeyScreen(onBack: () => coordinator.pop());
 }
 
+class BlockedTagsRoute extends AppRoute {
+  @override
+  Uri toUri() => Uri.parse('/settings/blocked-tags');
+
+  @override
+  Widget build(AppCoordinator coordinator, BuildContext context) =>
+      BlockedTagsScreen(onBack: () => coordinator.pop());
+}
+
 // ---------------------------------------------------------------------------
 // Coordinator
 // ---------------------------------------------------------------------------
@@ -350,6 +361,7 @@ final class AppCoordinator extends Coordinator<AppRoute> {
     ['favorites'] => FavoritesTab(),
     ['settings'] => SettingsTab(),
     ['settings', 'api-key'] => ApiKeySettingsRoute(),
+    ['settings', 'blocked-tags'] => BlockedTagsRoute(),
     ['search'] => SearchRoute(),
     ['wallpaper', final id] => WallpaperDetailRoute(wallpaperId: id),
     ['collections', final id] => CollectionExploreRoute(collectionId: id),

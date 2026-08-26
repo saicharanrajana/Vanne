@@ -28,6 +28,8 @@ class WallpaperRepository {
 
   bool get nsfwEnabled => settingsStore.nsfwEnabled;
 
+  Set<String> get blockedTags => settingsStore.blockedTags;
+
   /// Loads a previously saved key from secure storage into the active
   /// client. Called once at startup.
   Future<void> restoreApiKey() async {
@@ -51,6 +53,10 @@ class WallpaperRepository {
 
   void setNsfwEnabled(bool enabled) => settingsStore.nsfwEnabled = enabled;
 
+  void setBlockedTags(Set<String> tags) => settingsStore.blockedTags = tags;
+
+  Set<String> _excludedTagsForRequest() => settingsStore.blockedTags;
+
   /// Runs a search applying global content policy plus the caller's
   /// filter/query.
   ///
@@ -72,14 +78,17 @@ class WallpaperRepository {
       clamped = true;
     }
     try {
+      final excludedTags = _excludedTagsForRequest();
+      final effectiveCategories = categories.isNotEmpty
+          ? categories.toSet()
+          : filter.categories;
       final result = await client.search(
         WallhavenSearchRequest(
           query: query.isEmpty ? null : query,
-          categories: categories.isEmpty
-              ? WallhavenCategory.values.toSet()
-              : categories.toSet(),
+          categories: effectiveCategories,
           purity: purity,
           colors: colors,
+          excludedTags: excludedTags,
           ratios: _ratiosForRequest(),
           sorting: filter.sorting.wire,
           topRange:

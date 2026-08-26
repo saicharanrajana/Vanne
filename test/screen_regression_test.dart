@@ -85,7 +85,10 @@ void main() {
           brightness: Brightness.light,
           dynamicScheme: null,
         ),
-        home: SettingsScreen(onOpenApiKey: () => openedApiKey = true),
+        home: SettingsScreen(
+          onOpenApiKey: () => openedApiKey = true,
+          onOpenBlockedTags: () {},
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -94,7 +97,12 @@ void main() {
     expect(find.text('Use dynamic color'), findsOneWidget);
     expect(find.text('Pitch black mode'), findsOneWidget);
     expect(find.text('Show NSFW wallpapers'), findsOneWidget);
+    expect(find.text('Blocked tags'), findsOneWidget);
     expect(find.text('Portrait wallpapers only'), findsNothing);
+    // Blocked tags addition pushes API key near viewport edge on test size;
+    // ensure it's built by scrolling slightly.
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pumpAndSettle();
     expect(find.text('API key'), findsOneWidget);
     expect(find.byType(M3ESwitch), findsNWidgets(3));
     expect(find.byType(M3ESegmentedButton<AppThemeMode>), findsOneWidget);
@@ -106,7 +114,7 @@ void main() {
     expect(find.text('Source'), findsOneWidget);
     expect(find.text('Open source'), findsOneWidget);
     // Back to top for NSFW tap
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, 800));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 1000));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show NSFW wallpapers'));
     expect(openedApiKey, isTrue);

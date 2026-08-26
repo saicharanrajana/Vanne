@@ -18,8 +18,13 @@ import 'package:intl/intl.dart';
 /// [SettingsController] signal which persists immediately.
 final class SettingsScreen extends StatelessWidget {
   final VoidCallback onOpenApiKey;
+  final VoidCallback onOpenBlockedTags;
 
-  const SettingsScreen({super.key, required this.onOpenApiKey});
+  const SettingsScreen({
+    super.key,
+    required this.onOpenApiKey,
+    required this.onOpenBlockedTags,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +112,20 @@ final class SettingsScreen extends StatelessWidget {
                           value: hasKey && settings.nsfwEnabled.value,
                           onChanged: hasKey ? settings.setNsfwEnabled : null,
                           onTapOverride: hasKey ? null : onOpenApiKey,
+                        );
+                      },
+                    ),
+                    SignalBuilder(
+                      builder: (context) {
+                        final tags = settings.blockedTags.value;
+                        final subtitle = tags.isEmpty
+                            ? 'Hide wallpapers by tag'
+                            : tags.join(', ');
+                        return _ActionTile(
+                          icon: PhosphorIconsFill.prohibit,
+                          title: 'Blocked tags',
+                          subtitle: subtitle,
+                          onTap: onOpenBlockedTags,
                         );
                       },
                     ),

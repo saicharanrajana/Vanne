@@ -21,6 +21,9 @@ final class SettingsController {
   /// NSFW content preference (requires an API key to take effect).
   final nsfwEnabled = signal(false);
 
+  /// Tags excluded from Wallhaven searches via `-tag` query tokens.
+  final blockedTags = signal(<String>{});
+
   /// Whether a Wallhaven API key is currently configured.
   final hasApiKey = signal(false);
 
@@ -33,6 +36,7 @@ final class SettingsController {
       pitchBlack.set(_store.pitchBlack);
       themeMode.set(AppThemeModeX.fromStorageName(_store.themeModeName));
       nsfwEnabled.set(_store.nsfwEnabled);
+      blockedTags.set(_store.blockedTags);
       hasApiKey.set(_repository.isAuthenticated);
     });
   }
@@ -57,6 +61,34 @@ final class SettingsController {
     _repository.setNsfwEnabled(value);
     nsfwEnabled.set(value);
   }
+
+  /// Persists blocked tags as a normalized set.
+  void setBlockedTags(Set<String> value) {
+    final normalized = value.map(_normalizeTag).where((s) => s.isNotEmpty).toSet();
+    _store.blockedTags = normalized;
+    blockedTags.set(_store.blockedTags);
+  }
+
+  /// Parses raw multiline/comma-separated input and persists the result.
+  void saveBlockedTagsFromRaw(String raw) {
+    setBlockedTags(parseBlockedTags(raw));
+  }
+
+  /// Parses Wallhaven tag list input: commas or new lines separated.
+  static Set<String> parseBlockedTags(String raw) => raw
+      .split(RegExp(r'[,\n]+'))
+      .map(_normalizeTag)
+      .where((s) => s.isNotEmpty)
+      .where((s) => RegExp(r'^[a-z0-9_-]+$').hasMatch(s))
+      .toSet();
+
+  /// Serializes a tag set for editing: sorted, comma separated.
+  static String serializeBlockedTags(Set<String> tags) {
+    final sorted = tags.toList()..sort();
+    return sorted.join(', ');
+  }
+
+  static String _normalizeTag(String tag) => tag.trim().toLowerCase();
 
   /// Saves a new API key securely; [nsfwEnabled] becomes enforceable.
   Future<void> saveApiKey(String key) async {

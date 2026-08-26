@@ -11,6 +11,7 @@ final class SettingsStore {
   static const _dynamicColorKey = 'dynamic_color';
   static const _pitchBlackKey = 'pitch_black';
   static const _themeModeKey = 'theme_mode';
+  static const _blockedTagsKey = 'wallhaven_tag_blacklist';
 
   Box<dynamic>? _box;
 
@@ -24,12 +25,40 @@ final class SettingsStore {
 
   void _writeBool(String key, bool value) => _box?.put(key, value);
 
+  List<String> _readStringList(String key) {
+    final raw = _box?.get(key);
+    if (raw is List) return raw.whereType<String>().toList();
+    return const [];
+  }
+
+  void _writeStringList(String key, List<String> value) =>
+      _box?.put(key, value);
+
   // -- Content --------------------------------------------------------------
 
   /// Whether the user opted into NSFW results. Defaults to `false`.
   /// Including NSFW requires an API key at request time.
   bool get nsfwEnabled => _readBool(_nsfwKey, fallback: false);
   set nsfwEnabled(bool value) => _writeBool(_nsfwKey, value);
+
+  /// Tags whose wallpapers should be excluded via `-tag` in Wallhaven queries.
+  /// Stored as normalized lower-case tag names.
+  Set<String> get blockedTags {
+    final raw = _readStringList(_blockedTagsKey);
+    return raw.map(_normalizeBlockedTag).where((s) => s.isNotEmpty).toSet();
+  }
+
+  set blockedTags(Set<String> value) {
+    final normalized = value
+        .map(_normalizeBlockedTag)
+        .where((s) => s.isNotEmpty)
+        .toList()
+      ..sort();
+    _writeStringList(_blockedTagsKey, normalized);
+  }
+
+  static String _normalizeBlockedTag(String tag) =>
+      tag.trim().toLowerCase();
 
   // -- Appearance -----------------------------------------------------------
 

@@ -44,6 +44,10 @@ final class WallhavenSearchRequest {
   /// Dominant-color filters.
   final Set<WallhavenColor> colors;
 
+  /// Tags to exclude via `-tag` tokens merged into the `q` parameter.
+  /// Normalized lower-case tag names; each must match `^[a-z0-9_-]+$`.
+  final Set<String> excludedTags;
+
   /// 1-based page number.
   final int page;
 
@@ -56,6 +60,7 @@ final class WallhavenSearchRequest {
   static final _resolutionPattern = RegExp(r'^\d+x\d+$');
   static final _ratioPattern = RegExp(r'^(\d+x\d+|portrait|landscape)$');
   static final _seedPattern = RegExp(r'^[a-zA-Z0-9]{6}$');
+  static final _tagPattern = RegExp(r'^[a-z0-9_-]+$');
 
   /// Creates a search request, validating formats eagerly so malformed
   /// values fail at the call site rather than as an HTTP 400 later.
@@ -75,6 +80,7 @@ final class WallhavenSearchRequest {
     this.resolutions = const [],
     this.ratios = const [],
     this.colors = const {},
+    this.excludedTags = const {},
     this.page = 1,
     this.seed,
   }) {
@@ -119,6 +125,15 @@ final class WallhavenSearchRequest {
         'must match [a-zA-Z0-9]{6}',
       );
     }
+    for (final tag in excludedTags) {
+      if (tag.isEmpty || !_tagPattern.hasMatch(tag)) {
+        throw ArgumentError.value(
+          excludedTags,
+          'excludedTags',
+          'each tag must match ^[a-z0-9_-]+\$, got "$tag"',
+        );
+      }
+    }
   }
 
   /// Convenience copy helper returning a request targeting [newPage],
@@ -149,6 +164,7 @@ final class WallhavenSearchRequest {
         resolutions: resolutions,
         ratios: ratios,
         colors: colors,
+        excludedTags: excludedTags,
         page: page ?? this.page,
         seed: replaceSeed ? seed : this.seed,
       );
@@ -159,8 +175,13 @@ final class WallhavenSearchRequest {
     // Note: keys here are pre-encoding literals. dio/Uri percent-encode them
     // exactly once when building the request URL.
     final params = <String, String>{};
-    final q = structuredQuery?.build() ?? query;
-    if (q != null && q.isNotEmpty) params['q'] = q;
+    final rawQ = structuredQuery?.build() ?? query;
+    final tagsQ = excludedTags.map((t) => '-$t').join(' ');
+    final combined = [
+      if (rawQ != null && rawQ.isNotEmpty) rawQ,
+      if (tagsQ.isNotEmpty) tagsQ,
+    ].join(' ');
+    if (combined.isNotEmpty) params['q'] = combined;
     if (categories.length != WallhavenCategory.values.length) {
       params['categories'] = encodeCategories(categories);
     }

@@ -92,23 +92,24 @@ final class _CreateCollectionDialogState
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.lg),
-          M3ETextField(
-            controller: _nameCtrl,
-            focusNode: _nameFocus,
-            supportingText: 'For example, Abstract',
-            errorText: _error,
-            variant: M3ETextFieldVariant.outlined,
-            leading: Icon(
-              PhosphorIconsFill.stack,
-              size: 18,
-              color: scheme.onSurfaceVariant,
+          Material(
+            type: MaterialType.transparency,
+            child: TextField(
+              controller: _nameCtrl,
+              focusNode: _nameFocus,
+              decoration: InputDecoration(
+                errorText: _error,
+                prefixIcon: const Icon(PhosphorIconsFill.stack),
+                hintText: 'Abstract',
+              ),
+
+              inputFormatters: [LengthLimitingTextInputFormatter(30)],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _save(),
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
             ),
-            inputFormatters: [LengthLimitingTextInputFormatter(30)],
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _save(),
-            onChanged: (_) {
-              if (_error != null) setState(() => _error = null);
-            },
           ),
         ],
       ),
@@ -131,7 +132,7 @@ final class _CreateCollectionDialogState
                     color: scheme.onPrimary,
                   ),
                 )
-              : const Icon(PhosphorIconsFill.plus, size: 15),
+              : const Icon(PhosphorIconsBold.plus, size: 16),
           label: Text(_saving ? 'Creating…' : 'Create'),
         ),
       ],

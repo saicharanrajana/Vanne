@@ -173,7 +173,7 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                     'The key is stored in your device\u2019s secure storage and is '
                     'only ever sent to wallhaven.cc. It is never shown again after '
                     'saving. Not even here.',
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -191,36 +191,33 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                               leading: Icon(PhosphorIconsBold.checkCircle),
                             )
                           else
-                            M3ETextField(
+                            TextField(
                               controller: _keyField,
                               focusNode: _keyFocus,
-                              supportingText: 'Paste your Wallhaven API key.',
-                              variant: M3ETextFieldVariant.outlined,
-                              leading: Icon(
-                                PhosphorIconsFill.key,
-                                size: 20,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              trailing: M3EIconButton(
-                                tooltip: _obscured ? 'Show key' : 'Hide key',
-                                semanticLabel: _obscured
-                                    ? 'Show key'
-                                    : 'Hide key',
-                                size: M3EIconButtonSize.xs,
-                                onPressed: () =>
-                                    setState(() => _obscured = !_obscured),
-                                icon: Icon(
-                                  _obscured
-                                      ? PhosphorIconsFill.eye
-                                      : PhosphorIconsFill.eyeSlash,
-                                  size: 20,
+                              decoration: InputDecoration(
+                                helperText: 'Paste your Wallhaven API key.',
+                                helperStyle: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                prefixIcon: const Icon(PhosphorIconsFill.key),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscured ? 'Show key' : 'Hide key',
+                                  onPressed: () =>
+                                      setState(() => _obscured = !_obscured),
+                                  icon: Icon(
+                                    _obscured
+                                        ? PhosphorIconsFill.eye
+                                        : PhosphorIconsFill.eyeSlash,
+                                  ),
                                 ),
                               ),
                               obscureText: _obscured,
                               textInputAction: TextInputAction.done,
                               onSubmitted: (_) {
-                                if (_keyField.text.trim().isNotEmpty && !_busy)
+                                if (_keyField.text.trim().isNotEmpty &&
+                                    !_busy) {
                                   _save();
+                                }
                               },
                               onChanged: (_) => setState(() {}),
                             ),

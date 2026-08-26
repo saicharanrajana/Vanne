@@ -5,6 +5,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 import 'package:wallpaper_app/app/dependencies.dart';
 import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
+import 'package:wallpaper_app/app/theme/app_shapes.dart';
 import 'package:wallpaper_app/app/theme/app_theme.dart';
 import 'package:wallpaper_app/core/domain/feed_filter.dart';
 import 'package:wallpaper_app/core/favorites/favorites_repository.dart';
@@ -156,6 +157,32 @@ void main() {
         expect(theme.textSelectionTheme.selectionHandleColor, scheme.primary);
         expect(theme.textSelectionTheme.selectionColor, isNotNull);
       }
+    });
+
+    test('text fields use expressive geometry and state colors', () {
+      final theme = AppTheme.build(brightness: Brightness.dark);
+      final scheme = theme.colorScheme;
+      final input = theme.inputDecorationTheme;
+      final border = input.border! as OutlineInputBorder;
+      final focusedBorder = input.focusedBorder! as OutlineInputBorder;
+
+      expect(
+        input.contentPadding,
+        const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      );
+      expect(input.constraints, const BoxConstraints(minHeight: 56));
+      expect(border.borderRadius, BorderRadius.circular(AppShapes.large));
+      expect(border.borderSide.color, scheme.outlineVariant);
+      expect(
+        focusedBorder.borderRadius,
+        BorderRadius.circular(AppShapes.large),
+      );
+      expect(focusedBorder.borderSide.color, scheme.primary);
+      expect(focusedBorder.borderSide.width, 2);
+      final prefixIconColor = input.prefixIconColor! as WidgetStateColor;
+      expect(prefixIconColor.resolve({}), scheme.onSurfaceVariant);
+      expect(prefixIconColor.resolve({WidgetState.focused}), scheme.primary);
+      expect(prefixIconColor.resolve({WidgetState.error}), scheme.error);
     });
 
     test('dynamic fixed and surface roles survive theme construction', () {

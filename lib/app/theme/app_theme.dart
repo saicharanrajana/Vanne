@@ -1,6 +1,7 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'app_shapes.dart';
 import 'app_typography.dart';
 
 /// Application theme system.
@@ -39,6 +40,30 @@ abstract final class AppTheme {
     final effective = pitchBlack && brightness == Brightness.dark
         ? toPitchBlack(harmonized)
         : harmonized;
+    final textTheme = buildAppTextTheme(effective);
+    final fieldRadius = BorderRadius.circular(AppShapes.large);
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: fieldRadius,
+      borderSide: BorderSide(color: effective.outlineVariant),
+    );
+    final focusedFieldBorder = OutlineInputBorder(
+      borderRadius: fieldRadius,
+      borderSide: BorderSide(color: effective.primary, width: 2),
+    );
+    final errorFieldBorder = OutlineInputBorder(
+      borderRadius: fieldRadius,
+      borderSide: BorderSide(color: effective.error),
+    );
+    final focusedErrorFieldBorder = OutlineInputBorder(
+      borderRadius: fieldRadius,
+      borderSide: BorderSide(color: effective.error, width: 2),
+    );
+    final disabledFieldBorder = OutlineInputBorder(
+      borderRadius: fieldRadius,
+      borderSide: BorderSide(
+        color: effective.onSurface.withValues(alpha: 0.12),
+      ),
+    );
     const noSplash = ButtonStyle(
       overlayColor: WidgetStatePropertyAll(Colors.transparent),
       splashFactory: NoSplash.splashFactory,
@@ -48,11 +73,66 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: effective.surface,
       canvasColor: effective.surface,
       useMaterial3: true,
-      textTheme: buildAppTextTheme(effective),
+      textTheme: textTheme,
       textSelectionTheme: TextSelectionThemeData(
         selectionColor: effective.primary.withValues(alpha: 0.30),
         selectionHandleColor: effective.primary,
         cursorColor: effective.primary,
+      ),
+      inputDecorationTheme: InputDecorationThemeData(
+        labelStyle: WidgetStateTextStyle.resolveWith((states) {
+          final color = states.contains(WidgetState.error)
+              ? effective.error
+              : states.contains(WidgetState.focused)
+              ? effective.primary
+              : effective.onSurfaceVariant;
+          return textTheme.bodyLarge!.copyWith(color: color);
+        }),
+        floatingLabelStyle: WidgetStateTextStyle.resolveWith((states) {
+          final color = states.contains(WidgetState.error)
+              ? effective.error
+              : states.contains(WidgetState.focused)
+              ? effective.primary
+              : effective.onSurfaceVariant;
+          return textTheme.labelMedium!.copyWith(color: color);
+        }),
+        hintStyle: textTheme.bodyLarge!.copyWith(
+          color: effective.onSurfaceVariant,
+        ),
+        helperStyle: textTheme.labelSmall!.copyWith(
+          color: effective.onSurfaceVariant,
+        ),
+        errorStyle: textTheme.labelSmall!.copyWith(color: effective.error),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        constraints: const BoxConstraints(minHeight: 56),
+        prefixIconColor: WidgetStateColor.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return effective.onSurface.withValues(alpha: 0.38);
+          }
+          if (states.contains(WidgetState.error)) return effective.error;
+          if (states.contains(WidgetState.focused)) return effective.primary;
+          return effective.onSurfaceVariant;
+        }),
+        suffixIconColor: WidgetStateColor.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return effective.onSurface.withValues(alpha: 0.38);
+          }
+          if (states.contains(WidgetState.error)) return effective.error;
+          if (states.contains(WidgetState.focused)) return effective.primary;
+          return effective.onSurfaceVariant;
+        }),
+        focusColor: Colors.transparent,
+        hoverColor: effective.primary.withValues(alpha: 0.04),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
+        focusedBorder: focusedFieldBorder,
+        errorBorder: errorFieldBorder,
+        focusedErrorBorder: focusedErrorFieldBorder,
+        disabledBorder: disabledFieldBorder,
+        alignLabelWithHint: true,
       ),
       // Disable ripple/highlight globally — custom design language.
       splashColor: Colors.transparent,

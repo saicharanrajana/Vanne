@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../domain/feed_filter.dart';
+import '../../shared/utils/display_title.dart';
 
 /// Locally-persisted collection — a named shortcut to a Wallhaven search.
 ///
@@ -31,14 +32,7 @@ final class CollectionEntry {
   /// `Dark Minimal`. Storage keeps the raw input; only presentation cases.
   /// Hex names (`#RRGGBB`) are returned verbatim uppercased so `#ff0000`
   /// does not become `#Ff0000`.
-  String get displayName {
-    if (name.startsWith('#')) return name.toUpperCase();
-    return name
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
-        .join(' ');
-  }
+  String get displayName => formatDisplayTitle(name);
 
   Map<String, dynamic> toJson() => {
     'id': id,

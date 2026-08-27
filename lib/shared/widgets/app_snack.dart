@@ -1,7 +1,12 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../app/theme/app_shapes.dart';
 import '../../app/theme/app_spacing.dart';
+
+/// The semantic presentation of an application snackbar.
+enum AppSnackType { info, success, error }
 
 /// The app's single snackbar entry point.
 ///
@@ -10,9 +15,8 @@ import '../../app/theme/app_spacing.dart';
 ///   new one shows, so rapid actions can't build a snack backlog.
 /// * **Duplicate suppression** — the same message fired again within a
 ///   short window is dropped instead of re-appearing.
-/// * **Theme-native styling** — inverse-surface by default,
-///   error-container for failures; nothing hard-coded, so dynamic-color
-///   and pitch-black schemes just work.
+/// * **Theme-native styling** — each status uses a semantic color-container
+///   role, so dynamic-color and pitch-black schemes just work.
 abstract final class AppSnack {
   /// Installed on the root [MaterialApp] (`scaffoldMessengerKey:`), so
   /// snacks never depend on ambient `ScaffoldMessenger.of(context)`
@@ -23,22 +27,27 @@ abstract final class AppSnack {
       GlobalKey<ScaffoldMessengerState>(debugLabel: 'AppSnack.rootMessenger');
 
   static const Duration _dedupeWindow = Duration(seconds: 2);
+  static const Duration _duration = Duration(milliseconds: 2500);
   static String? _lastMessage;
   static DateTime _lastShownAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Shows [message], replacing any queued snacks.
-  ///
-  /// Pass `error: true` for failure feedback; it renders on the scheme's
-  /// error container so mistakes read differently from confirmations.
-  static void show(BuildContext context, String message, {bool error = false}) {
-    _present(message, error, _resolveMessenger(context));
+  /// Shows [message] using the requested semantic [type].
+  static void show(
+    BuildContext context,
+    String message, {
+    AppSnackType type = AppSnackType.info,
+  }) {
+    _present(message, type, _resolveMessenger(context));
   }
 
   /// Context-free variant for calls that complete after an async gap, where
   /// the caller's Element may already be defunct. Uses only the root
   /// messenger installed on [MaterialApp].
-  static void showRoot(String message, {bool error = false}) {
-    _present(message, error, messengerKey.currentState);
+  static void showRoot(
+    String message, {
+    AppSnackType type = AppSnackType.info,
+  }) {
+    _present(message, type, messengerKey.currentState);
   }
 
   static ScaffoldMessengerState? _resolveMessenger(BuildContext context) =>
@@ -46,7 +55,7 @@ abstract final class AppSnack {
 
   static void _present(
     String message,
-    bool error,
+    AppSnackType type,
     ScaffoldMessengerState? messenger,
   ) {
     if (messenger == null) return;
@@ -63,41 +72,50 @@ abstract final class AppSnack {
     // rebuilds, route pops across awaits), and reading through it throws
     // "This widget has been unmounted".
     final scheme = Theme.of(messenger.context).colorScheme;
+    final (backgroundColor, foregroundColor, iconData) = switch (type) {
+      AppSnackType.info => (
+        scheme.secondaryContainer,
+        scheme.onSecondaryContainer,
+        PhosphorIconsFill.info,
+      ),
+      AppSnackType.success => (
+        scheme.primaryContainer,
+        scheme.onPrimaryContainer,
+        PhosphorIconsFill.checkCircle,
+      ),
+      AppSnackType.error => (
+        scheme.errorContainer,
+        scheme.onErrorContainer,
+        PhosphorIconsFill.warningCircle,
+      ),
+    };
     // One impact per snack: confirmations tick lightly, failures hit harder.
     // Callers showing a snack should not trigger their own success/error
     // haptic, or the user feels two impacts for one event.
     M3EHaptics.trigger(
-      error ? M3EHapticFeedback.medium : M3EHapticFeedback.light,
+      type == AppSnackType.error
+          ? M3EHapticFeedback.medium
+          : M3EHapticFeedback.light,
     );
 
-    if (error) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            style: TextStyle(color: scheme.onErrorContainer),
-          ),
-          backgroundColor: scheme.errorContainer,
-          behavior: SnackBarBehavior.floating,
-          shape: const StadiumBorder(),
-          margin: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.sm,
-          ),
-        ),
-      );
-      return;
-    }
-
+    messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(color: scheme.onInverseSurface),
+        content: Row(
+          children: [
+            Icon(iconData, size: 20, color: foregroundColor),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(message, style: TextStyle(color: foregroundColor)),
+            ),
+          ],
         ),
-        backgroundColor: scheme.inverseSurface,
+        backgroundColor: backgroundColor,
+        duration: _duration,
         behavior: SnackBarBehavior.floating,
-        shape: const StadiumBorder(),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppShapes.large),
+        ),
         margin: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: AppSpacing.sm,

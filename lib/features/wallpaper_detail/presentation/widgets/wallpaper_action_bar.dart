@@ -86,21 +86,21 @@ final class WallpaperActionBar extends StatelessWidget {
       await controller.prepareForSet();
     } on DownloadException catch (e) {
       if (!context.mounted) return;
-      AppSnack.show(context, e.message, error: true);
+      AppSnack.show(context, e.message, type: AppSnackType.error);
       return;
     } catch (_) {
       if (!context.mounted) return;
       AppSnack.show(
         context,
         'Could not prepare the wallpaper file.',
-        error: true,
+        type: AppSnackType.error,
       );
       return;
     }
     final prepError = controller.prepare.peek().error;
     if (prepError != null) {
       if (!context.mounted) return;
-      AppSnack.show(context, prepError, error: true);
+      AppSnack.show(context, prepError, type: AppSnackType.error);
       return;
     }
     if (onBeforeSetPopup != null) {
@@ -125,15 +125,23 @@ final class WallpaperActionBar extends StatelessWidget {
       // downloadToGallery already maps known failures; this guards against
       // unexpected errors becoming unhandled zone exceptions.
       if (!context.mounted) return;
-      AppSnack.show(context, 'Download failed. Please try again.', error: true);
+      AppSnack.show(
+        context,
+        'Download failed. Please try again.',
+        type: AppSnackType.error,
+      );
       return;
     }
     final state = controller.download.peek();
     if (!context.mounted) return;
     if (state.done) {
-      AppSnack.show(context, 'Wallpaper saved to your gallery');
+      AppSnack.show(
+        context,
+        'Wallpaper saved to your gallery',
+        type: AppSnackType.success,
+      );
     } else if (state.error != null) {
-      AppSnack.show(context, state.error!, error: true);
+      AppSnack.show(context, state.error!, type: AppSnackType.error);
     }
   }
 
@@ -144,7 +152,7 @@ final class WallpaperActionBar extends StatelessWidget {
     final url = Uri.parse(controller.wallpaper.peek().url);
     final ok = await locator<UrlLauncherService>().openInApp(url);
     if (!ok && context.mounted) {
-      AppSnack.show(context, 'No browser available.', error: true);
+      AppSnack.show(context, 'No browser available.', type: AppSnackType.error);
     }
   }
 }

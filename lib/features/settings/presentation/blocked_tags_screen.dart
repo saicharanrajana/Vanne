@@ -58,7 +58,7 @@ final class _BlockedTagsScreenState extends State<BlockedTagsScreen> {
     try {
       settings.saveBlockedTagsFromRaw(_field.text);
       FocusManager.instance.primaryFocus?.unfocus();
-      AppSnack.showRoot('Blocked tags saved.');
+      AppSnack.showRoot('Blocked tags saved.', type: AppSnackType.success);
       if (mounted) setState(() {});
     } finally {
       if (mounted) setState(() => _saving = false);

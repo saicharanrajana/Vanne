@@ -438,11 +438,15 @@ final class _CacheTileState extends State<_CacheTile> {
       AppSnack.show(
         context,
         ok ? 'Image cache cleared' : 'Failed to clear cache',
-        error: !ok,
+        type: ok ? AppSnackType.success : AppSnackType.error,
       );
     } catch (e) {
       if (!mounted) return;
-      AppSnack.show(context, 'Failed to clear cache: $e', error: true);
+      AppSnack.show(
+        context,
+        'Failed to clear cache: $e',
+        type: AppSnackType.error,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

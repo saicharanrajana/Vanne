@@ -102,6 +102,10 @@ final class _Swatch extends StatelessWidget {
     // Copy the wire value verbatim — `#` included — so what lands on the
     // clipboard is exactly what Wallhaven published.
     Clipboard.setData(ClipboardData(text: hex));
-    AppSnack.show(context, '$hex copied to clipboard');
+    AppSnack.show(
+      context,
+      '$hex copied to clipboard',
+      type: AppSnackType.success,
+    );
   }
 }

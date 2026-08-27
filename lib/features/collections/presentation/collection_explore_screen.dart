@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -78,7 +79,7 @@ final class _CollectionExploreScreenState
                 child: M3EIconButton(
                   variant: M3EIconButtonVariant.tonal,
                   size: M3EIconButtonSize.xs,
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  onPressed: () => context.router.root.maybePop(),
                   tooltip: 'Back',
                   icon: Icon(
                     PhosphorIconsBold.arrowLeft,
@@ -147,7 +148,7 @@ final class _CollectionExploreScreenState
                     child: M3EIconButton(
                       variant: M3EIconButtonVariant.tonal,
                       size: M3EIconButtonSize.xs,
-                      onPressed: () => Navigator.of(context).maybePop(),
+                      onPressed: () => context.router.root.maybePop(),
                       tooltip: 'Back',
                       icon: Icon(
                         PhosphorIconsBold.arrowLeft,

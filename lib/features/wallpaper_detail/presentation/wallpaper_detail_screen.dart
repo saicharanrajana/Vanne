@@ -82,7 +82,6 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   @override
   void dispose() {
     _sheetController.dispose();
-    widget.controller.dispose();
     super.dispose();
   }
 
@@ -327,7 +326,9 @@ final class _DraggableInfoSheet extends StatelessWidget {
 
 /// Edge-to-edge wallpaper surface. Shows listing data instantly when the
 /// route carried an `initial`; deep-linked placeholders fall back to the
-/// best thumbnail until `/w/{id}` resolves.
+/// best available thumbnail until `/w/{id}` resolves. When the full-resolution
+/// URL differs from that thumbnail, the thumbnail remains visible while it
+/// loads.
 final class _FullBleedImage extends StatelessWidget {
   final WallpaperDetailController controller;
   final String heroScope;
@@ -349,11 +350,19 @@ final class _FullBleedImage extends StatelessWidget {
     return SignalBuilder(
       builder: (context) {
         final wallpaper = controller.wallpaper.value;
-        final url = wallpaper.path.isNotEmpty
-            ? wallpaper.path
+        final fullResolutionUrl = wallpaper.path;
+        final url = fullResolutionUrl.isNotEmpty
+            ? fullResolutionUrl
             : (wallpaper.thumbnails.original ??
                   wallpaper.thumbnails.bestForGrid ??
                   '');
+        final placeholderUrl = fullResolutionUrl.isNotEmpty
+            ? (wallpaper.thumbnails.original ??
+                  wallpaper.thumbnails.bestForGrid)
+            : null;
+        final imageFallbackColor = wallpaper.colors.isNotEmpty
+            ? parseHexColor(wallpaper.colors.first)
+            : null;
 
         return Hero(
           tag: 'wallpaper-$heroScope${wallpaper.id}',
@@ -373,7 +382,7 @@ final class _FullBleedImage extends StatelessWidget {
           placeholderBuilder: (context, size, child) =>
               SizedBox.fromSize(size: size, child: child),
           child: ColoredBox(
-            color: theme.colorScheme.surfaceContainerHigh,
+            color: imageFallbackColor ?? theme.colorScheme.surfaceContainerHigh,
             child: url.isEmpty
                 ? Center(
                     child: Icon(
@@ -386,9 +395,8 @@ final class _FullBleedImage extends StatelessWidget {
                     url,
                     fit: BoxFit.cover,
                     memCacheWidth: decodeWidth,
-                    placeholderColor: wallpaper.colors.isNotEmpty
-                        ? parseHexColor(wallpaper.colors.first)
-                        : null,
+                    placeholderImageUrl: placeholderUrl,
+                    placeholderColor: imageFallbackColor,
                   ),
           ),
         );

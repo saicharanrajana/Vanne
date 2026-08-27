@@ -3,7 +3,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
 import 'package:signals/signals_flutter.dart';
 import 'package:wallpaper_app/l10n/generated/app_localizations.dart';
-import 'package:zenrouter/zenrouter.dart';
 
 import '../core/services/dynamic_palette_refresher.dart';
 import 'dependencies.dart';
@@ -15,7 +14,7 @@ import '../shared/widgets/app_snack.dart';
 
 /// Root widget.
 ///
-/// Owns one [AppCoordinator] and rebuilds the M3E theme from settings
+/// Owns one [AppRouter] and rebuilds the M3E theme from settings
 /// signals: dynamic color (Material You with teal fallback), pitch-black
 /// surfaces and system/light/dark mode.
 ///
@@ -31,7 +30,17 @@ final class WallpaperApp extends StatefulWidget {
 }
 
 final class _WallpaperAppState extends State<WallpaperApp> {
-  final _coordinator = AppCoordinator();
+  final _router = AppRouter();
+  late final _routerConfig = _router.config(
+    includePrefixMatches: true,
+    deepLinkTransformer: appDeepLinkTransformer,
+  );
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -61,7 +70,7 @@ final class _WallpaperAppState extends State<WallpaperApp> {
         final lightDynamic = lightDynamicScheme.value;
         final darkDynamicRaw = darkDynamicScheme.value;
 
-        return MaterialApp(
+        return MaterialApp.router(
           title: 'Prisma Wallpapers',
           debugShowCheckedModeBanner: false,
           scaffoldMessengerKey: AppSnack.messengerKey,
@@ -89,10 +98,7 @@ final class _WallpaperAppState extends State<WallpaperApp> {
             ),
             child: child ?? const SizedBox.shrink(),
           ),
-          home: CoordinatorView(
-            coordinator: _coordinator,
-            initialUri: Uri.parse('/'),
-          ),
+          routerConfig: _routerConfig,
         );
       },
     );

@@ -6,6 +6,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
 import '../../../core/wallpaper/wallpaper_repository.dart';
+import '../../../shared/utils/display_title.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
@@ -61,15 +62,23 @@ final class _FilteredWallpapersScreenState
     return 'tag-${widget.query}-';
   }
 
+  String get _displayTitle => formatDisplayTitle(widget.title);
+
   Future<void> _saveAsCollection() async {
     final collections = locator<CollectionsController>();
-    final title = widget.title;
+    final title = _displayTitle;
     // Normalize like CollectionsController does: case-insensitive check.
     final exists = collections.entries.value.any(
       (e) => e.name.toLowerCase() == title.toLowerCase(),
     );
     if (exists) {
-      if (mounted) AppSnack.show(context, 'Collection already exists');
+      if (mounted) {
+        AppSnack.show(
+          context,
+          'Collection already exists',
+          type: AppSnackType.info,
+        );
+      }
       return;
     }
     final err = await collections.create(
@@ -80,9 +89,12 @@ final class _FilteredWallpapersScreenState
     );
     if (!mounted) return;
     if (err != null) {
-      AppSnack.show(context, err, error: true);
+      AppSnack.show(context, err, type: AppSnackType.error);
     } else {
-      AppSnack.showRoot('Added "${widget.title}" to collections');
+      AppSnack.showRoot(
+        'Added "$title" to collections',
+        type: AppSnackType.success,
+      );
     }
   }
 
@@ -112,7 +124,7 @@ final class _FilteredWallpapersScreenState
             onToggleFavorite: favorites.toggle,
             emptyState: EmptyState(
               title: 'Nothing here yet',
-              message: 'No wallpapers matched ${widget.title}.',
+              message: 'No wallpapers matched $_displayTitle.',
             ),
             onOpen: widget.onOpenWallpaper,
           );
@@ -146,7 +158,7 @@ final class _FilteredWallpapersScreenState
                       ),
                     ),
                   ),
-                  title: Text(widget.title),
+                  title: Text(_displayTitle),
                   actions: [
                     Padding(
                       padding: const EdgeInsetsDirectional.only(end: 8),

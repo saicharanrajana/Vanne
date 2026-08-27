@@ -36,6 +36,12 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
   late final FavoritesController favorites = locator<FavoritesController>();
 
   @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 

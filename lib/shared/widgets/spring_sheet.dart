@@ -4,35 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/theme/app_motion.dart';
 import '../../app/theme/app_shapes.dart';
 
-/// Shows a modal sheet anchored to the bottom edge of the screen.
-///
-/// A spring-driven replacement for showModalBottomSheet. The sheet enters
-/// and exits on smooth springs, and dragging it drives the route animation
-/// directly, so the velocity of a released fling is carried into the open
-/// or close spring.
-///
-/// The sheet surface comes from [SheetContainer]; the widget returned by
-/// [builder] brings only its content and padding.
-///
-/// Theme-correctness: this function captures the caller's [Theme] (which is
-/// a `material_ui` Theme carrying the teal-seeded / dynamic / pitch-black
-/// [ColorScheme]) and re-applies it inside the [PopupRoute] overlay. Without
-/// that the route's overlay would fall back to the baseline Flutter theme
-/// and the sheet's `surfaceContainerLow` would be neutral (`#F7F2FC`) instead
-/// of teal / pitch-black.
-///
-/// Returns a [Future] that resolves to the value passed to [Navigator.pop]
-/// when the sheet is closed.
-Future<T?> showSpringBottomSheet<T>({
-  required BuildContext context,
-  required WidgetBuilder builder,
-}) {
-  final capturedTheme = Theme.of(context);
-  return Navigator.of(
-    context,
-  ).push(SpringSheetRoute<T>(capturedTheme: capturedTheme, builder: builder));
-}
-
 /// A route that shows a spring-driven modal sheet at the bottom of the
 /// screen.
 class SpringSheetRoute<T> extends PopupRoute<T> {
@@ -45,7 +16,7 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
   /// Builds the content of the sheet.
   final WidgetBuilder builder;
 
-  /// Theme captured from the caller's context at `showSpringBottomSheet` time.
+  /// Theme captured from the caller's context when the route is created.
   /// Re-applied in [buildPage] so the sheet's `SheetContainer` and its
   /// Controls read the app's `ColorScheme` (teal seed / dynamic /
   /// pitch-black) instead of the baseline Flutter fallback.
@@ -231,7 +202,7 @@ class SpringSheetRoute<T> extends PopupRoute<T> {
   }
 }
 
-/// The surface for sheets shown with [showSpringBottomSheet].
+/// The surface used by [SpringSheetRoute].
 ///
 /// Uses theme's surfaceContainerLow with rounded top corners, matching the
 /// app's bottom sheet style. No hard-coded white.

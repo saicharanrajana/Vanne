@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -5,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/router/app_route.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../application/settings_controller.dart';
@@ -63,10 +65,14 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
       _keyField.clear();
       _replacing = false;
       FocusManager.instance.primaryFocus?.unfocus();
-      AppSnack.showRoot('API key saved securely.');
+      AppSnack.showRoot('API key saved securely.', type: AppSnackType.success);
     } catch (_) {
       if (mounted) {
-        AppSnack.show(context, 'Couldn’t save the API key.', error: true);
+        AppSnack.show(
+          context,
+          'Couldn’t save the API key.',
+          type: AppSnackType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -75,31 +81,8 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
 
   Future<void> _remove() async {
     if (_busy || !mounted) return;
-    final scheme = Theme.of(context).colorScheme;
-    final confirmed = await M3EDialog.show<bool>(
-      context,
-      dialog: Builder(
-        builder: (dialogContext) => M3EDialog(
-          title: 'Remove API key?',
-          content: const Text(
-            'NSFW access will be disabled until another key is configured.',
-          ),
-          actions: [
-            M3EButton.text(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            M3EButton.filled(
-              decoration: M3EButtonDecoration(
-                backgroundColor: WidgetStatePropertyAll(scheme.error),
-                foregroundColor: WidgetStatePropertyAll(scheme.onError),
-              ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Remove'),
-            ),
-          ],
-        ),
-      ),
+    final confirmed = await context.router.root.push<bool>(
+      const RemoveApiKeyDialogRoute(),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _removing = true);
@@ -107,11 +90,14 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
       await settings.removeApiKey();
       // Signal-driven rebuild may have replaced this screen's subtree by the
       // time the future resolves — never touch `context` past this point.
-      AppSnack.showRoot('API key removed.');
+      AppSnack.showRoot('API key removed.', type: AppSnackType.success);
       _keyField.clear();
       _replacing = false;
     } catch (_) {
-      AppSnack.showRoot('Couldn’t remove the API key.', error: true);
+      AppSnack.showRoot(
+        'Couldn’t remove the API key.',
+        type: AppSnackType.error,
+      );
     } finally {
       if (mounted) setState(() => _removing = false);
     }
@@ -196,9 +182,10 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                               focusNode: _keyFocus,
                               decoration: InputDecoration(
                                 helperText: 'Paste your Wallhaven API key.',
-                                helperStyle: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                                helperStyle: theme.textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
                                 prefixIcon: const Icon(PhosphorIconsFill.key),
                                 suffixIcon: IconButton(
                                   tooltip: _obscured ? 'Show key' : 'Hide key',

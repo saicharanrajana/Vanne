@@ -1,9 +1,11 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/router/app_route.dart';
 import '../../../app/router/tab_scroll_coordinator.dart';
 import '../../../app/theme/app_shapes.dart';
 import '../../../core/collections/collection_entry.dart';
@@ -37,58 +39,15 @@ final class CollectionsScreen extends StatelessWidget {
         .map((e) => e.displayName)
         .toList();
     final count = names.length;
-    final ok = await M3EDialog.show<bool>(
-      context,
-      dialog: Builder(
-        builder: (dialogContext) {
-          final scheme = Theme.of(dialogContext).colorScheme;
-          final textTheme = Theme.of(dialogContext).textTheme;
-          return M3EDialog(
-            title: 'Delete $count collection${count == 1 ? '' : 's'}?',
-            content: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: names.join(', '),
-                    style: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  TextSpan(
-                    text:
-                        '\n\nWallpapers aren’t deleted. Only these shortcuts.',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              M3EButton.text(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              M3EButton.filled(
-                decoration: M3EButtonDecoration(
-                  backgroundColor: WidgetStatePropertyAll(scheme.error),
-                  foregroundColor: WidgetStatePropertyAll(scheme.onError),
-                ),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Delete'),
-              ),
-            ],
-          );
-        },
-      ),
+    final ok = await context.router.root.push<bool>(
+      DeleteCollectionsDialogRoute(names: names),
     );
     if (ok != true) return;
     final deleted = await controller.removeMany(Set<String>.from(selected));
     controller.clearSelection();
     AppSnack.showRoot(
       deleted ? 'Deleted $count' : 'Couldn’t delete. Please try again.',
-      error: !deleted,
+      type: deleted ? AppSnackType.success : AppSnackType.error,
     );
   }
 

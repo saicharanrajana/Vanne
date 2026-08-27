@@ -15,7 +15,6 @@ import 'package:wallpaper_app/features/favorites/application/favorites_controlle
 import 'package:wallpaper_app/features/search/application/search_controller.dart';
 import 'package:wallpaper_app/features/search/presentation/search_screen.dart';
 import 'package:wallpaper_app/shared/widgets/wallpaper_tile.dart';
-import 'package:zenrouter/zenrouter.dart';
 
 class _StubRepo implements WallpaperRepository {
   @override
@@ -76,19 +75,16 @@ void main() {
     expect(tile.heroTag, 'wallpaper-$heroScope$id');
   });
 
-  test('SearchRoute and WallpaperDetailRoute use hero-compatible material transitions', () {
+  test('generated routes carry typed navigation arguments', () {
     final search = SearchRoute(query: 'test');
     final detail = WallpaperDetailRoute(
       wallpaperId: 'abc',
       heroScope: 'discover-',
     );
-    final coordinator = AppCoordinator();
-    expect(() => search.transition(coordinator), returnsNormally);
-    expect(() => detail.transition(coordinator), returnsNormally);
-    final searchT = search.transition(coordinator);
-    final detailT = detail.transition(coordinator);
-    expect(searchT, isA<StackTransition>());
-    expect(detailT, isA<StackTransition>());
+    expect(search.routeName, 'SearchRoute');
+    expect(search.rawQueryParams['q'], 'test');
+    expect(detail.routeName, 'WallpaperDetailRoute');
+    expect(detail.rawPathParams['wallpaperId'], 'abc');
   });
 
   testWidgets('Discover SearchBar hero exists and SearchScreen hero matches', (

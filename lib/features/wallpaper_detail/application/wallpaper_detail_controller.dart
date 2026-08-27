@@ -61,9 +61,11 @@ final class WallpaperDetailController {
     if (wallpaper.value.hasDetails || detailsError.value != null) return;
     try {
       final full = await _repository.wallpaperDetails(wallpaper.value.id);
+      if (_disposed) return;
       details.set(full);
       wallpaper.set(full);
     } on WallhavenUserException catch (error) {
+      if (_disposed) return;
       detailsError.set(error.message);
     }
   }
@@ -191,7 +193,8 @@ final class WallpaperDetailController {
     } on Error {
       base = Directory.systemTemp;
     }
-    final dir = await Directory('${base.path}/wallpaper_apply').create(recursive: true);
+    final dir = await Directory('${base.path}/wallpaper_apply')
+        .create(recursive: true);
     final file = File(
       '${dir.path}/${DownloadService.fileNameFor(wallpaper.value)}',
     );
@@ -247,15 +250,15 @@ final class DownloadState {
   const DownloadState.idle() : this(isBusy: false);
 
   const DownloadState.downloading([this.progress])
-      : isBusy = true,
-        error = null,
-        done = false;
+    : isBusy = true,
+      error = null,
+      done = false;
 
   const DownloadState.done()
-      : isBusy = false,
-        progress = null,
-        error = null,
-        done = true;
+    : isBusy = false,
+      progress = null,
+      error = null,
+      done = true;
 
   factory DownloadState.failed(String message) =>
       DownloadState(isBusy: false, error: message);
@@ -267,26 +270,18 @@ final class PrepareState {
   final String? path;
   final String? error;
 
-  const PrepareState({
-    required this.isResolving,
-    this.path,
-    this.error,
-  });
+  const PrepareState({required this.isResolving, this.path, this.error});
 
   const PrepareState.idle() : this(isResolving: false);
 
   const PrepareState.resolving()
-      : isResolving = true,
-        path = null,
-        error = null;
+    : isResolving = true,
+      path = null,
+      error = null;
 
-  const PrepareState.ready(this.path)
-      : isResolving = false,
-        error = null;
+  const PrepareState.ready(this.path) : isResolving = false, error = null;
 
-  const PrepareState.failed(this.error)
-      : isResolving = false,
-        path = null;
+  const PrepareState.failed(this.error) : isResolving = false, path = null;
 }
 
 /// Apply-sheet state machine.
@@ -308,30 +303,30 @@ final class ApplyState {
   const ApplyState.idle() : this(isBusy: false);
 
   const ApplyState.applying(this.target)
-      : isBusy = true,
-        error = null,
-        succeeded = false,
-        isSystemPicker = false;
+    : isBusy = true,
+      error = null,
+      succeeded = false,
+      isSystemPicker = false;
 
   const ApplyState.applyingSystemPicker()
-      : isBusy = true,
-        target = null,
-        error = null,
-        succeeded = false,
-        isSystemPicker = true;
+    : isBusy = true,
+      target = null,
+      error = null,
+      succeeded = false,
+      isSystemPicker = true;
 
   const ApplyState.success()
-      : isBusy = false,
-        target = null,
-        error = null,
-        succeeded = true,
-        isSystemPicker = false;
+    : isBusy = false,
+      target = null,
+      error = null,
+      succeeded = true,
+      isSystemPicker = false;
 
   factory ApplyState.failed(String message) =>
       ApplyState(isBusy: false, error: message);
 
   factory ApplyState.fromOutcome(ApplyOutcome outcome) => switch (outcome) {
-        ApplyOutcome(status: ApplyStatus.applied) => const ApplyState.success(),
-        ApplyOutcome(:final message) => ApplyState.failed(message),
-      };
+    ApplyOutcome(status: ApplyStatus.applied) => const ApplyState.success(),
+    ApplyOutcome(:final message) => ApplyState.failed(message),
+  };
 }

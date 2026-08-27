@@ -92,10 +92,11 @@ void main() {
       );
       addTearDown(controller.dispose);
 
-      await tester.pumpWidget(_host(const SizedBox.shrink()));
-      showSetWallpaperPopup(
-        tester.element(find.byType(Scaffold)),
-        controller: controller,
+      await tester.pumpWidget(
+        _host(
+          SetWallpaperDialog(controller: controller),
+          size: const Size(600, 800),
+        ),
       );
       await tester.pumpAndSettle();
 

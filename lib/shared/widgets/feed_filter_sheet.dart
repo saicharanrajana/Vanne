@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -5,9 +6,9 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:wallhaven_client/wallhaven_client.dart';
 
+import '../../app/router/app_route.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../core/domain/feed_filter.dart';
-import 'spring_sheet.dart';
 
 /// Generic feed filter sheet shared by Discover, Search and Collection explore.
 ///
@@ -17,24 +18,23 @@ Future<void> showFeedFilterSheet(
   BuildContext context, {
   required FeedFilter initial,
   required ValueChanged<FeedFilter> onApply,
-}) {
-  return showSpringBottomSheet<void>(
-    context: context,
-    builder: (context) => _FeedFilterSheet(initial: initial, onApply: onApply),
+}) async {
+  final result = await context.router.root.push<FeedFilter>(
+    FeedFilterSheetRoute(initial: initial),
   );
+  if (result != null) onApply(result);
 }
 
-final class _FeedFilterSheet extends StatefulWidget {
+final class FeedFilterSheetContent extends StatefulWidget {
   final FeedFilter initial;
-  final ValueChanged<FeedFilter> onApply;
 
-  const _FeedFilterSheet({required this.initial, required this.onApply});
+  const FeedFilterSheetContent({required this.initial, super.key});
 
   @override
-  State<_FeedFilterSheet> createState() => _FeedFilterSheetState();
+  State<FeedFilterSheetContent> createState() => _FeedFilterSheetState();
 }
 
-final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
+final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
   late FeedFilter _draft = _sanitize(widget.initial);
 
   static FeedFilter _sanitize(FeedFilter filter) {
@@ -130,16 +130,17 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
                 children: [
-                  for (final cat
-                      in WallhavenCategory.values.where(
-                        (c) => c != WallhavenCategory.people,
-                      ))
+                  for (final cat in WallhavenCategory.values.where(
+                    (c) => c != WallhavenCategory.people,
+                  ))
                     M3EChip(
                       label: cat.name[0].toUpperCase() + cat.name.substring(1),
                       type: M3EChipType.filter,
                       selected: _draft.categories.contains(cat),
                       onPressed: () => setState(() {
-                        final next = Set<WallhavenCategory>.from(_draft.categories);
+                        final next = Set<WallhavenCategory>.from(
+                          _draft.categories,
+                        );
                         if (next.contains(cat)) {
                           if (next.length == 1) return;
                           next.remove(cat);
@@ -196,8 +197,7 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
                       style: M3EButtonStyle.filled,
                       size: M3EButtonSize.md,
                       onPressed: () async {
-                        widget.onApply(_draft);
-                        if (context.mounted) Navigator.of(context).pop();
+                        context.router.root.pop(_draft);
                       },
                       child: const Text('Apply'),
                     ),
@@ -213,11 +213,11 @@ final class _FeedFilterSheetState extends State<_FeedFilterSheet> {
 
   static FeedFilter _withSorting(FeedFilter filter, FeedSorting sorting) =>
       sorting == FeedSorting.popular
-          ? filter.copyWith(
-              sorting: sorting,
-              topRange: filter.topRange ?? FeedTopRange.month,
-            )
-          : filter.copyWith(sorting: sorting, clearTopRange: true);
+      ? filter.copyWith(
+          sorting: sorting,
+          topRange: filter.topRange ?? FeedTopRange.month,
+        )
+      : filter.copyWith(sorting: sorting, clearTopRange: true);
 }
 
 final class _SectionLabel extends StatelessWidget {

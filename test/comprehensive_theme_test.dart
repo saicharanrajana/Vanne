@@ -16,7 +16,7 @@ import 'package:wallpaper_app/features/favorites/application/favorites_controlle
 import 'package:wallpaper_app/features/search/application/search_controller.dart'
     as app_search;
 import 'package:wallpaper_app/features/search/presentation/search_screen.dart';
-import 'package:wallpaper_app/features/discover/presentation/widgets/discover_filter_sheet.dart';
+import 'package:wallpaper_app/shared/widgets/feed_filter_sheet.dart';
 
 class _StubRepository implements WallpaperRepository {
   @override
@@ -345,22 +345,10 @@ void main() {
             MaterialApp(
               theme: themeData,
               home: Scaffold(
-                body: Builder(
-                  builder: (context) {
-                    return ElevatedButton(
-                      onPressed: () => showDiscoverFilterSheet(
-                        context,
-                        controller: controller,
-                      ),
-                      child: const Text('open'),
-                    );
-                  },
-                ),
+                body: FeedFilterSheetContent(initial: controller.filter.value),
               ),
             ),
           );
-          await tester.tap(find.text('open'));
-          await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
 
           expect(find.byWidgetPredicate((w) => w is ErrorWidget), findsNothing);

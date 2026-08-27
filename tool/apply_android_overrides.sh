@@ -141,7 +141,7 @@ with open(gradle_path, "w") as f:
     f.write(src)
 PY
 
-# 3. Patch the manifest: Application class + configChanges.
+# 3. Patch the manifest: Application class, predictive back, and configChanges.
 #    Use python for reliable in-place edits across macOS/Linux.
 python3 - "$MANIFEST" <<'PY'
 import re, sys
@@ -167,7 +167,27 @@ if n_name == 0:
         count=1,
     )
 
-# b) configChanges must include colorMode|navigation|mcc|mnc (wallpaper
+# b) predictive back must remain enabled after regenerating Android.
+def patch_predictive_back(m):
+    tag = m.group(0)
+    attribute = 'android:enableOnBackInvokedCallback="true"'
+    if 'android:enableOnBackInvokedCallback=' in tag:
+        return re.sub(
+            r'android:enableOnBackInvokedCallback="[^"]*"',
+            attribute,
+            tag,
+            count=1,
+        )
+    return tag[:-1] + '\n        ' + attribute + '>'
+
+src, n_predictive = re.subn(
+    r'<application\b[^>]*>',
+    patch_predictive_back,
+    src,
+    count=1,
+)
+
+# c) configChanges must include colorMode|navigation|mcc|mnc (wallpaper
 #    changes can trigger colorMode/uiMode config changes → recreation).
 required = {"colorMode", "navigation", "mcc", "mnc"}
 
@@ -198,6 +218,7 @@ with open(path, "w") as f:
     f.write(src)
 
 print("ok: manifest android:name='.WallpaperApp' (%s)" % ("set" if n_name else "UNCHANGED"))
+print("ok: manifest predictive back enabled (%s)" % ("applied" if n_predictive else "no <application> found"))
 print("ok: manifest configChanges patched (%s)" % ("applied" if n_cfg else "no <activity> found"))
 PY
 

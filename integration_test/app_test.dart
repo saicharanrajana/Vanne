@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:wallpaper_app/app/app.dart';
 import 'package:wallpaper_app/app/dependencies.dart';
+import 'package:wallpaper_app/app/router/app_route.dart';
 
 /// On-device end-to-end smoke test against the REAL Wallhaven API.
 ///
@@ -40,12 +41,21 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const WallpaperApp());
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    // The app has an ongoing feed/loading animation, so pump a bounded
+    // startup interval instead of waiting for global quiescence.
+    await tester.pump(const Duration(seconds: 2));
 
     // 1. Discover loads live wallpapers into the staggered grid.
     await pumpUntil(
       tester,
-      find.byKey(const ValueKey('wallpaper-tile-')).first,
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key as ValueKey<String>).value.startsWith(
+              'wallpaper-tile-',
+            ),
+        description: 'first wallpaper grid tile',
+      ),
       timeout: const Duration(seconds: 25),
     );
 
@@ -56,21 +66,25 @@ void main() {
           (widget.key as ValueKey<String>).value.startsWith('wallpaper-tile-'),
       description: 'first wallpaper grid tile',
     );
+    await tester.ensureVisible(tiles.first);
     await tester.tap(tiles.first);
     await pumpUntil(
       tester,
-      find.text('Details'),
+      find.byType(WallpaperDetailPage),
       timeout: const Duration(seconds: 25),
     );
-    expect(find.text('Details'), findsOneWidget);
+    expect(find.byType(WallpaperDetailPage), findsOneWidget);
   });
 
   testWidgets('favorites empty state renders', (tester) async {
+    // Force the previous test's RouterDelegate and route stack to unmount.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
     await tester.pumpWidget(const WallpaperApp());
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 2));
 
     await tester.tap(find.text('Favorites'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('No favorites yet'), findsOneWidget);
   });
 }

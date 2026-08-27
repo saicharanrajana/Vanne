@@ -1,13 +1,15 @@
+import 'package:auto_route/auto_route.dart';
+import 'package:collection/collection.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/navigation_bar/models/m3e_navigation_bar_destination.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:zenrouter/zenrouter.dart';
 
 import '../dependencies.dart';
 import '../../features/collections/presentation/collection_explore_screen.dart';
 import '../../features/collections/presentation/collections_screen.dart';
+import '../../features/collections/presentation/widgets/create_collection_dialog.dart';
 import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/favorites/presentation/favorites_screen.dart';
 import '../../features/filtered/presentation/filtered_wallpapers_screen.dart';
@@ -17,362 +19,569 @@ import '../../features/settings/presentation/blocked_tags_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 import '../../features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
+import '../../features/wallpaper_detail/presentation/widgets/set_wallpaper_sheet.dart';
+import '../../core/domain/feed_filter.dart';
+import '../../shared/widgets/feed_filter_sheet.dart';
+import '../../shared/widgets/spring_sheet.dart';
 import 'tab_scroll_coordinator.dart';
 
-/// Route hierarchy.
+part 'app_route.gr.dart';
+
+/// The single application router.
 ///
-/// The four primary destinations live in one [IndexedStackPath] rendered
-/// by [MainShell] (persistent bottom navigation, state preserved per tab).
-/// Everything else is pushed onto the root stack with a Material page
-/// transition so Hero animations animate correctly.
-abstract class AppRoute extends RouteTarget with RouteUnique {
+/// Full-screen destinations and application-owned overlays are all entries in
+/// this root stack. The tab router is nested under [MainShellPage] only to
+/// preserve each destination's widget and scroll state.
+@AutoRouterConfig(replaceInRouteName: 'Page|Screen,Route')
+final class AppRouter extends RootStackRouter {
   @override
-  Widget build(AppCoordinator coordinator, BuildContext context);
+  RouteType get defaultRouteType =>
+      const RouteType.material(enablePredictiveBackGesture: true);
+
+  @override
+  List<AutoRoute> get routes => [
+    AutoRoute(
+      page: MainShellRoute.page,
+      path: '/',
+      initial: true,
+      children: [
+        AutoRoute(page: DiscoverTabRoute.page, path: '', initial: true),
+        AutoRoute(page: CollectionsTabRoute.page, path: 'collections'),
+        AutoRoute(page: FavoritesTabRoute.page, path: 'favorites'),
+        AutoRoute(page: SettingsTabRoute.page, path: 'settings'),
+      ],
+    ),
+    // The search bar is a shared Hero with Discover, so use the same
+    // non-predictive transition as wallpaper detail for reverse edge pops.
+    CustomRoute(
+      page: SearchRoute.page,
+      path: '/search',
+      transitionsBuilder: heroCompatibleTransitionBuilder,
+    ),
+    AutoRoute(
+      page: CollectionExploreRoute.page,
+      path: '/collections/:collectionId',
+    ),
+    // Flutter's predictive-back page transition does not participate in the
+    // Hero flight. Use the normal Material transition here so both the
+    // toolbar button and an edge-back commit share the reverse Hero animation.
+    CustomRoute(
+      page: WallpaperDetailRoute.page,
+      path: '/wallpaper/:wallpaperId',
+      transitionsBuilder: heroCompatibleTransitionBuilder,
+    ),
+    AutoRoute(page: FilteredWallpapersRoute.page, path: '/filtered'),
+    AutoRoute(page: ApiKeySettingsRoute.page, path: '/settings/api-key'),
+    AutoRoute(page: BlockedTagsRoute.page, path: '/settings/blocked-tags'),
+    CustomRoute(
+      page: CreateCollectionDialogRoute.page,
+      path: '/_modal/create-collection',
+      opaque: false,
+      barrierDismissible: true,
+      customRouteBuilder: m3eDialogRouteBuilder,
+    ),
+    CustomRoute(
+      page: DeleteCollectionsDialogRoute.page,
+      path: '/_modal/delete-collections',
+      opaque: false,
+      barrierDismissible: true,
+      customRouteBuilder: m3eDialogRouteBuilder,
+    ),
+    CustomRoute(
+      page: RemoveApiKeyDialogRoute.page,
+      path: '/_modal/remove-api-key',
+      opaque: false,
+      barrierDismissible: true,
+      customRouteBuilder: m3eDialogRouteBuilder,
+    ),
+    CustomRoute(
+      page: SetWallpaperDialogRoute.page,
+      path: '/_modal/set-wallpaper',
+      opaque: false,
+      barrierDismissible: true,
+      customRouteBuilder: m3eDialogRouteBuilder,
+    ),
+    CustomRoute(
+      page: FeedFilterSheetRoute.page,
+      path: '/_modal/feed-filter',
+      opaque: false,
+      barrierDismissible: true,
+      customRouteBuilder: springSheetRouteBuilder,
+    ),
+  ];
 }
 
-// ---------------------------------------------------------------------------
-// Primary destinations
-// ---------------------------------------------------------------------------
+Widget heroCompatibleTransitionBuilder(
+  BuildContext context,
+  Animation<double> animation,
+  Animation<double> secondaryAnimation,
+  Widget child,
+) {
+  final route = ModalRoute.of(context);
+  if (route is! PageRoute<dynamic>) return child;
 
-class DiscoverTab extends AppRoute {
-  @override
-  Type get layout => MainShell;
-
-  @override
-  Uri toUri() => Uri.parse('/');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      DiscoverScreen(
-        onOpenSearch: () => coordinator.push(SearchRoute()),
-        onOpenWallpaper: (wallpaper) => coordinator.push(
-          WallpaperDetailRoute(
-            wallpaperId: wallpaper.id,
-            initial: wallpaper,
-            heroScope: 'discover-',
-          ),
-        ),
-      );
+  return const FadeForwardsPageTransitionsBuilder().buildTransitions(
+    route,
+    context,
+    animation,
+    secondaryAnimation,
+    child,
+  );
 }
 
-class CollectionsTab extends AppRoute {
-  @override
-  Type get layout => MainShell;
-
-  @override
-  Uri toUri() => Uri.parse('/collections');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      CollectionsScreen(
-        onOpenCollection: (id) =>
-            coordinator.push(CollectionExploreRoute(collectionId: id)),
-      );
+/// Modal routes carry live widget state and must never be restored from an
+/// external URI without their typed runtime arguments.
+Future<Uri> appDeepLinkTransformer(Uri uri) async {
+  if (uri.pathSegments.firstOrNull == '_modal') return Uri(path: '/');
+  return uri;
 }
 
-class FavoritesTab extends AppRoute {
-  @override
-  Type get layout => MainShell;
+/// Builds M3E dialogs as page-backed routes on the root navigator.
+Route<T> m3eDialogRouteBuilder<T>(
+  BuildContext context,
+  Widget child,
+  AutoRoutePage<T> page,
+) {
+  final theme = M3EThemeScope.resolveOf(context) ?? M3ETheme.of(context);
+  final dialogTheme = theme.dialogTheme;
 
-  @override
-  Uri toUri() => Uri.parse('/favorites');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      FavoritesScreen(
-        onOpenWallpaper: (wallpaper) => coordinator.push(
-          WallpaperDetailRoute(
-            wallpaperId: wallpaper.id,
-            initial: wallpaper,
-            heroScope: 'favorites-',
-          ),
-        ),
-      );
+  return DialogRoute<T>(
+    context: context,
+    settings: page,
+    barrierDismissible: true,
+    barrierLabel: 'Dismiss',
+    barrierColor: dialogTheme.scrimColor(theme.colorScheme),
+    builder: (context) => M3EScrimSystemUi.wrap(
+      M3EComponentTheme(
+        builder: (context) =>
+            M3EDialogInset(padding: dialogTheme.screenMargin, child: child),
+      ),
+    ),
+  );
 }
 
-class SettingsTab extends AppRoute {
-  @override
-  Type get layout => MainShell;
-
-  @override
-  Uri toUri() => Uri.parse('/settings');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      SettingsScreen(
-        onOpenApiKey: () => coordinator.push(ApiKeySettingsRoute()),
-        onOpenBlockedTags: () => coordinator.push(BlockedTagsRoute()),
-      );
+/// Builds the app's spring sheet as a page-backed root route.
+Route<T> springSheetRouteBuilder<T>(
+  BuildContext context,
+  Widget child,
+  AutoRoutePage<T> page,
+) {
+  return SpringSheetRoute<T>(
+    capturedTheme: Theme.of(context),
+    builder: (_) => child,
+    settings: page,
+  );
 }
 
-/// Persistent navigation shell hosting the four tabs as an IndexedStack.
-class MainShell extends AppRoute with RouteLayout<AppRoute> {
-  @override
-  IndexedStackPath<AppRoute> resolvePath(AppCoordinator coordinator) =>
-      coordinator.tabs;
+@RoutePage()
+final class MainShellPage extends StatelessWidget {
+  const MainShellPage({super.key});
 
   @override
-  Widget build(AppCoordinator coordinator, BuildContext context) {
-    final path = coordinator.tabs;
-    return Scaffold(
-      body: buildPath(coordinator),
-      bottomNavigationBar: ListenableBuilder(
-        listenable: path,
-        builder: (context, _) {
-          return M3ENavigationBar(
-            selectedIndex: path.activeIndex,
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            onDestinationSelected: (index) {
-              M3EHaptics.trigger(M3EHapticFeedback.light);
-              if (index == path.activeIndex) {
-                // Reselecting the active destination scrolls it back to top.
-                locator<TabScrollCoordinator>().scrollToTop(index);
-                return;
+  Widget build(BuildContext context) {
+    return AutoTabsRouter(
+      homeIndex: 0,
+      routes: const [
+        DiscoverTabRoute(),
+        CollectionsTabRoute(),
+        FavoritesTabRoute(),
+        SettingsTabRoute(),
+      ],
+      builder: (context, child) {
+        final tabsRouter = AutoTabsRouter.of(context);
+        return ListenableBuilder(
+          listenable: tabsRouter,
+          builder: (context, _) => PopScope<void>(
+            // The shell is the root page, so the nested tabs router must
+            // consume back before the system is allowed to leave the app.
+            canPop: tabsRouter.activeIndex == 0,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop && tabsRouter.activeIndex != 0) {
+                tabsRouter.setActiveIndex(0);
               }
-              path.goToIndexed(index);
             },
-            destinations: const [
-              M3ENavigationBarDestination(
-                icon: Icon(PhosphorIconsBold.compass),
-                selectedIcon: Icon(PhosphorIconsFill.compass),
-                label: 'Discover',
+            child: Scaffold(
+              body: child,
+              bottomNavigationBar: M3ENavigationBar(
+                selectedIndex: tabsRouter.activeIndex,
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                onDestinationSelected: (index) {
+                  M3EHaptics.trigger(M3EHapticFeedback.light);
+                  if (index == tabsRouter.activeIndex) {
+                    locator<TabScrollCoordinator>().scrollToTop(index);
+                    return;
+                  }
+                  tabsRouter.setActiveIndex(index);
+                },
+                destinations: const [
+                  M3ENavigationBarDestination(
+                    icon: Icon(PhosphorIconsBold.compass),
+                    selectedIcon: Icon(PhosphorIconsFill.compass),
+                    label: 'Discover',
+                  ),
+                  M3ENavigationBarDestination(
+                    icon: Icon(PhosphorIconsBold.stack),
+                    selectedIcon: Icon(PhosphorIconsFill.stack),
+                    label: 'Collections',
+                  ),
+                  M3ENavigationBarDestination(
+                    icon: Icon(PhosphorIconsBold.heart),
+                    selectedIcon: Icon(PhosphorIconsFill.heart),
+                    label: 'Favorites',
+                  ),
+                  M3ENavigationBarDestination(
+                    icon: Icon(PhosphorIconsBold.gear),
+                    selectedIcon: Icon(PhosphorIconsFill.gear),
+                    label: 'Settings',
+                  ),
+                ],
               ),
-              M3ENavigationBarDestination(
-                icon: Icon(PhosphorIconsBold.stack),
-                selectedIcon: Icon(PhosphorIconsFill.stack),
-                label: 'Collections',
-              ),
-              M3ENavigationBarDestination(
-                icon: Icon(PhosphorIconsBold.heart),
-                selectedIcon: Icon(PhosphorIconsFill.heart),
-                label: 'Favorites',
-              ),
-              M3ENavigationBarDestination(
-                icon: Icon(PhosphorIconsBold.gear),
-                selectedIcon: Icon(PhosphorIconsFill.gear),
-                label: 'Settings',
-              ),
-            ],
-          );
-        },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+@RoutePage()
+final class DiscoverTabPage extends StatelessWidget {
+  const DiscoverTabPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DiscoverScreen(
+      onOpenSearch: () => context.router.root.push(SearchRoute()),
+      onOpenWallpaper: (wallpaper) => context.router.root.push(
+        WallpaperDetailRoute(
+          wallpaperId: wallpaper.id,
+          initial: wallpaper,
+          heroScope: 'discover-',
+        ),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Pushed routes
-// ---------------------------------------------------------------------------
+@RoutePage()
+final class CollectionsTabPage extends StatelessWidget {
+  const CollectionsTabPage({super.key});
 
-class SearchRoute extends AppRoute with RouteTransition {
-  /// Optional initial query (e.g. from a suggestion).
+  @override
+  Widget build(BuildContext context) {
+    return CollectionsScreen(
+      onOpenCollection: (id) =>
+          context.router.root.push(CollectionExploreRoute(collectionId: id)),
+    );
+  }
+}
+
+@RoutePage()
+final class FavoritesTabPage extends StatelessWidget {
+  const FavoritesTabPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FavoritesScreen(
+      onOpenWallpaper: (wallpaper) => context.router.root.push(
+        WallpaperDetailRoute(
+          wallpaperId: wallpaper.id,
+          initial: wallpaper,
+          heroScope: 'favorites-',
+        ),
+      ),
+    );
+  }
+}
+
+@RoutePage()
+final class SettingsTabPage extends StatelessWidget {
+  const SettingsTabPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsScreen(
+      onOpenApiKey: () => context.router.root.push(const ApiKeySettingsRoute()),
+      onOpenBlockedTags: () =>
+          context.router.root.push(const BlockedTagsRoute()),
+    );
+  }
+}
+
+@RoutePage()
+final class SearchPage extends StatelessWidget {
+  const SearchPage({@QueryParam('q') this.query, super.key});
+
   final String? query;
 
-  SearchRoute({this.query});
-
   @override
-  Uri toUri() => Uri.parse('/search');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      SearchScreen(
-        initialQuery: query,
-        onOpenWallpaper: (wallpaper) => coordinator.push(
-          WallpaperDetailRoute(
-            wallpaperId: wallpaper.id,
-            initial: wallpaper,
-            heroScope: 'search-',
-          ),
+  Widget build(BuildContext context) {
+    return SearchScreen(
+      initialQuery: query,
+      onOpenWallpaper: (wallpaper) => context.router.root.push(
+        WallpaperDetailRoute(
+          wallpaperId: wallpaper.id,
+          initial: wallpaper,
+          heroScope: 'search-',
         ),
-      );
-
-  @override
-  StackTransition<T> transition<T extends RouteUnique>(
-    covariant Coordinator<RouteUnique> coordinator,
-  ) {
-    return StackTransition.material(
-      Builder(
-        builder: (context) => build(coordinator as AppCoordinator, context),
       ),
     );
   }
 }
 
-class CollectionExploreRoute extends AppRoute {
+@RoutePage()
+final class CollectionExplorePage extends StatelessWidget {
+  const CollectionExplorePage({
+    @PathParam('collectionId') required this.collectionId,
+    super.key,
+  });
+
   final String collectionId;
 
-  CollectionExploreRoute({required this.collectionId});
-
   @override
-  Uri toUri() => Uri.parse('/collections/$collectionId');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      CollectionExploreScreen(
-        collectionId: collectionId,
-        onOpenWallpaper: (wallpaper) => coordinator.push(
-          WallpaperDetailRoute(
-            wallpaperId: wallpaper.id,
-            initial: wallpaper,
-            heroScope: 'collection-$collectionId-',
-          ),
+  Widget build(BuildContext context) {
+    return CollectionExploreScreen(
+      collectionId: collectionId,
+      onOpenWallpaper: (wallpaper) => context.router.root.push(
+        WallpaperDetailRoute(
+          wallpaperId: wallpaper.id,
+          initial: wallpaper,
+          heroScope: 'collection-$collectionId-',
         ),
-      );
+      ),
+    );
+  }
 }
 
-class WallpaperDetailRoute extends AppRoute with RouteTransition {
+@RoutePage()
+final class WallpaperDetailPage extends StatefulWidget {
+  const WallpaperDetailPage({
+    @PathParam('wallpaperId') required this.wallpaperId,
+    this.initial,
+    this.heroScope = '',
+    super.key,
+  });
+
   final String wallpaperId;
   final Wallpaper? initial;
   final String heroScope;
 
-  WallpaperDetailRoute({
-    required this.wallpaperId,
-    this.initial,
-    this.heroScope = '',
-  });
+  @override
+  State<WallpaperDetailPage> createState() => _WallpaperDetailPageState();
+}
 
-  /// Created once per route instance; rebuilding the route must not spawn
-  /// a fresh controller (and re-fire `/w/{id}`) on every build. The screen's
-  /// [State.dispose] releases it when the route is popped.
-  WallpaperDetailController? _controller;
+final class _WallpaperDetailPageState extends State<WallpaperDetailPage> {
+  late final WallpaperDetailController _controller;
 
   @override
-  Uri toUri() => Uri.parse('/wallpaper/$wallpaperId');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) {
-    final controller = _controller ??= locator<WallpaperDetailController>(
-      param1: wallpaperId,
-      param2: initial,
+  void initState() {
+    super.initState();
+    _controller = locator<WallpaperDetailController>(
+      param1: widget.wallpaperId,
+      param2: widget.initial,
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return WallpaperDetailScreen(
-      controller: controller,
-      onBack: () => coordinator.pop(),
-      heroScope: heroScope,
+      controller: _controller,
+      onBack: () => context.router.root.pop(),
+      heroScope: widget.heroScope,
       onColorTap: (hex) {
-        final normalized =
-            hex.startsWith('#') ? hex.toUpperCase() : '#${hex.toUpperCase()}';
-        coordinator.push(
-          FilteredWallpapersRoute(
-            title: normalized,
-            colorHexes: [normalized],
-          ),
+        final normalized = hex.startsWith('#')
+            ? hex.toUpperCase()
+            : '#${hex.toUpperCase()}';
+        context.router.root.push(
+          FilteredWallpapersRoute(title: normalized, colors: normalized),
         );
       },
       onTagTap: (tag) {
-        coordinator.push(
+        context.router.root.push(
           FilteredWallpapersRoute(title: tag, query: tag),
         );
       },
     );
   }
+}
+
+@RoutePage()
+final class FilteredWallpapersPage extends StatelessWidget {
+  const FilteredWallpapersPage({
+    @QueryParam('title') this.title = '',
+    @QueryParam('q') this.query = '',
+    @QueryParam('colors') this.colors = '',
+    super.key,
+  });
+
+  final String title;
+  final String query;
+  final String colors;
+
+  List<String> get colorHexes => colors
+      .split(',')
+      .where((color) => color.isNotEmpty)
+      .toList(growable: false);
+
+  String get heroScope =>
+      colorHexes.isNotEmpty ? 'color-${colorHexes.first}-' : 'tag-$query-';
 
   @override
-  StackTransition<T> transition<T extends RouteUnique>(
-    covariant Coordinator<RouteUnique> coordinator,
-  ) {
-    return StackTransition.material(
-      Builder(
-        builder: (context) => build(coordinator as AppCoordinator, context),
+  Widget build(BuildContext context) {
+    return FilteredWallpapersScreen(
+      title: title,
+      query: query,
+      colorHexes: colorHexes,
+      onBack: () => context.router.root.pop(),
+      onOpenWallpaper: (wallpaper) => context.router.root.push(
+        WallpaperDetailRoute(
+          wallpaperId: wallpaper.id,
+          initial: wallpaper,
+          heroScope: heroScope,
+        ),
       ),
     );
   }
 }
 
-class FilteredWallpapersRoute extends AppRoute {
-  final String title;
-  final String query;
-  final List<String> colorHexes;
-
-  FilteredWallpapersRoute({
-    required this.title,
-    this.query = '',
-    this.colorHexes = const [],
-  });
+@RoutePage()
+final class ApiKeySettingsPage extends StatelessWidget {
+  const ApiKeySettingsPage({super.key});
 
   @override
-  Uri toUri() {
-    final params = <String, String>{'title': title};
-    if (query.isNotEmpty) params['q'] = query;
-    if (colorHexes.isNotEmpty) params['colors'] = colorHexes.join(',');
-    return Uri(path: '/filtered', queryParameters: params);
+  Widget build(BuildContext context) {
+    return ApiKeyScreen(onBack: () => context.router.root.pop());
   }
+}
 
-  String get _heroScope {
-    if (colorHexes.isNotEmpty) return 'color-${colorHexes.first}-';
-    return 'tag-$query-';
-  }
+@RoutePage()
+final class BlockedTagsPage extends StatelessWidget {
+  const BlockedTagsPage({super.key});
 
   @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      FilteredWallpapersScreen(
-        title: title,
-        query: query,
-        colorHexes: colorHexes,
-        onBack: () => coordinator.pop(),
-        onOpenWallpaper: (wallpaper) => coordinator.push(
-          WallpaperDetailRoute(
-            wallpaperId: wallpaper.id,
-            initial: wallpaper,
-            heroScope: _heroScope,
-          ),
+  Widget build(BuildContext context) {
+    return BlockedTagsScreen(onBack: () => context.router.root.pop());
+  }
+}
+
+@RoutePage()
+final class CreateCollectionDialogPage extends StatelessWidget {
+  const CreateCollectionDialogPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const CreateCollectionDialogContent();
+}
+
+@RoutePage()
+final class DeleteCollectionsDialogPage extends StatelessWidget {
+  const DeleteCollectionsDialogPage({required this.names, super.key});
+
+  final List<String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final count = names.length;
+
+    return M3EDialog(
+      title: 'Delete $count collection${count == 1 ? '' : 's'}?',
+      content: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: names.join(', '),
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+              ),
+            ),
+            TextSpan(
+              text: '\n\nWallpapers aren\'t deleted. Only these shortcuts.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
-      );
-}
-
-class ApiKeySettingsRoute extends AppRoute {
-  @override
-  Uri toUri() => Uri.parse('/settings/api-key');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      ApiKeyScreen(onBack: () => coordinator.pop());
-}
-
-class BlockedTagsRoute extends AppRoute {
-  @override
-  Uri toUri() => Uri.parse('/settings/blocked-tags');
-
-  @override
-  Widget build(AppCoordinator coordinator, BuildContext context) =>
-      BlockedTagsScreen(onBack: () => coordinator.pop());
-}
-
-// ---------------------------------------------------------------------------
-// Coordinator
-// ---------------------------------------------------------------------------
-
-final class AppCoordinator extends Coordinator<AppRoute> {
-  /// Fixed tab stack — content lives in one IndexedStack so each tab keeps
-  /// its scroll position, feed state and widgets alive across switches.
-  late final IndexedStackPath<AppRoute> tabs = IndexedStackPath.createWith(
-    coordinator: this,
-    label: 'tabs',
-    [DiscoverTab(), CollectionsTab(), FavoritesTab(), SettingsTab()],
-  )..bindLayout(MainShell.new);
-
-  @override
-  List<StackPath> get paths => [...super.paths, tabs];
-
-  @override
-  AppRoute parseRouteFromUri(Uri uri) => switch (uri.pathSegments) {
-    [] || ['discover'] => DiscoverTab(),
-    ['collections'] => CollectionsTab(),
-    ['favorites'] => FavoritesTab(),
-    ['settings'] => SettingsTab(),
-    ['settings', 'api-key'] => ApiKeySettingsRoute(),
-    ['settings', 'blocked-tags'] => BlockedTagsRoute(),
-    ['search'] => SearchRoute(),
-    ['wallpaper', final id] => WallpaperDetailRoute(wallpaperId: id),
-    ['collections', final id] => CollectionExploreRoute(collectionId: id),
-    ['filtered'] => FilteredWallpapersRoute(
-        title: uri.queryParameters['title'] ?? '',
-        query: uri.queryParameters['q'] ?? '',
-        colorHexes: (uri.queryParameters['colors'] ?? '')
-            .split(',')
-            .where((s) => s.isNotEmpty)
-            .toList(),
       ),
-    _ => DiscoverTab(),
-  };
+      actions: [
+        M3EButton.text(
+          onPressed: () => context.router.root.pop(false),
+          child: const Text('Cancel'),
+        ),
+        M3EButton.filled(
+          decoration: M3EButtonDecoration(
+            backgroundColor: WidgetStatePropertyAll(scheme.error),
+            foregroundColor: WidgetStatePropertyAll(scheme.onError),
+          ),
+          onPressed: () => context.router.root.pop(true),
+          child: const Text('Delete'),
+        ),
+      ],
+    );
+  }
+}
+
+@RoutePage()
+final class RemoveApiKeyDialogPage extends StatelessWidget {
+  const RemoveApiKeyDialogPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return M3EDialog(
+      title: 'Remove API key?',
+      content: const Text(
+        'NSFW access will be disabled until another key is configured.',
+      ),
+      actions: [
+        M3EButton.text(
+          onPressed: () => context.router.root.pop(false),
+          child: const Text('Cancel'),
+        ),
+        M3EButton.filled(
+          decoration: M3EButtonDecoration(
+            backgroundColor: WidgetStatePropertyAll(scheme.error),
+            foregroundColor: WidgetStatePropertyAll(scheme.onError),
+          ),
+          onPressed: () => context.router.root.pop(true),
+          child: const Text('Remove'),
+        ),
+      ],
+    );
+  }
+}
+
+@RoutePage()
+final class SetWallpaperDialogPage extends StatelessWidget {
+  const SetWallpaperDialogPage({required this.controller, super.key});
+
+  final WallpaperDetailController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SetWallpaperTheme(
+      controller: controller,
+      child: SetWallpaperDialog(controller: controller),
+    );
+  }
+}
+
+@RoutePage()
+final class FeedFilterSheetPage extends StatelessWidget {
+  const FeedFilterSheetPage({required this.initial, super.key});
+
+  final FeedFilter initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return FeedFilterSheetContent(initial: initial);
+  }
 }

@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -5,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 
 import '../../../../app/dependencies.dart';
+import '../../../../app/router/app_route.dart';
 import '../../../../app/theme/app_motion.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/wallpaper_applier.dart';
@@ -27,30 +29,29 @@ Future<void> showSetWallpaperPopup(
   BuildContext context, {
   required WallpaperDetailController controller,
 }) {
-  return M3EDialog.show<void>(
-    context,
-    barrierDismissible: true,
-    dialog: _SetWallpaperTheme(
-      controller: controller,
-      child: _SetWallpaperDialog(controller: controller),
-    ),
+  return context.router.root.push<void>(
+    SetWallpaperDialogRoute(controller: controller),
   );
 }
 
 /// Rebuilds the wallpaper-derived theme when the palette signal changes
 /// (e.g. deep-linked wallpaper whose colors arrive late), cross-fading
 /// just like the detail screen's [AnimatedTheme].
-final class _SetWallpaperTheme extends StatefulWidget {
+final class SetWallpaperTheme extends StatefulWidget {
   final WallpaperDetailController controller;
   final Widget child;
 
-  const _SetWallpaperTheme({required this.controller, required this.child});
+  const SetWallpaperTheme({
+    required this.controller,
+    required this.child,
+    super.key,
+  });
 
   @override
-  State<_SetWallpaperTheme> createState() => _SetWallpaperThemeState();
+  State<SetWallpaperTheme> createState() => _SetWallpaperThemeState();
 }
 
-final class _SetWallpaperThemeState extends State<_SetWallpaperTheme> {
+final class _SetWallpaperThemeState extends State<SetWallpaperTheme> {
   ColorScheme? _cachedScheme;
   Object? _schemeKey;
 
@@ -95,16 +96,16 @@ final class _SetWallpaperThemeState extends State<_SetWallpaperTheme> {
   }
 }
 
-final class _SetWallpaperDialog extends StatefulWidget {
+final class SetWallpaperDialog extends StatefulWidget {
   final WallpaperDetailController controller;
 
-  const _SetWallpaperDialog({required this.controller});
+  const SetWallpaperDialog({required this.controller, super.key});
 
   @override
-  State<_SetWallpaperDialog> createState() => _SetWallpaperDialogState();
+  State<SetWallpaperDialog> createState() => _SetWallpaperDialogState();
 }
 
-final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
+final class _SetWallpaperDialogState extends State<SetWallpaperDialog> {
   Future<void> _apply(ApplyTarget target) async {
     M3EHaptics.trigger(M3EHapticFeedback.light);
     await widget.controller.applyAsWallpaper(target);
@@ -115,8 +116,8 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
         ApplyTarget.home => 'Wallpaper set for your home screen',
         ApplyTarget.lock => 'Wallpaper set for your lock screen',
         ApplyTarget.both => 'Wallpaper set for home and lock screens',
-      });
-      Navigator.of(context).pop();
+      }, type: AppSnackType.success);
+      context.router.root.pop();
     }
     // On failure, error is shown inline; dialog stays open for retry.
   }
@@ -127,8 +128,11 @@ final class _SetWallpaperDialogState extends State<_SetWallpaperDialog> {
     final state = widget.controller.apply.peek();
     if (!mounted) return;
     if (state.succeeded) {
-      AppSnack.showRoot('Opened system wallpaper picker');
-      Navigator.of(context).pop();
+      AppSnack.showRoot(
+        'Opened system wallpaper picker',
+        type: AppSnackType.success,
+      );
+      context.router.root.pop();
     }
   }
 

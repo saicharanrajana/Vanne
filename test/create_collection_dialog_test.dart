@@ -21,22 +21,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(brightness: Brightness.light),
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () => showCreateCollectionDialog(context),
-              child: const Text('New collection'),
-            ),
-          ),
-        ),
+        home: const Scaffold(body: CreateCollectionDialogContent()),
       ),
     );
 
-    await tester.tap(find.text('New collection'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('New collection'), findsNWidgets(2));
+    expect(find.text('New collection'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
   });
 }

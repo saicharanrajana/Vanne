@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -133,7 +134,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                     leading: M3EIconButton(
                       icon: const Icon(PhosphorIconsBold.arrowLeft, size: 20),
                       tooltip: 'Back',
-                      onPressed: () => Navigator.of(context).maybePop(),
+                      onPressed: () => context.router.root.maybePop(),
                     ),
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => controller.submit(),
@@ -290,8 +291,8 @@ final class _SearchScreenState extends State<SearchScreen> {
                               ) {
                                 final hero =
                                     direction == HeroFlightDirection.push
-                                        ? toHeroContext.widget as Hero
-                                        : fromHeroContext.widget as Hero;
+                                    ? toHeroContext.widget as Hero
+                                    : fromHeroContext.widget as Hero;
                                 return Material(
                                   color: Colors.transparent,
                                   child: hero.child,
@@ -312,8 +313,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                                 size: 20,
                               ),
                               tooltip: 'Back',
-                              onPressed: () =>
-                                  Navigator.of(context).maybePop(),
+                              onPressed: () => context.router.root.maybePop(),
                             ),
                             textInputAction: TextInputAction.search,
                             onSubmitted: (_) => controller.submit(),
@@ -333,17 +333,15 @@ final class _SearchScreenState extends State<SearchScreen> {
                                 scrollDirection: Axis.horizontal,
                                 keyboardDismissBehavior:
                                     ScrollViewKeyboardDismissBehavior.onDrag,
-                                padding:
-                                    const EdgeInsetsDirectional.symmetric(
-                                      horizontal: 20,
-                                    ),
+                                padding: const EdgeInsetsDirectional.symmetric(
+                                  horizontal: 20,
+                                ),
                                 children: [
                                   for (final color in FeedColor.values)
                                     Padding(
-                                      padding:
-                                          const EdgeInsetsDirectional.only(
-                                            end: 14,
-                                          ),
+                                      padding: const EdgeInsetsDirectional.only(
+                                        end: 14,
+                                      ),
                                       child: _ColorChip(
                                         color: color,
                                         selected: selected.contains(color),
@@ -367,8 +365,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                           height: 40,
                           child: SignalBuilder(
                             builder: (context) {
-                              final selected =
-                                  controller.selectedGenres.value;
+                              final selected = controller.selectedGenres.value;
                               return _GenreStrip(
                                 selected: selected,
                                 onToggle: controller.toggleGenre,
@@ -391,8 +388,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                                 leading: Icon(
                                   PhosphorIconsFill.slidersHorizontal,
                                   size: 16,
-                                  color:
-                                      theme.colorScheme.onSecondaryContainer,
+                                  color: theme.colorScheme.onSecondaryContainer,
                                 ),
                                 onPressed: () {
                                   M3EHaptics.trigger(M3EHapticFeedback.light);

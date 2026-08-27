@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
@@ -5,6 +6,7 @@ import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../app/dependencies.dart';
+import '../../../../app/router/app_route.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../application/collections_controller.dart';
 
@@ -16,27 +18,23 @@ import '../../application/collections_controller.dart';
 /// `SetWallpaperDialog` language (tonal surface, expressive shape, staggered
 /// entrance).
 Future<void> showCreateCollectionDialog(BuildContext context) {
-  return M3EDialog.show<void>(
-    context,
-    dialog: const _CreateCollectionDialog(),
-    barrierDismissible: true,
-  );
+  return context.router.root.push<void>(const CreateCollectionDialogRoute());
 }
 
 /// Deprecated alias — use [showCreateCollectionDialog].
 Future<void> showCreateCollectionSheet(BuildContext context) =>
     showCreateCollectionDialog(context);
 
-final class _CreateCollectionDialog extends StatefulWidget {
-  const _CreateCollectionDialog();
+final class CreateCollectionDialogContent extends StatefulWidget {
+  const CreateCollectionDialogContent({super.key});
 
   @override
-  State<_CreateCollectionDialog> createState() =>
+  State<CreateCollectionDialogContent> createState() =>
       _CreateCollectionDialogState();
 }
 
 final class _CreateCollectionDialogState
-    extends State<_CreateCollectionDialog> {
+    extends State<CreateCollectionDialogContent> {
   final _nameCtrl = TextEditingController();
   final _nameFocus = FocusNode();
   String? _error;
@@ -73,7 +71,7 @@ final class _CreateCollectionDialogState
       setState(() => _error = err);
       return;
     }
-    Navigator.pop(context);
+    context.router.root.pop();
   }
 
   @override
@@ -116,7 +114,7 @@ final class _CreateCollectionDialogState
       actions: [
         M3EButton.outlined(
           size: M3EButtonSize.md,
-          onPressed: _saving ? null : () => Navigator.pop(context),
+          onPressed: _saving ? null : () => context.router.root.pop(),
           child: const Text('Cancel'),
         ),
         M3EButton.icon(

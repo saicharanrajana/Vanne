@@ -21,8 +21,10 @@ import '../utils/hex_color.dart';
 /// uncropped at the metadata aspect ratio, sized to [memCacheWidth] so
 /// photos cost cell-sized RAM; the full-res `wallpaper.path` is reserved
 /// for the detail screen / download. Placeholder is a blurhash (when
-/// available) or a solid derived from `wallpaper.colors` with a 320ms fade
-/// into the photo. Hero tag (`wallpaper-<id>`) matches the detail screen.
+/// available) or a solid derived from `wallpaper.colors` with a 300ms fade
+/// into the photo. The disk cache retains this thumbnail for the detail
+/// screen's progressive transition to the distinct full-resolution URL. Hero
+/// tag (`wallpaper-<id>`) matches the detail screen.
 final class WallpaperTile extends StatelessWidget {
   final Wallpaper wallpaper;
 
@@ -34,7 +36,7 @@ final class WallpaperTile extends StatelessWidget {
 
   /// Decode the original image at this pixel width (cell resolution) so
   /// full-res photos don't cost full-res RAM in the grid. The disk cache
-  /// still holds the original, which detail view reuses.
+  /// retains the thumbnail for the detail view's progressive placeholder.
   final int? memCacheWidth;
 
   /// Namespace for the tile's Hero tag so two lists showing the same

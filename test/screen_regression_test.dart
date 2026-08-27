@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -58,6 +59,7 @@ Wallpaper _wallpaper(String id) => Wallpaper(
   thumbnails: Thumbnails(
     small: 'https://th.wallhaven.cc/small/x/$id.jpg',
     large: 'https://th.wallhaven.cc/lg/x/$id.jpg',
+    original: 'https://th.wallhaven.cc/original/x/$id.jpg',
   ),
   uploader: const Uploader(username: 'tester'),
   tags: const [Tag(id: 1, name: 'test')],
@@ -182,6 +184,54 @@ void main() {
       expect(find.byType(WallpaperActionBar), findsOneWidget);
       expect(find.text('Set'), findsOneWidget);
       expect(find.byWidgetPredicate((w) => w is ErrorWidget), findsNothing);
+    });
+  });
+
+  testWidgets('detail uses the listing thumbnail while full image loads', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      final wallpaper = _wallpaper('transition1');
+      final controller = WallpaperDetailController(
+        initial: wallpaper,
+        repository: _StubRepository(),
+        downloader: DownloadService(),
+        applier: WallpaperApplier(),
+      );
+      addTearDown(controller.dispose);
+      final favorites = FavoritesController(FavoritesRepository());
+      await favorites.restore();
+      locator.registerSingleton<FavoritesController>(favorites);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(
+            brightness: Brightness.light,
+            dynamicScheme: null,
+          ),
+          home: WallpaperDetailScreen(controller: controller, onBack: () {}),
+        ),
+      );
+
+      final fullImageFinder = find.byWidgetPredicate(
+        (widget) =>
+            widget is CachedNetworkImage && widget.imageUrl == wallpaper.path,
+      );
+      expect(fullImageFinder, findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CachedNetworkImage &&
+              widget.imageUrl == wallpaper.thumbnails.original,
+        ),
+        findsOneWidget,
+      );
+      final fullImage = tester.widget<CachedNetworkImage>(fullImageFinder);
+      final loadingPlaceholder = fullImage.placeholder!(
+        tester.element(fullImageFinder),
+        fullImage.imageUrl,
+      );
+      expect(loadingPlaceholder, isA<SizedBox>());
     });
   });
 }

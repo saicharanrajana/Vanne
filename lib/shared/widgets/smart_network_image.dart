@@ -12,9 +12,11 @@ import '../../app/theme/app_motion.dart';
 ///
 /// Backed by `cached_network_image` (flutter_cache_manager,
 /// `libCachedImageData`) + `flutter_blurhash`.
-/// While loading, a blurhash (if provided) or tonal/derived color box is
-/// shown instead of a spinner; on failure a muted broken-image icon appears.
-/// Fade is 320ms emphasized-decelerate ([AppMotion]); disabled entirely
+/// While loading, an optional disk-cached thumbnail stays beneath the image
+/// until its first frame fades in. Without a thumbnail, a blurhash (if
+/// provided) or tonal/derived color box is shown; on failure a muted
+/// broken-image icon appears.
+/// Fade is 300ms emphasized-decelerate ([AppMotion]); disabled entirely
 /// when the platform requests reduced motion.
 class SmartNetworkImage extends StatelessWidget {
   const SmartNetworkImage(
@@ -26,6 +28,7 @@ class SmartNetworkImage extends StatelessWidget {
     this.memCacheWidth,
     this.blurHash,
     this.placeholderColor,
+    this.placeholderImageUrl,
   });
 
   final String url;
@@ -35,6 +38,13 @@ class SmartNetworkImage extends StatelessWidget {
   final int? memCacheWidth;
   final String? blurHash;
   final Color? placeholderColor;
+
+  /// A lower-resolution image to keep visible while [url] loads.
+  ///
+  /// This is intentionally rendered through [CachedNetworkImage] as well, so
+  /// a thumbnail already shown in a preceding screen can be reused from the
+  /// disk cache without downloading it again.
+  final String? placeholderImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -57,26 +67,34 @@ class SmartNetworkImage extends StatelessWidget {
     final fallback = placeholderColor ?? scheme.surfaceContainerHighest;
     // Reduced motion: snap straight to the image, no cross-fade.
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final thumbnailUrl = placeholderImageUrl;
+    final hasThumbnail =
+        thumbnailUrl != null && thumbnailUrl.isNotEmpty && thumbnailUrl != url;
 
-    return CachedNetworkImage(
+    final image = CachedNetworkImage(
       imageUrl: url,
       width: width,
       height: height,
       fit: fit,
-      // Decode at cell size for RAM, but keep the FULL-SIZE original on
-      // disk: the detail screen requests the same URL uncropped and must
-      // hit the disk cache instead of re-downloading.
+      // Decode at the consuming surface's size for RAM. The optional
+      // placeholder image has its own cache entry and is never promoted to
+      // the full-resolution image.
       memCacheWidth: memCacheWidth,
       fadeInDuration: reduceMotion ? Duration.zero : AppMotion.transition,
       fadeInCurve: AppMotion.arrivalCurve,
       fadeOutDuration: reduceMotion
           ? Duration.zero
           : const Duration(milliseconds: 140),
-      placeholder: (context, _) => _BlurPlaceholder(
-        blurHash: blurHash,
-        fallbackColor: fallback,
-        fit: fit,
-      ),
+      // Keep the thumbnail underneath instead of asking OctoImage to fade a
+      // nested placeholder away. A transparent placeholder prevents a color
+      // frame from being painted between the two images.
+      placeholder: hasThumbnail
+          ? (context, _) => const SizedBox.expand()
+          : (context, _) => _BlurPlaceholder(
+              blurHash: blurHash,
+              fallbackColor: fallback,
+              fit: fit,
+            ),
       errorWidget: (context, _, _) => Container(
         color: fallback,
         alignment: Alignment.center,
@@ -93,6 +111,36 @@ class SmartNetworkImage extends StatelessWidget {
         height: height,
         gaplessPlayback: true,
       ),
+    );
+    if (!hasThumbnail) return image;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: thumbnailUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          memCacheWidth: memCacheWidth,
+          fadeInDuration: reduceMotion ? Duration.zero : AppMotion.transition,
+          fadeInCurve: AppMotion.arrivalCurve,
+          fadeOutDuration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 140),
+          placeholder: (context, _) => _BlurPlaceholder(
+            blurHash: blurHash,
+            fallbackColor: fallback,
+            fit: fit,
+          ),
+          errorWidget: (_, _, _) => _BlurPlaceholder(
+            blurHash: blurHash,
+            fallbackColor: fallback,
+            fit: fit,
+          ),
+        ),
+        image,
+      ],
     );
   }
 }

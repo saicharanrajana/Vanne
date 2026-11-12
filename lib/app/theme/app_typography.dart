@@ -1,10 +1,17 @@
 import 'package:material_ui/material_ui.dart';
-// Importing google_fonts_lite (instead of google_fonts) keeps only the font
-// map + dynamic resolution in the build, letting the compiler tree-shake
-// every other Google Fonts family's generated methods.
-import 'package:google_fonts/google_fonts_lite.dart';
 
 /// Centralized typography: **Outfit** everywhere — headings and body.
+///
+/// Outfit ships as a bundled variable font (see `pubspec.yaml`), so text
+/// paints in the real font on the very first frame: no network fetch, no
+/// async `FontLoader`, no fallback-font flash.
+///
+/// Weight comes from ordinary [TextStyle.fontWeight], not from an explicit
+/// `wght` variation: the bundled file is declared once per weight, so the
+/// engine resolves `fontWeight` to the variable axis itself. That keeps
+/// `theme.textTheme.bodyLarge.copyWith(fontWeight: FontWeight.w800)` — used
+/// by several screens — actually rendering at 800 instead of staying pinned
+/// to the base style's axis position.
 ///
 /// Screen headings retain the app's expressive scale; supporting text uses
 /// Material 3 body and label sizes for a quieter, consistent hierarchy.
@@ -16,8 +23,8 @@ TextTheme buildAppTextTheme(ColorScheme scheme) {
     double height,
     double tracking,
     FontWeight weight,
-  ) => GoogleFontsLite.getFont(
-    'Outfit',
+  ) => TextStyle(
+    fontFamily: 'Outfit',
     fontSize: size,
     height: height / size,
     letterSpacing: tracking,

@@ -234,6 +234,13 @@ final class _GridFooter extends StatelessWidget {
         ),
       );
     }
+    // Only animate while a page is genuinely in flight. An always-mounted
+    // M3ELoadingIndicator keeps a repeating ticker (and its morph timer)
+    // alive for the whole time the footer sits in the viewport cache, which
+    // repaints the app continuously while the user is idle. The spacer keeps
+    // the footer height stable so content does not jump when the indicator
+    // appears or disappears.
+    if (!isLoadingMore) return const SizedBox(height: 72);
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 18),
       child: Center(

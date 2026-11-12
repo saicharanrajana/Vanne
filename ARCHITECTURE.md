@@ -300,10 +300,27 @@ orphaned legacy `extended_image` directory. Startup raises Flutter's memory
 cache limits to reduce re-decodes when returning from detail screens.
 
 `DownloadService` downloads the full original to a temporary cache file,
-reports progress, supports cancellation, and saves gallery images through
-`gal` in the `WallpaperApp` album. Android 10+ MediaStore owns the gallery
-copy; the temporary file is deleted afterward. Gallery persistence is separate
-from the Wallhaven HTTP response cache.
+reports progress, supports cancellation, and hands it to the first-party
+`system_wallpaper` storage bridge. The cache copy is deleted afterward;
+persistence is separate from the Wallhaven HTTP response cache.
+
+The destination is owned by `DownloadDestinationController`:
+
+- Default is `Pictures/VanneWallpapers`, written with an app-owned `MediaStore`
+  insert (`RELATIVE_PATH` + `IS_PENDING`), so it is gallery-indexed and needs
+  no storage permission. `gal` cannot do this: it hardcodes `Pictures`.
+- The user may pick a parent folder from the system
+  `ACTION_OPEN_DOCUMENT_TREE` picker. The app persists that tree's
+  read+write grant (`SettingsStore` holds the URI and the provider's display
+  label) and writes into a child folder created there.
+- A revoked or moved folder fails with an actionable error and is never
+  silently replaced by the default. Grants are released only when no save is
+  in flight, and existing files are never moved.
+
+`AppIdentity.storageFolderName` is the single source of the folder name; a
+future rename affects new downloads only. Neither destination requests a
+storage permission, and custom cloud-provider folders are not promised to
+appear in the gallery.
 
 The detail source action delegates to `UrlLauncherService`, which opens the
 Wallhaven page in the platform's in-app browser view. The service is a small
@@ -354,6 +371,16 @@ Picker operations use a `FileProvider` URI with read permission grants and
 `ClipData`. The plugin manifest owns `SET_WALLPAPER`, the provider and its
 file paths, and package-visibility queries for picker intents. It does not own
 `INTERNET`; that permission remains in the app manifest.
+
+The same plugin hosts the download storage bridge (`downloads.save`,
+`downloads.pickParent`, `downloads.checkParent`,
+`downloads.releaseParent`). `DownloadHandler` performs MediaStore inserts and
+`DocumentsContract`-based tree writes on `Dispatchers.IO`, deleting partial
+documents on failure. The folder picker is registered through
+`ActivityPluginBinding.addActivityResultListener`, launches from the attached
+activity without `NEW_TASK`, refuses a second concurrent request, keeps a
+pending result across configuration-change reattachment, and completes it with
+an error exactly once if the activity or engine goes away for good.
 
 The app-side `WallpaperApplier` translates plugin results into
 `ApplyOutcome`. `WallpaperDetailController` downloads/resolves one local file

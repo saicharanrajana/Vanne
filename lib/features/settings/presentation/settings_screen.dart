@@ -7,6 +7,10 @@ import 'package:signals/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
 import '../../../app/router/tab_scroll_coordinator.dart';
+import '../../../app/theme/app_spacing.dart';
+import '../../../core/downloads/app_identity.dart';
+import '../../../core/downloads/download_destination.dart';
+import '../../../core/downloads/download_destination_controller.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../application/settings_controller.dart';
@@ -139,18 +143,12 @@ final class SettingsScreen extends StatelessWidget {
                         onTap: onOpenApiKey,
                       ),
                     ),
-                    _InfoTile(
-                      icon: PhosphorIconsFill.downloadSimple,
-                      title: 'Downloads',
-                      subtitle:
-                          'Saved to Pictures/WallpaperApp in your gallery.',
-                    ),
                   ],
                 ),
                 const _SectionDivider(),
                 _Section(
                   title: 'Storage',
-                  children: [_CacheTile()],
+                  children: [const _DownloadsTile(), _CacheTile()],
                 ),
               ],
             ),
@@ -347,28 +345,293 @@ final class _ActionTile extends StatelessWidget {
   }
 }
 
-final class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+/// Where downloads land: one emphasized folder line, one hint line.
+///
+/// Tapping opens an explainer dialog (folder-picker constraints + the
+/// explicit way back to the default) with the `Choose folder` action, so the
+/// system picker is never a surprise and "use default" is reachable without
+/// hunting through menus.
+final class _DownloadsTile extends StatelessWidget {
+  const _DownloadsTile();
 
   @override
   Widget build(BuildContext context) {
-    return M3EListItem(
-      headline: title,
-      supportingText: subtitle,
-      variant: M3ECardVariant.filled,
-      leading: Icon(icon),
+    final controller = locator<DownloadDestinationController>();
+    return SignalBuilder(
+      builder: (context) {
+        final destination = controller.destination.value;
+        final lost = controller.access.value == DestinationAccess.lost;
+        final picking = controller.picking.value;
+        return _FolderTile(
+          icon: PhosphorIconsFill.downloadSimple,
+          title: 'Downloads',
+          folderPath: destination.folderPath,
+          hint: lost
+              ? 'Folder access was lost. Choose it again or use the default.'
+              : 'Tap to change the downloads location',
+          isError: lost,
+          busy: picking,
+          onTap: picking
+              ? null
+              : () => showDownloadFolderDialog(context, controller),
+        );
+      },
     );
   }
 }
 
+/// List-item shell matching [M3EListItem] metrics with an emphasized second
+/// line for a folder path (plain [M3EListItem.supportingText] is a single
+/// unemphasized string, which reads as prose).
+final class _FolderTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String folderPath;
+  final String hint;
+  final bool isError;
+  final bool busy;
+  final VoidCallback? onTap;
+
+  const _FolderTile({
+    required this.icon,
+    required this.title,
+    required this.folderPath,
+    required this.hint,
+    required this.isError,
+    required this.busy,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final itemTheme = M3ETheme.of(context).listTheme.item;
+
+    return M3ECard(
+      variant: M3ECardVariant.filled,
+      onPressed: onTap,
+      semanticLabel: '$title. Saving to $folderPath. $hint',
+      padding: EdgeInsets.symmetric(
+        horizontal: itemTheme.horizontalPadding,
+        vertical: itemTheme.verticalPadding,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: itemTheme.minHeight),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            IconTheme.merge(
+              data: IconThemeData(
+                color: scheme.onSurfaceVariant,
+                size: itemTheme.iconSize,
+              ),
+              child: Icon(icon),
+            ),
+            SizedBox(width: itemTheme.gap),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: scheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    // Emphasized destination line: the directory is the
+                    // important part of this row.
+                    Text(
+                      folderPath,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: isError ? scheme.error : scheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      hint,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: isError ? scheme.error : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(width: itemTheme.gap),
+            busy
+                ? Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    child: M3ELoadingIndicator(
+                      size: 24,
+                      color: scheme.primary,
+                      semanticLabel: 'Opening folder picker',
+                    ),
+                  )
+                : IconTheme.merge(
+                    data: IconThemeData(
+                      color: scheme.onSurfaceVariant,
+                      size: itemTheme.iconSize,
+                    ),
+                    child: const Icon(PhosphorIconsBold.caretRight),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Explains the folder picker, then offers the two destination actions.
+Future<void> showDownloadFolderDialog(
+  BuildContext context,
+  DownloadDestinationController controller,
+) async {
+  final chosen = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => _DownloadFolderDialog(controller: controller),
+  );
+  if (!context.mounted || chosen == null) return;
+  if (chosen) {
+    await _chooseFolder(context, controller);
+  } else {
+    await controller.resetToDefault();
+    if (!context.mounted) return;
+    AppSnack.show(
+      context,
+      'Saving downloads to ${controller.destination.peek().folderPath}',
+      type: AppSnackType.success,
+    );
+  }
+}
+
+Future<void> _chooseFolder(
+  BuildContext context,
+  DownloadDestinationController controller,
+) async {
+  final outcome = await controller.chooseParent();
+  if (!context.mounted) return;
+  switch (outcome) {
+    case DestinationPickOutcome.picked:
+      AppSnack.show(
+        context,
+        'Saving downloads to ${controller.destination.peek().folderPath}',
+        type: AppSnackType.success,
+      );
+    case DestinationPickOutcome.canceled:
+    case DestinationPickOutcome.busy:
+      break;
+    case DestinationPickOutcome.failed:
+      AppSnack.show(
+        context,
+        controller.error.peek() ?? 'Could not open the folder picker.',
+        type: AppSnackType.error,
+      );
+  }
+}
+
+final class _DownloadFolderDialog extends StatelessWidget {
+  final DownloadDestinationController controller;
+
+  const _DownloadFolderDialog({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final destination = controller.destination.peek();
+    final lost = controller.access.peek() == DestinationAccess.lost;
+    final isChosen = destination is ChosenDownloadDestination;
+
+    return M3EDialog(
+      title: 'Download folder',
+      icon: const Icon(PhosphorIconsFill.folderSimple),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Current folder',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            destination.folderPath,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: lost ? scheme.error : scheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (lost) ...[
+            Text(
+              'This folder is no longer accessible. Choose it again, or use '
+              'the default folder.',
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          Text(
+            'A ${AppIdentity.storageFolderName} folder is created inside the '
+            'folder you pick, and all wallpapers are saved there.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Internal-storage root and Download are not selectable. Folders '
+            'in cloud apps may not appear in your gallery.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        M3EButton.text(
+          size: M3EButtonSize.md,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+        if (isChosen)
+          M3EButton.outlined(
+            size: M3EButtonSize.md,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Use default'),
+          ),
+        M3EButton.filled(
+          size: M3EButtonSize.md,
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Choose folder'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Image cache tile: shows accumulated disk cache size and clears on tap.
+///
+/// Implementation:
+/// - Size via [ImageCacheService.getCachedSizeBytes] which sums
+///   `libCachedImageData` (flutter_cache_manager) + legacy
+///   `cacheImageFolderName` (extended_image, orphaned) on IO; on web 0.
+/// - Subheading displays formatted MB (`X.X MB`) and is live — re-queried
+///   on init and after clear.
+/// - Tap clears both disk (`DefaultCacheManager.emptyCache`) and memory
+///   (`PaintingBinding.imageCache`) caches, plus legacy dir, then re-queries
+///   size and shows a `SnackBar`.
 final class _CacheTile extends StatefulWidget {
   const _CacheTile();
 

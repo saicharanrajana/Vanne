@@ -5,7 +5,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
-import '../../../core/services/dynamic_palette_refresher.dart';
 import '../../../core/downloads/download_service.dart';
 import '../../../core/services/wallpaper_applier.dart';
 import '../../../core/wallpaper/wallpaper_repository.dart';
@@ -70,12 +69,16 @@ final class WallpaperDetailController {
     }
   }
 
-  /// Downloads the full-resolution file into the device gallery.
-  Future<void> downloadToGallery() async {
+  /// Folder that receives downloads, phrased for display, e.g.
+  /// `Pictures/VanneWallpapers` or `<picked parent>/VanneWallpapers`.
+  String get downloadFolderPath => _downloader.destinationFolderPath;
+
+  /// Downloads the full-resolution file into the user's download folder.
+  Future<void> saveDownload() async {
     if (download.value.isBusy) return;
     download.set(const DownloadState.downloading());
     try {
-      await _downloader.saveToGallery(
+      final savedPath = await _downloader.saveDownload(
         wallpaper.value,
         onProgress: (progress) {
           if (!_disposed) download.set(DownloadState.downloading(progress));
@@ -83,7 +86,7 @@ final class WallpaperDetailController {
         cancelToken: _lifecycle,
       );
       if (_disposed) return;
-      download.set(const DownloadState.done());
+      download.set(DownloadState.done(folderPath: savedPath));
     } on DownloadException catch (error) {
       if (_disposed) return; // screen gone — nothing left to report to
       download.set(DownloadState.failed(error.message));
@@ -134,13 +137,6 @@ final class WallpaperDetailController {
       final outcome = await _applier.apply(file: file, target: target);
       if (_disposed) return;
       apply.set(ApplyState.fromOutcome(outcome));
-      if (outcome.status == ApplyStatus.applied) {
-        // System Material You palette is extracted from the new wallpaper
-        // asynchronously. The palette signal only fetched once at startup,
-        // so bump the tick to force a re-fetch. Fire-and-forget.
-        // ignore: discarded_futures
-        requestDynamicPaletteRefresh();
-      }
     } on DownloadException catch (error) {
       if (_disposed) return;
       apply.set(ApplyState.failed(error.message));
@@ -160,13 +156,6 @@ final class WallpaperDetailController {
       final outcome = await _applier.setWithSystemPicker(file: file);
       if (_disposed) return;
       apply.set(ApplyState.fromOutcome(outcome));
-      if (outcome.status == ApplyStatus.applied) {
-        // Picker launches an external activity; the actual wallpaper is only
-        // set after the user confirms the crop. The debounced refresher
-        // will collapse rapid calls and the cached-engine will keep state.
-        // ignore: discarded_futures
-        requestDynamicPaletteRefresh();
-      }
     } on DownloadException catch (error) {
       if (_disposed) return;
       apply.set(ApplyState.failed(error.message));
@@ -240,11 +229,17 @@ final class DownloadState {
   final String? error;
   final bool done;
 
+  /// Folder the file was actually written to, snapshotted when the write
+  /// started. Set only on success; the live Settings destination may differ by
+  /// the time the transfer finishes.
+  final String? folderPath;
+
   const DownloadState({
     required this.isBusy,
     this.progress,
     this.error,
     this.done = false,
+    this.folderPath,
   });
 
   const DownloadState.idle() : this(isBusy: false);
@@ -252,9 +247,10 @@ final class DownloadState {
   const DownloadState.downloading([this.progress])
     : isBusy = true,
       error = null,
-      done = false;
+      done = false,
+      folderPath = null;
 
-  const DownloadState.done()
+  const DownloadState.done({this.folderPath})
     : isBusy = false,
       progress = null,
       error = null,

@@ -1,24 +1,36 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:system_wallpaper/system_wallpaper.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
+
+import 'app_identity.dart';
+import 'download_destination.dart';
+import 'download_destination_controller.dart';
 
 /// Downloads wallpapers at full resolution.
 ///
 /// Two destinations:
 /// - [downloadToFile] — cache file, used before applying a wallpaper.
-/// - [saveToGallery] — device gallery under the `WallpaperApp` album
-///   (MediaStore `Pictures/`) via `gal`; no storage permissions needed on
-///   Android 10+. The cache copy is deleted afterwards; MediaStore owns
-///   the saved result.
+/// - [saveDownload] — the user's download folder. By default that is
+///   `Pictures/<AppIdentity.storageFolderName>` through MediaStore (gallery
+///   indexed, no storage permission); when the user picked a parent folder in
+///   Settings it is `<parent>/<AppIdentity.storageFolderName>` inside the
+///   persisted tree grant. The cache copy is deleted afterwards; the platform
+///   owns the saved result.
 final class DownloadService {
-  static const albumName = 'WallpaperApp';
-
   final Dio _dio;
+  final DownloadDestinationController? _destination;
+  final DownloadStoragePlatform _platform;
 
-  DownloadService({Dio? dio}) : _dio = dio ?? Dio();
+  DownloadService({
+    Dio? dio,
+    DownloadDestinationController? destinationController,
+    DownloadStoragePlatform? platform,
+  }) : _dio = dio ?? Dio(),
+       _destination = destinationController,
+       _platform = platform ?? const DownloadStoragePlatform();
 
   /// Deterministic filename for [wallpaper]: `wallhaven_<id>.<ext>`.
   static String fileNameFor(Wallpaper wallpaper) {
@@ -30,6 +42,14 @@ final class DownloadService {
     };
     return 'wallhaven_${wallpaper.id}.$ext';
   }
+
+  /// Folder that receives downloads, phrased for display.
+  ///
+  /// `Pictures/VanneWallpapers` when the user never picked a parent folder, else
+  /// `<picked parent>/VanneWallpapers`.
+  String get destinationFolderPath =>
+      _destination?.destination.peek().folderPath ??
+      const DefaultDownloadDestination().folderPath;
 
   /// Downloads [wallpaper]'s full image into [destination] (a cache path).
   ///
@@ -69,13 +89,25 @@ final class DownloadService {
     }
   }
 
-  /// Downloads [wallpaper]'s full image and saves it to the gallery.
-  Future<void> saveToGallery(
+  /// Downloads [wallpaper]'s full image and saves it to the download folder.
+  ///
+  /// Resolves the destination once, up front, and passes it to the platform:
+  /// a revoked chosen folder fails with an actionable error and is never
+  /// silently replaced by the default folder.
+  ///
+  /// Returns the display folder the file was written to. The value is
+  /// snapshotted when the write starts, so success feedback names the folder
+  /// that actually received the file even if the user picks another one while
+  /// the transfer is still running.
+  Future<String> saveDownload(
     Wallpaper wallpaper, {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
   }) async {
+    final destination =
+        _destination?.destination.peek() ?? const DefaultDownloadDestination();
     File? tempFile;
+    _destination?.beginSave();
     try {
       final dir = await getTemporaryDirectory();
       tempFile = File('${dir.path}/${fileNameFor(wallpaper)}');
@@ -85,20 +117,30 @@ final class DownloadService {
         onProgress: onProgress,
         cancelToken: cancelToken,
       );
-      await Gal.putImage(tempFile.path, album: albumName);
-    } on GalException catch (error) {
-      throw DownloadException(switch (error.type) {
-        GalExceptionType.notEnoughSpace =>
-          'Not enough storage space to save the wallpaper.',
-        GalExceptionType.accessDenied =>
-          'Storage access was denied by the system.',
-        GalExceptionType.notSupportedFormat =>
-          'This wallpaper format is not supported.',
-        GalExceptionType.unexpected =>
-          'Could not save the wallpaper to your gallery.',
-      });
+
+      final result = await _platform.saveDownload(
+        sourcePath: tempFile.path,
+        folderName: AppIdentity.storageFolderName,
+        mimeType: _mimeTypeFor(wallpaper),
+        treeUri: destination.treeUri,
+      );
+
+      switch (result) {
+        case DownloadSaveSuccess():
+          return destination.folderPath;
+        case DownloadSaveFailure(:final code, :final message):
+          if (code == DownloadSaveErrorCode.noPermission ||
+              code == DownloadSaveErrorCode.destinationUnavailable) {
+            _destination?.markAccessLost(destination.treeUri);
+            throw DownloadException(
+              'That download folder is no longer available. '
+              'Choose it again in Settings, or use the default folder.',
+            );
+          }
+          throw DownloadException(_messageFor(code, message));
+      }
     } finally {
-      // The gallery copy lives in MediaStore; the cache copy is garbage.
+      // The platform copy owns the file; the cache copy is garbage.
       try {
         if (tempFile != null && await tempFile.exists()) {
           await tempFile.delete();
@@ -106,7 +148,39 @@ final class DownloadService {
       } on FileSystemException {
         // Non-fatal: the OS clears cache storage eventually.
       }
+      _destination?.endSave();
     }
+  }
+
+  static String _mimeTypeFor(Wallpaper wallpaper) {
+    final mime = wallpaper.fileType.toLowerCase();
+    return switch (mime) {
+      'image/png' => 'image/png',
+      'image/webp' => 'image/webp',
+      'image/gif' => 'image/gif',
+      _ => 'image/jpeg',
+    };
+  }
+
+  static String _messageFor(DownloadSaveErrorCode code, String fallback) {
+    return switch (code) {
+      DownloadSaveErrorCode.noSpace =>
+        'Not enough storage space to save the wallpaper.',
+      DownloadSaveErrorCode.unsupported =>
+        'This wallpaper format is not supported.',
+      // The native bridge answered nothing: a build/plugin problem, not a
+      // property of the wallpaper.
+      DownloadSaveErrorCode.nativeUnavailable =>
+        'Saving downloads is unavailable in this build.',
+      DownloadSaveErrorCode.notFound || DownloadSaveErrorCode.invalidArgs =>
+        'Could not save the wallpaper. Please try again.',
+      DownloadSaveErrorCode.noPermission ||
+      DownloadSaveErrorCode.destinationUnavailable =>
+        'That download folder is no longer available. '
+            'Choose it again in Settings, or use the default folder.',
+      DownloadSaveErrorCode.io || DownloadSaveErrorCode.unknown =>
+        'Could not save the wallpaper. Please try again.',
+    };
   }
 }
 

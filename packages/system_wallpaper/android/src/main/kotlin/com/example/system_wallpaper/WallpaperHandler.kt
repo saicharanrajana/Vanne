@@ -1,5 +1,6 @@
 package com.example.system_wallpaper
 
+import android.app.Activity
 import android.app.WallpaperManager
 import android.content.ClipData
 import android.content.Context
@@ -45,10 +46,21 @@ object WallpaperHandler {
         }
     }
 
+    /**
+     * Launches the system crop/set UI for [path] from [activity].
+     *
+     * Launching from the attached activity without `FLAG_ACTIVITY_NEW_TASK`
+     * keeps the handler in this task, so finishing it reveals this app. The
+     * handler owns its own finish behaviour; a successful launch is not proof
+     * that a wallpaper was set.
+     *
+     * Returns whether a handler was launched.
+     */
     fun setWithSystemPicker(
-        context: Context,
+        activity: Activity,
         path: String,
     ): Boolean {
+        val context: Context = activity
         val rawFile = File(path)
         if (!rawFile.exists()) return false
 
@@ -94,7 +106,7 @@ object WallpaperHandler {
         // 1. WallpaperManager.getCropAndSetWallpaperIntent (ImageWallpaper, no live service)
         try {
             val cropIntent = WallpaperManager.getInstance(context).getCropAndSetWallpaperIntent(uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 clipData = ClipData.newRawUri(null, uri)
             }
             candidates.add(cropIntent)
@@ -107,7 +119,7 @@ object WallpaperHandler {
                 addCategory(Intent.CATEGORY_DEFAULT)
                 setDataAndType(uri, "image/*")
                 putExtra("mimeType", "image/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 clipData = ClipData.newRawUri(null, uri)
             }
         )
@@ -116,7 +128,7 @@ object WallpaperHandler {
         candidates.add(
             Intent(Intent.ACTION_SET_WALLPAPER).apply {
                 setDataAndType(uri, "image/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 clipData = ClipData.newRawUri(null, uri)
             }
         )
@@ -125,60 +137,51 @@ object WallpaperHandler {
         candidates.add(
             Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "image/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 clipData = ClipData.newRawUri(null, uri)
             }
         )
 
-        // Find first resolvable candidate.
-        var toLaunch: Intent? = null
-        for (intent in candidates) {
-            if (isResolvable(intent)) {
-                toLaunch = intent
-                break
-            }
-        }
+        // Try each resolvable candidate in priority order. A candidate that
+        // resolves but cannot actually launch falls through to the next one
+        // instead of ending the whole attempt.
+        for (toLaunch in candidates) {
+            if (!isResolvable(toLaunch)) continue
 
-        if (toLaunch == null) return false
-
-        // Grant to all resolved handlers so chooser targets can read.
-        try {
-            val resInfos = pm.queryIntentActivities(toLaunch, PackageManager.MATCH_DEFAULT_ONLY)
-            for (info in resInfos) {
-                context.grantUriPermission(
-                    info.activityInfo.packageName,
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            }
-        } catch (_: Exception) {
-        }
-
-        // If multiple handlers, use chooser for better UX.
-        val launchIntent = try {
-            val count = pm.queryIntentActivities(toLaunch, PackageManager.MATCH_DEFAULT_ONLY).size
-            if (count > 1) {
-                Intent.createChooser(toLaunch, "Set wallpaper with").apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // Read access travels with the intent (and through the chooser) and
+            // is revoked when the receiving task ends. No blanket grants are
+            // issued to every resolved package, which would outlive this
+            // interaction.
+            val launchIntent = try {
+                val count = pm.queryIntentActivities(toLaunch, PackageManager.MATCH_DEFAULT_ONLY).size
+                if (count > 1) {
+                    Intent.createChooser(toLaunch, "Set wallpaper with").apply {
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        clipData = ClipData.newRawUri(null, uri)
+                    }
+                } else {
+                    toLaunch
                 }
-            } else {
+            } catch (_: Exception) {
                 toLaunch
             }
-        } catch (_: Exception) {
-            toLaunch
+
+            if (startActivity(activity, launchIntent)) return true
+            // A chooser launch can fail (e.g. no launcher activity); the single
+            // handler is still worth trying directly before moving on.
+            if (launchIntent !== toLaunch && startActivity(activity, toLaunch)) return true
         }
 
-        return try {
-            context.startActivity(launchIntent)
-            true
-        } catch (_: Exception) {
-            // Try without chooser as fallback.
-            try {
-                context.startActivity(toLaunch)
-                true
-            } catch (_: Exception) {
-                false
-            }
-        }
+        return false
+    }
+
+    private fun startActivity(
+        activity: Activity,
+        intent: Intent,
+    ): Boolean = try {
+        activity.startActivity(intent)
+        true
+    } catch (_: Exception) {
+        false
     }
 }

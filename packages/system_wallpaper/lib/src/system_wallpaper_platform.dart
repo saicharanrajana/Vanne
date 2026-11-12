@@ -59,9 +59,13 @@ class SystemWallpaperPlatform {
     }
   }
 
-  /// Launches system picker via ACTION_ATTACH_DATA + FLAG_GRANT_READ_URI_PERMISSION
-  /// (Google Photos parity). Falls back to getCropAndSetWallpaperIntent on ROMs
-  /// that lack ATTACH_DATA handler.
+  /// Opens the system crop/set UI for the image at [filePath].
+  ///
+  /// Prefers the platform crop-and-set intent, then falls back to other
+  /// wallpaper handlers. The platform launches it from the attached activity
+  /// so the handler stays in this task and returns here when it finishes.
+  ///
+  /// Success means the UI was launched, not that a wallpaper was applied.
   Future<WallpaperResult> setWithSystemPicker({
     required String filePath,
   }) async {

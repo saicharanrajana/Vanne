@@ -1,7 +1,6 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -34,6 +33,11 @@ final class WallpaperActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SignalBuilder(
       builder: (context) {
+        final rawDownloadProgress = controller.download.value.progress;
+        final double? downloadProgress =
+            rawDownloadProgress != null && rawDownloadProgress.isFinite
+            ? rawDownloadProgress.clamp(0.0, 1.0).toDouble()
+            : null;
         final isBusy = controller.download.value.isBusy;
         // Watch prepare so the primary button shows resolving state.
         final isPreparing = controller.prepare.value.isResolving;
@@ -41,13 +45,15 @@ final class WallpaperActionBar extends StatelessWidget {
         return Row(
           children: [
             _ActionButton(
-              tooltip: 'Download to gallery',
+              tooltip: 'Download wallpaper',
+              semanticLabel: isBusy ? 'Downloading wallpaper' : null,
               onPressed: isBusy ? null : () => _download(context, controller),
               child: isBusy
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: M3EProgressIndicator.circularWavy(size: 24),
+                  ? ExcludeSemantics(
+                      child: M3EProgressIndicator.circularWavy(
+                        value: downloadProgress,
+                        size: 30,
+                      ),
                     )
                   : const Icon(PhosphorIconsBold.cloudArrowDown, size: 22),
             ),
@@ -112,7 +118,7 @@ final class WallpaperActionBar extends StatelessWidget {
     await showSetWallpaperPopup(context, controller: controller);
   }
 
-  /// Runs the gallery download and reports the terminal outcome. All
+  /// Runs the download and reports the terminal outcome. All
   /// failures are caught: anything escaping here would surface as an
   /// unhandled zone error instead of user feedback.
   static Future<void> _download(
@@ -120,9 +126,9 @@ final class WallpaperActionBar extends StatelessWidget {
     WallpaperDetailController controller,
   ) async {
     try {
-      await controller.downloadToGallery();
+      await controller.saveDownload();
     } catch (_) {
-      // downloadToGallery already maps known failures; this guards against
+      // saveDownload already maps known failures; this guards against
       // unexpected errors becoming unhandled zone exceptions.
       if (!context.mounted) return;
       AppSnack.show(
@@ -135,9 +141,11 @@ final class WallpaperActionBar extends StatelessWidget {
     final state = controller.download.peek();
     if (!context.mounted) return;
     if (state.done) {
+      // Report the folder that actually received the file, not whatever is
+      // selected now (the user may have changed it mid-transfer).
       AppSnack.show(
         context,
-        'Wallpaper saved to your gallery',
+        'Saved to ${state.folderPath ?? controller.downloadFolderPath}',
         type: AppSnackType.success,
       );
     } else if (state.error != null) {
@@ -160,11 +168,13 @@ final class WallpaperActionBar extends StatelessWidget {
 /// Large tonal square button flanking the primary action.
 final class _ActionButton extends StatelessWidget {
   final String tooltip;
+  final String? semanticLabel;
   final VoidCallback? onPressed;
   final Widget child;
 
   const _ActionButton({
     required this.tooltip,
+    this.semanticLabel,
     required this.onPressed,
     required this.child,
   });
@@ -174,6 +184,7 @@ final class _ActionButton extends StatelessWidget {
     return M3EIconButton(
       icon: child,
       tooltip: tooltip,
+      semanticLabel: semanticLabel,
       onPressed: onPressed,
       variant: M3EIconButtonVariant.tonal,
       size: M3EIconButtonSize.md,
@@ -206,13 +217,12 @@ final class _PrimaryActionButton extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (busy)
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: M3EProgressIndicator.circularWavy(
-                size: 20,
-                color: scheme.onPrimary,
-              ),
+            M3ELoadingIndicator(
+              containerWidth: 24,
+              containerHeight: 24,
+              indicatorSize: 18,
+              color: scheme.onPrimary,
+              semanticLabel: 'Preparing wallpaper',
             )
           else
             Icon(PhosphorIconsFill.image, color: scheme.onPrimary, size: 22),

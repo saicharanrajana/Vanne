@@ -5,23 +5,24 @@ import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart' hide SearchController;
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/app/dependencies.dart';
-import 'package:wallpaper_app/app/router/app_route.dart';
-import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/core/collections/collections_repository.dart';
-import 'package:wallpaper_app/core/domain/feed_filter.dart';
-import 'package:wallpaper_app/core/downloads/download_service.dart';
-import 'package:wallpaper_app/core/favorites/favorites_repository.dart';
-import 'package:wallpaper_app/core/services/wallpaper_applier.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/core/storage/settings_store.dart';
-import 'package:wallpaper_app/features/collections/application/collections_controller.dart';
-import 'package:wallpaper_app/features/discover/application/discover_controller.dart';
-import 'package:wallpaper_app/features/favorites/application/favorites_controller.dart';
-import 'package:wallpaper_app/features/search/application/search_controller.dart';
-import 'package:wallpaper_app/features/settings/application/settings_controller.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
+import 'package:vanne/app/dependencies.dart';
+import 'package:vanne/app/router/app_route.dart';
+import 'package:vanne/app/router/tab_scroll_coordinator.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/core/collections/collections_repository.dart';
+import 'package:vanne/core/domain/feed_filter.dart';
+import 'package:vanne/core/downloads/download_service.dart';
+import 'package:vanne/core/favorites/favorites_repository.dart';
+import 'package:vanne/core/services/wallpaper_applier.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/core/storage/settings_store.dart';
+import 'package:vanne/core/downloads/download_destination_controller.dart';
+import 'package:vanne/features/collections/application/collections_controller.dart';
+import 'package:vanne/features/discover/application/discover_controller.dart';
+import 'package:vanne/features/favorites/application/favorites_controller.dart';
+import 'package:vanne/features/search/application/search_controller.dart';
+import 'package:vanne/features/settings/application/settings_controller.dart';
+import 'package:vanne/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
 
 class _StubRepository implements WallpaperRepository {
   _StubRepository({this.items = const []});
@@ -94,9 +95,13 @@ Future<void> _registerDependencies({List<Wallpaper> items = const []}) async {
     () => DiscoverController(repository),
   );
   locator.registerFactory<SearchController>(() => SearchController(repository));
-  locator.registerSingleton<SettingsController>(
-    SettingsController(SettingsStore(), repository),
-  );
+  locator
+    ..registerSingleton<SettingsController>(
+      SettingsController(SettingsStore(), repository),
+    )
+    ..registerSingleton<DownloadDestinationController>(
+      DownloadDestinationController(SettingsStore()),
+    );
   locator
     ..registerLazySingleton<DownloadService>(DownloadService.new)
     ..registerLazySingleton<WallpaperApplier>(WallpaperApplier.new)

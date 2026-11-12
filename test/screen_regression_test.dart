@@ -4,21 +4,22 @@ import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/app/dependencies.dart';
-import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
-import 'package:wallpaper_app/core/downloads/download_service.dart';
-import 'package:wallpaper_app/core/favorites/favorites_repository.dart';
-import 'package:wallpaper_app/core/services/wallpaper_applier.dart';
-import 'package:wallpaper_app/core/storage/settings_store.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/features/favorites/application/favorites_controller.dart';
-import 'package:wallpaper_app/features/settings/application/settings_controller.dart';
-import 'package:wallpaper_app/features/settings/presentation/api_key_screen.dart';
-import 'package:wallpaper_app/features/settings/presentation/settings_screen.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/presentation/widgets/wallpaper_action_bar.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/app/dependencies.dart';
+import 'package:vanne/app/router/tab_scroll_coordinator.dart';
+import 'package:vanne/core/downloads/download_service.dart';
+import 'package:vanne/core/favorites/favorites_repository.dart';
+import 'package:vanne/core/services/wallpaper_applier.dart';
+import 'package:vanne/core/storage/settings_store.dart';
+import 'package:vanne/core/downloads/download_destination_controller.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/features/favorites/application/favorites_controller.dart';
+import 'package:vanne/features/settings/application/settings_controller.dart';
+import 'package:vanne/features/settings/presentation/api_key_screen.dart';
+import 'package:vanne/features/settings/presentation/settings_screen.dart';
+import 'package:vanne/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
+import 'package:vanne/features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
+import 'package:vanne/features/wallpaper_detail/presentation/widgets/wallpaper_action_bar.dart';
 
 /// Regression probes for two device-only breakages observed on hardware:
 /// 1. the Settings tab rendering blank,
@@ -75,8 +76,12 @@ void main() {
   ) async {
     final controller = SettingsController(SettingsStore(), _StubRepository())
       ..restore();
-    locator.registerSingleton<SettingsController>(controller);
-    locator.registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
+    locator
+      ..registerSingleton<SettingsController>(controller)
+      ..registerSingleton<DownloadDestinationController>(
+        DownloadDestinationController(SettingsStore()),
+      )
+      ..registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
     // Detail screen probe shares this suite's locator reset; register what
     // Settings needs only.
     var openedApiKey = false;
@@ -130,8 +135,12 @@ void main() {
       'dismisses keyboard on drag', (tester) async {
     final controller = SettingsController(SettingsStore(), _StubRepository())
       ..restore();
-    locator.registerSingleton<SettingsController>(controller);
-    locator.registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
+    locator
+      ..registerSingleton<SettingsController>(controller)
+      ..registerSingleton<DownloadDestinationController>(
+        DownloadDestinationController(SettingsStore()),
+      )
+      ..registerSingleton<TabScrollCoordinator>(TabScrollCoordinator());
 
     await tester.pumpWidget(
       MaterialApp(

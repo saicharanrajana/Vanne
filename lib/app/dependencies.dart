@@ -5,6 +5,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../core/collections/collection_entry.dart';
 import '../core/collections/collections_repository.dart';
 import '../core/collections/seed_collections.dart';
+import '../core/downloads/download_destination_controller.dart';
 import '../core/downloads/download_service.dart';
 import '../core/favorites/favorites_repository.dart';
 import '../core/security/api_key_store.dart';
@@ -56,12 +57,26 @@ Future<void> bootstrap() async {
   );
   await repository.restoreApiKey();
 
+  // Download destination: persisted parent-folder grant, re-validated on
+  // startup so a revoked folder is visible in Settings instead of failing
+  // silently at download time.
+  final downloadDestination = DownloadDestinationController(settingsStore);
+  await downloadDestination.restore();
+
   locator
     ..registerSingleton<SettingsStore>(settingsStore)
+    ..registerSingleton<DownloadDestinationController>(
+      downloadDestination,
+      dispose: (controller) => controller.dispose(),
+    )
     ..registerSingleton<WallpaperRepository>(repository)
     ..registerSingleton<FavoritesRepository>(favoritesRepository)
     ..registerSingleton<CollectionsRepository>(collectionsRepository)
-    ..registerLazySingleton<DownloadService>(DownloadService.new)
+    ..registerLazySingleton<DownloadService>(
+      () => DownloadService(
+        destinationController: locator<DownloadDestinationController>(),
+      ),
+    )
     ..registerLazySingleton<WallpaperApplier>(WallpaperApplier.new)
     ..registerLazySingleton<UrlLauncherService>(UrlLauncherService.new)
     ..registerSingleton<TabScrollCoordinator>(

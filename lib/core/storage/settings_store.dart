@@ -12,6 +12,8 @@ final class SettingsStore {
   static const _pitchBlackKey = 'pitch_black';
   static const _themeModeKey = 'theme_mode';
   static const _blockedTagsKey = 'wallhaven_tag_blacklist';
+  static const _downloadTreeUriKey = 'downloads_tree_uri';
+  static const _downloadParentLabelKey = 'downloads_parent_label';
 
   Box<dynamic>? _box;
 
@@ -77,6 +79,44 @@ final class SettingsStore {
 
   Future<void> setThemeModeName(String value) =>
       _box!.put(_themeModeKey, value);
+
+  // -- Downloads ------------------------------------------------------------
+
+  /// Persisted tree URI of the user-chosen download parent, if any.
+  ///
+  /// The OS owns the grant itself; this is the app's single record of which
+  /// tree to write into. `null` means the default `Pictures/<app folder>`.
+  String? get downloadTreeUri {
+    final raw = _box?.get(_downloadTreeUriKey) as String?;
+    return (raw == null || raw.isEmpty) ? null : raw;
+  }
+
+  /// Display name of the chosen parent folder (provider-reported, not a
+  /// filesystem path).
+  String? get downloadParentLabel {
+    final raw = _box?.get(_downloadParentLabelKey) as String?;
+    return (raw == null || raw.isEmpty) ? null : raw;
+  }
+
+  /// Stores the destination pair atomically enough for restore: both keys are
+  /// written together, and a half-written pair is ignored on read.
+  Future<void> setDownloadDestination({
+    required String treeUri,
+    required String parentLabel,
+  }) async {
+    final box = _box;
+    if (box == null) return;
+    await box.put(_downloadTreeUriKey, treeUri);
+    await box.put(_downloadParentLabelKey, parentLabel);
+  }
+
+  /// Reverts to the default `Pictures/<app folder>` destination.
+  Future<void> clearDownloadDestination() async {
+    final box = _box;
+    if (box == null) return;
+    await box.delete(_downloadTreeUriKey);
+    await box.delete(_downloadParentLabelKey);
+  }
 }
 
 /// Which brightness source drives the app theme.

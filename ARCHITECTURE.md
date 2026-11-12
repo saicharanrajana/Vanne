@@ -1,6 +1,6 @@
 # Architecture
 
-How the `wallpaper_app` workspace is structured and why.
+How the `vanne` workspace is structured and why.
 
 ## Workspace shape
 

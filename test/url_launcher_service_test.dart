@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wallpaper_app/core/services/url_launcher_service.dart';
+import 'package:vanne/core/services/url_launcher_service.dart';
 
 void main() {
   test('launches the URL without a canLaunchUrl preflight', () async {

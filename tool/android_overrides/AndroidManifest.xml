@@ -2,7 +2,7 @@
     <!-- Required for Wallhaven API and image downloads in release builds. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="wallpaper_app"
+        android:label="Vanne"
         android:name=".WallpaperApp"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">

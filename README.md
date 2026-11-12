@@ -1,4 +1,4 @@
-# wallpaper_app
+# Vanne
 
 An open-source, Android-first wallpaper application backed by the
 [Wallhaven API](https://wallhaven.cc/help/api), built with Flutter and
@@ -42,7 +42,7 @@ Requirements:
 - An Android device or emulator (primary target)
 
 ```bash
-git clone <repo-url> && cd wallpaper_app
+git clone <repo-url> && cd vanne
 flutter pub get          # resolves the root app + packages/wallhaven_client workspace
 flutter run              # debug launch on a connected device/emulator
 ```

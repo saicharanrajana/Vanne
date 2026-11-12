@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/shared/widgets/smart_network_image.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/shared/widgets/smart_network_image.dart';
 
 Widget _host(Widget child, {bool disableAnimations = false}) {
   return MaterialApp(

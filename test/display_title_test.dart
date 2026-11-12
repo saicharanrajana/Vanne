@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wallpaper_app/shared/utils/display_title.dart';
+import 'package:vanne/shared/utils/display_title.dart';
 
 void main() {
   test('formats words as title case and collapses whitespace', () {

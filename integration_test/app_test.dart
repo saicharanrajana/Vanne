@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:wallpaper_app/app/app.dart';
-import 'package:wallpaper_app/app/dependencies.dart';
-import 'package:wallpaper_app/app/router/app_route.dart';
+import 'package:vanne/app/app.dart';
+import 'package:vanne/app/dependencies.dart';
+import 'package:vanne/app/router/app_route.dart';
 
 /// On-device end-to-end smoke test against the REAL Wallhaven API.
 ///

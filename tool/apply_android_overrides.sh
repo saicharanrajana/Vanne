@@ -64,7 +64,7 @@ echo "detected package: $APP_PACKAGE"
 # 1. Copy Kotlin sources, rewriting the package declaration to the detected one.
 mkdir -p "$KOTLIN_DIR"
 for file in MainActivity.kt WallpaperApp.kt; do
-  sed "s/^package com\.example\.wallpaper_app\$/package $APP_PACKAGE/" \
+  sed "s/^package com\.saicharanrajana\.vanne$/package $APP_PACKAGE/" \
     "$OVERRIDES/$file" > "$KOTLIN_DIR/$file"
 done
 echo "ok: MainActivity.kt + WallpaperApp.kt (cached FlutterEngine)"

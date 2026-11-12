@@ -2,19 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' hide SearchController;
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/app/dependencies.dart';
-import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
-import 'package:wallpaper_app/app/router/app_route.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/core/domain/feed_filter.dart';
-import 'package:wallpaper_app/core/favorites/favorites_repository.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/features/discover/application/discover_controller.dart';
-import 'package:wallpaper_app/features/discover/presentation/discover_screen.dart';
-import 'package:wallpaper_app/features/favorites/application/favorites_controller.dart';
-import 'package:wallpaper_app/features/search/application/search_controller.dart';
-import 'package:wallpaper_app/features/search/presentation/search_screen.dart';
-import 'package:wallpaper_app/shared/widgets/wallpaper_tile.dart';
+import 'package:vanne/app/dependencies.dart';
+import 'package:vanne/app/router/tab_scroll_coordinator.dart';
+import 'package:vanne/app/router/app_route.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/core/domain/feed_filter.dart';
+import 'package:vanne/core/favorites/favorites_repository.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/features/discover/application/discover_controller.dart';
+import 'package:vanne/features/discover/presentation/discover_screen.dart';
+import 'package:vanne/features/favorites/application/favorites_controller.dart';
+import 'package:vanne/features/search/application/search_controller.dart';
+import 'package:vanne/features/search/presentation/search_screen.dart';
+import 'package:vanne/shared/widgets/wallpaper_tile.dart';
 
 class _StubRepo implements WallpaperRepository {
   @override

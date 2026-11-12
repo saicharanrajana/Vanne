@@ -2,14 +2,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/core/downloads/download_service.dart';
-import 'package:wallpaper_app/core/services/wallpaper_applier.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/presentation/widgets/wallpaper_color_palette.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/presentation/widgets/wallpaper_tags_section.dart';
-import 'package:wallpaper_app/shared/widgets/app_snack.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/core/downloads/download_service.dart';
+import 'package:vanne/core/services/wallpaper_applier.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
+import 'package:vanne/features/wallpaper_detail/presentation/widgets/wallpaper_color_palette.dart';
+import 'package:vanne/features/wallpaper_detail/presentation/widgets/wallpaper_tags_section.dart';
+import 'package:vanne/shared/widgets/app_snack.dart';
 
 /// Focused probes for the redesigned detail sheet sections:
 /// * color swatch → exact Wallhaven hex on the clipboard + snackbar,

@@ -2,14 +2,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/core/downloads/download_service.dart';
-import 'package:wallpaper_app/core/services/wallpaper_applier.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/presentation/widgets/set_wallpaper_sheet.dart';
-import 'package:wallpaper_app/shared/widgets/favorite_toggle_button.dart';
-import 'package:wallpaper_app/shared/widgets/friendly_error_view.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/core/downloads/download_service.dart';
+import 'package:vanne/core/services/wallpaper_applier.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
+import 'package:vanne/features/wallpaper_detail/presentation/widgets/set_wallpaper_sheet.dart';
+import 'package:vanne/shared/widgets/favorite_toggle_button.dart';
+import 'package:vanne/shared/widgets/friendly_error_view.dart';
 
 /// Coverage for the interaction-polish pass:
 /// * shared favorite toggle states/semantics,

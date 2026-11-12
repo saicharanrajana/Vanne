@@ -1,4 +1,4 @@
-package com.example.wallpaper_app
+package com.saicharanrajana.vanne
 
 import android.content.Context
 import io.flutter.embedding.android.FlutterActivity

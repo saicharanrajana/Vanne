@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/features/wallpaper_detail/application/wallpaper_metadata.dart';
+import 'package:vanne/features/wallpaper_detail/application/wallpaper_metadata.dart';
 
 /// Unit tests for the detail sheet's pure metadata formatters.
 void main() {

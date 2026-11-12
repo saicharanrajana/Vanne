@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:wallpaper_app/app/theme/app_shapes.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/shared/widgets/app_snack.dart';
+import 'package:vanne/app/theme/app_shapes.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/shared/widgets/app_snack.dart';
 
 Widget _host() => MaterialApp(
   scaffoldMessengerKey: AppSnack.messengerKey,

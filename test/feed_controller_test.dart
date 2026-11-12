@@ -2,10 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/core/domain/feed_filter.dart';
-import 'package:wallpaper_app/core/wallpaper/feed_controller.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/shared/widgets/wallpaper_grid.dart';
+import 'package:vanne/core/domain/feed_filter.dart';
+import 'package:vanne/core/wallpaper/feed_controller.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/shared/widgets/wallpaper_grid.dart';
 
 /// Fake repository exercising only [search]; everything else on
 /// [WallpaperRepository] is a thin facade over the package client, which

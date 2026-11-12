@@ -1,6 +1,5 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -55,6 +54,7 @@ final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final sections = _sections();
 
     return Material(
       color: Colors.transparent,
@@ -86,92 +86,17 @@ final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              _SectionLabel('Sort by'),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final sorting in FeedSorting.values)
-                    M3EChip(
-                      label: sorting.label,
-                      type: M3EChipType.filter,
-                      selected: _draft.sorting == sorting,
-                      onPressed: () => setState(() {
-                        _draft = _withSorting(_draft, sorting);
-                      }),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _SectionLabel('Popular time window'),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final range in FeedTopRange.values)
-                    M3EChip(
-                      label: range.label,
-                      type: M3EChipType.filter,
-                      selected: _draft.topRange == range,
-                      onPressed: _draft.sorting == FeedSorting.popular
-                          ? () => setState(() {
-                              _draft = _draft.copyWith(topRange: range);
-                            })
-                          : null,
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _SectionLabel('Categories'),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final cat in WallhavenCategory.values.where(
-                    (c) => c != WallhavenCategory.people,
-                  ))
-                    M3EChip(
-                      label: cat.name[0].toUpperCase() + cat.name.substring(1),
-                      type: M3EChipType.filter,
-                      selected: _draft.categories.contains(cat),
-                      onPressed: () => setState(() {
-                        final next = Set<WallhavenCategory>.from(
-                          _draft.categories,
-                        );
-                        if (next.contains(cat)) {
-                          if (next.length == 1) return;
-                          next.remove(cat);
-                        } else {
-                          next.add(cat);
-                        }
-                        _draft = _draft.copyWith(categories: next);
-                      }),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _SectionLabel('Minimum resolution'),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final resolution in const ['1920x1080', '2560x1440'])
-                    M3EChip(
-                      label: '$resolution+',
-                      type: M3EChipType.filter,
-                      selected: _draft.minResolution == resolution,
-                      onPressed: () => setState(() {
-                        _draft = _draft.minResolution == resolution
-                            ? _draft.copyWith(clearMinResolution: true)
-                            : _draft.copyWith(minResolution: resolution);
-                      }),
-                    ),
-                ],
-              ),
+              for (var i = 0; i < sections.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 24,
+                    thickness: 1,
+                    indent: 4,
+                    endIndent: 4,
+                    color: scheme.outlineVariant,
+                  ),
+                sections[i],
+              ],
               const SizedBox(height: AppSpacing.xxl),
               Row(
                 children: [
@@ -211,29 +136,125 @@ final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
     );
   }
 
+  List<Widget> _sections() => [
+    _FilterSection(
+      title: 'Sort by',
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final sorting in FeedSorting.values)
+            M3EChip(
+              label: sorting.label,
+              type: M3EChipType.filter,
+              selected: _draft.sorting == sorting,
+              onPressed: () => setState(() {
+                _draft = _withSorting(_draft, sorting);
+              }),
+            ),
+        ],
+      ),
+    ),
+    if (_draft.sorting == FeedSorting.popular)
+      _FilterSection(
+        title: 'Popular time window',
+        child: Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final range in FeedTopRange.values)
+              M3EChip(
+                label: range.label,
+                type: M3EChipType.filter,
+                selected: _draft.topRange == range,
+                onPressed: () => setState(() {
+                  _draft = _draft.copyWith(topRange: range);
+                }),
+              ),
+          ],
+        ),
+      ),
+    _FilterSection(
+      title: 'Categories',
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final cat in WallhavenCategory.values.where(
+            (c) => c != WallhavenCategory.people,
+          ))
+            M3EChip(
+              label: cat.name[0].toUpperCase() + cat.name.substring(1),
+              type: M3EChipType.filter,
+              selected: _draft.categories.contains(cat),
+              onPressed: () => setState(() {
+                final next = Set<WallhavenCategory>.from(_draft.categories);
+                if (next.contains(cat)) {
+                  if (next.length == 1) return;
+                  next.remove(cat);
+                } else {
+                  next.add(cat);
+                }
+                _draft = _draft.copyWith(categories: next);
+              }),
+            ),
+        ],
+      ),
+    ),
+    _FilterSection(
+      title: 'Minimum resolution',
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final resolution in const ['1920x1080', '2560x1440'])
+            M3EChip(
+              label: '$resolution+',
+              type: M3EChipType.filter,
+              selected: _draft.minResolution == resolution,
+              onPressed: () => setState(() {
+                _draft = _draft.minResolution == resolution
+                    ? _draft.copyWith(clearMinResolution: true)
+                    : _draft.copyWith(minResolution: resolution);
+              }),
+            ),
+        ],
+      ),
+    ),
+  ];
+
   static FeedFilter _withSorting(FeedFilter filter, FeedSorting sorting) =>
-      sorting == FeedSorting.popular
-      ? filter.copyWith(
-          sorting: sorting,
-          topRange: filter.topRange ?? FeedTopRange.month,
-        )
-      : filter.copyWith(sorting: sorting, clearTopRange: true);
+      filter.copyWith(
+        sorting: sorting,
+        topRange: sorting == FeedSorting.popular
+            ? filter.topRange ?? FeedTopRange.month
+            : filter.topRange,
+      );
 }
 
-final class _SectionLabel extends StatelessWidget {
-  final String text;
+final class _FilterSection extends StatelessWidget {
+  final String title;
+  final Widget child;
 
-  const _SectionLabel(this.text);
+  const _FilterSection({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
-      text.toUpperCase(),
-      style: theme.textTheme.labelMedium?.copyWith(
-        color: theme.colorScheme.primary,
-        letterSpacing: 0.8,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.primary,
+            letterSpacing: 0.2,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        child,
+      ],
     );
   }
 }

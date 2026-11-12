@@ -3,20 +3,20 @@ import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
-import 'package:wallpaper_app/app/dependencies.dart';
-import 'package:wallpaper_app/app/router/tab_scroll_coordinator.dart';
-import 'package:wallpaper_app/app/theme/app_shapes.dart';
-import 'package:wallpaper_app/app/theme/app_theme.dart';
-import 'package:wallpaper_app/core/domain/feed_filter.dart';
-import 'package:wallpaper_app/core/favorites/favorites_repository.dart';
-import 'package:wallpaper_app/core/wallpaper/wallpaper_repository.dart';
-import 'package:wallpaper_app/features/discover/application/discover_controller.dart';
-import 'package:wallpaper_app/features/discover/presentation/discover_screen.dart';
-import 'package:wallpaper_app/features/favorites/application/favorites_controller.dart';
-import 'package:wallpaper_app/features/search/application/search_controller.dart'
+import 'package:vanne/app/dependencies.dart';
+import 'package:vanne/app/router/tab_scroll_coordinator.dart';
+import 'package:vanne/app/theme/app_shapes.dart';
+import 'package:vanne/app/theme/app_theme.dart';
+import 'package:vanne/core/domain/feed_filter.dart';
+import 'package:vanne/core/favorites/favorites_repository.dart';
+import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
+import 'package:vanne/features/discover/application/discover_controller.dart';
+import 'package:vanne/features/discover/presentation/discover_screen.dart';
+import 'package:vanne/features/favorites/application/favorites_controller.dart';
+import 'package:vanne/features/search/application/search_controller.dart'
     as app_search;
-import 'package:wallpaper_app/features/search/presentation/search_screen.dart';
-import 'package:wallpaper_app/shared/widgets/feed_filter_sheet.dart';
+import 'package:vanne/features/search/presentation/search_screen.dart';
+import 'package:vanne/shared/widgets/feed_filter_sheet.dart';
 
 class _StubRepository implements WallpaperRepository {
   @override
@@ -316,11 +316,35 @@ void main() {
           // Filter hierarchy headings are present above each strip.
           expect(find.text('By color'), findsOneWidget);
           expect(find.text('By genre'), findsOneWidget);
-          // Genre filters are M3E chips now; color swatches keep their
-          // expressive shape containers.
-          expect(find.byType(M3EChip), findsWidgets);
+          // Search genre filters use rounded ChoiceChips with selected roles
+          // derived from the active theme.
+          final natureChip = find.ancestor(
+            of: find.text('Nature'),
+            matching: find.byType(ChoiceChip),
+          );
+          expect(natureChip, findsOneWidget);
+          final unselectedNature = tester.widget<ChoiceChip>(natureChip);
+          expect(unselectedNature.shape, isA<StadiumBorder>());
+          expect(unselectedNature.showCheckmark, isTrue);
+          expect(unselectedNature.selected, isFalse);
+          expect(
+            unselectedNature.selectedColor,
+            themeData.colorScheme.secondaryContainer,
+          );
+          expect(
+            unselectedNature.checkmarkColor,
+            themeData.colorScheme.onSecondaryContainer,
+          );
+          await tester.tap(natureChip);
+          await tester.pump();
+          final selectedNature = tester.widget<ChoiceChip>(natureChip);
+          expect(selectedNature.selected, isTrue);
+          expect(
+            selectedNature.labelStyle?.color,
+            themeData.colorScheme.onSecondaryContainer,
+          );
+          // Spot-check other genre labels remain present for accessibility.
           await tester.pump(const Duration(milliseconds: 100));
-          // Spot-check a couple of genre labels still present for accessibility.
           expect(find.text('Anime'), findsOneWidget);
           expect(find.text('Nature'), findsOneWidget);
           // SearchBar hint and text colors come from theme

@@ -108,13 +108,17 @@ void main() {
     expect(find.text('API key'), findsOneWidget);
     expect(find.byType(M3ESwitch), findsNWidgets(3));
     expect(find.byType(M3ESegmentedButton<AppThemeMode>), findsOneWidget);
-    // Scroll to reveal About footer (CustomScrollView with SliverAppBar — was ListView).
+    // Scroll through the lower Settings groups; the removed About footer and
+    // its informational rows must stay absent after the content is built.
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
     await tester.pumpAndSettle();
-    // About footer — wallhaven source, open source.
-    expect(find.text('ABOUT'), findsOneWidget);
-    expect(find.text('Source'), findsOneWidget);
-    expect(find.text('Open source'), findsOneWidget);
+    expect(find.text('Storage'), findsOneWidget);
+    expect(find.text('Downloads'), findsOneWidget);
+    expect(find.text('Clear image cache'), findsOneWidget);
+    expect(find.text('WALLHAVEN ACCOUNT'), findsNothing);
+    expect(find.text('ABOUT'), findsNothing);
+    expect(find.text('Source'), findsNothing);
+    expect(find.text('Open source'), findsNothing);
     // Back to top for NSFW tap
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 1000));
     await tester.pumpAndSettle();

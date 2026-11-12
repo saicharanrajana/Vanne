@@ -145,7 +145,7 @@ final class _SearchScreenState extends State<SearchScreen> {
               const SizedBox(height: 8),
               HorizontalEdgeFade(
                 child: SizedBox(
-                  height: 64,
+                  height: 48,
                   child: SignalBuilder(
                     builder: (context) {
                       final selected = controller.selectedColors.value;
@@ -182,7 +182,7 @@ final class _SearchScreenState extends State<SearchScreen> {
               const SizedBox(height: 8),
               HorizontalEdgeFade(
                 child: SizedBox(
-                  height: 40,
+                  height: 48,
                   child: SignalBuilder(
                     builder: (context) {
                       final selected = controller.selectedGenres.value;
@@ -316,7 +316,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(height: 8),
                       HorizontalEdgeFade(
                         child: SizedBox(
-                          height: 64,
+                          height: 48,
                           child: SignalBuilder(
                             builder: (context) {
                               final selected = controller.selectedColors.value;
@@ -353,7 +353,7 @@ final class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(height: 8),
                       HorizontalEdgeFade(
                         child: SizedBox(
-                          height: 40,
+                          height: 48,
                           child: SignalBuilder(
                             builder: (context) {
                               final selected = controller.selectedGenres.value;
@@ -422,11 +422,7 @@ final class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
-/// 8-leaf clover swatch — expressive Material shape for color filters.
-///
-/// Uses an expressive shape so each color reads as a tangible
-/// expressive chip. 72×64 gives a generous wide hit target while the lobed
-/// shape adds delight. Selection is a primary ring + soft shadow + check.
+/// A compact circular color swatch with an accessible 48dp selection target.
 final class _ColorChip extends StatelessWidget {
   final FeedColor color;
   final bool selected;
@@ -441,50 +437,58 @@ final class _ColorChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
-    // Wire hex is a validated 6-digit value from the enum itself.
     final display = Color(color.colorValue);
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: 'Filter by color ${color.name}',
-      child: GestureDetector(
-        onTap: onTap,
-        child: M3EShapeContainer(
-          kind: M3EShapeKind.square,
-          width: 72,
-          height: 64,
-          color: selected
-              ? scheme.primary
-              : scheme.outlineVariant.withValues(alpha: 0.8),
-          child: Padding(
-            padding: EdgeInsets.all(selected ? 3 : 1.2),
-            child: M3EShapeContainer(
-              kind: M3EShapeKind.square,
-              color: display,
-              child: selected
-                  ? Center(
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          PhosphorIconsBold.check,
-                          size: 18,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+    final contrastingCheck = _contrastingForeground(display);
+
+    return Tooltip(
+      message: 'Filter by color ${color.label}',
+      child: Semantics(
+        key: ValueKey('search-color-${color.name}'),
+        button: true,
+        selected: selected,
+        label: 'Filter by color ${color.label}',
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                width: selected ? 46 : 44,
+                height: selected ? 46 : 44,
+                decoration: BoxDecoration(
+                  color: display,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? scheme.primary : scheme.outlineVariant,
+                    width: selected ? 2.5 : 1.25,
+                  ),
+                ),
+                child: selected
+                    ? Icon(
+                        PhosphorIconsBold.check,
+                        key: const ValueKey('search-color-check'),
+                        size: 18,
+                        color: contrastingCheck,
+                      )
+                    : null,
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+Color _contrastingForeground(Color background) {
+  final luminance = background.computeLuminance();
+  final blackContrast = (luminance + 0.05) / 0.05;
+  final whiteContrast = 1.05 / (luminance + 0.05);
+  return blackContrast >= whiteContrast ? Colors.black : Colors.white;
 }
 
 /// Section label above a filter strip.
@@ -566,6 +570,8 @@ final class _GenreStripState extends State<_GenreStrip> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return ListView(
       controller: _controller,
       scrollDirection: Axis.horizontal,
@@ -574,16 +580,35 @@ final class _GenreStripState extends State<_GenreStrip> {
       children: [
         for (var i = 0; i < FeedGenre.values.length; i++)
           Padding(
+            key: _keys[i],
             padding: const EdgeInsetsDirectional.only(end: 10),
-            child: M3EChip(
-              key: _keys[i],
-              label: FeedGenre.values[i].label,
-              type: M3EChipType.filter,
+            child: ChoiceChip(
+              key: ValueKey('search-genre-${FeedGenre.values[i].name}'),
+              label: Text(FeedGenre.values[i].label),
               selected: widget.selected.contains(FeedGenre.values[i]),
-              onPressed: () {
+              onSelected: (_) {
                 M3EHaptics.selection();
                 widget.onToggle(FeedGenre.values[i]);
               },
+              selectedColor: scheme.secondaryContainer,
+              backgroundColor: scheme.surfaceContainerLow,
+              labelStyle: theme.textTheme.labelLarge?.copyWith(
+                color: widget.selected.contains(FeedGenre.values[i])
+                    ? scheme.onSecondaryContainer
+                    : scheme.onSurfaceVariant,
+              ),
+              checkmarkColor: scheme.onSecondaryContainer,
+              showCheckmark: true,
+              side: BorderSide(
+                color: widget.selected.contains(FeedGenre.values[i])
+                    ? scheme.primary
+                    : scheme.outlineVariant,
+                width: widget.selected.contains(FeedGenre.values[i]) ? 1.5 : 1,
+              ),
+              shape: const StadiumBorder(),
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              tooltip: 'Filter by genre ${FeedGenre.values[i].label}',
             ),
           ),
       ],

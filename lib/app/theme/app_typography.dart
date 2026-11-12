@@ -1,11 +1,13 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:google_fonts/google_fonts.dart';
+// Importing google_fonts_lite (instead of google_fonts) keeps only the font
+// map + dynamic resolution in the build, letting the compiler tree-shake
+// every other Google Fonts family's generated methods.
+import 'package:google_fonts/google_fonts_lite.dart';
 
 /// Centralized typography: **Outfit** everywhere — headings and body.
 ///
-/// Headings use bold/semibold weights so titles land with presence; body/label
-/// roles use regular/medium. Sizes are bumped +1-2 vs stock M3 so text never
-/// feels small on modern high-DPI phones.
+/// Screen headings retain the app's expressive scale; supporting text uses
+/// Material 3 body and label sizes for a quieter, consistent hierarchy.
 TextTheme buildAppTextTheme(ColorScheme scheme) {
   final onSurface = scheme.onSurface;
 
@@ -14,14 +16,14 @@ TextTheme buildAppTextTheme(ColorScheme scheme) {
     double height,
     double tracking,
     FontWeight weight,
-  ) =>
-      GoogleFonts.outfit(
-        fontSize: size,
-        height: height / size,
-        letterSpacing: tracking,
-        fontWeight: weight,
-        color: onSurface,
-      );
+  ) => GoogleFontsLite.getFont(
+    'Outfit',
+    fontSize: size,
+    height: height / size,
+    letterSpacing: tracking,
+    fontWeight: weight,
+    color: onSurface,
+  );
 
   const regular = FontWeight.w400;
   const medium = FontWeight.w500;
@@ -36,13 +38,13 @@ TextTheme buildAppTextTheme(ColorScheme scheme) {
     headlineMedium: font(32, 36, 0, semibold),
     headlineSmall: font(28, 32, 0, semibold),
     titleLarge: font(26, 30, 0, semibold),
-    titleMedium: font(19, 25, 0.15, semibold),
-    titleSmall: font(17, 22, 0.1, semibold),
-    bodyLarge: font(18, 26, 0.15, regular),
-    bodyMedium: font(16, 22, 0.25, regular),
-    bodySmall: font(14, 18, 0.4, regular),
-    labelLarge: font(16, 20, 0.1, semibold),
-    labelMedium: font(14, 16, 0.5, medium),
-    labelSmall: font(13, 16, 0.5, medium),
+    titleMedium: font(16, 24, 0.15, medium),
+    titleSmall: font(14, 20, 0.1, medium),
+    bodyLarge: font(16, 24, 0.5, regular),
+    bodyMedium: font(14, 20, 0.25, regular),
+    bodySmall: font(12, 16, 0.4, regular),
+    labelLarge: font(14, 20, 0.1, medium),
+    labelMedium: font(12, 16, 0.5, medium),
+    labelSmall: font(11, 16, 0.5, medium),
   );
 }

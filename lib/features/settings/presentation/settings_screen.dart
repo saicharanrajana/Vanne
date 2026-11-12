@@ -96,7 +96,7 @@ final class SettingsScreen extends StatelessWidget {
                     _ThemeModeSelector(settings: settings),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const _SectionDivider(),
                 _Section(
                   title: 'Content',
                   children: [
@@ -129,12 +129,6 @@ final class SettingsScreen extends StatelessWidget {
                         );
                       },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _Section(
-                  title: 'Wallhaven account',
-                  children: [
                     SignalBuilder(
                       builder: (context) => _ActionTile(
                         icon: PhosphorIconsFill.key,
@@ -153,23 +147,10 @@ final class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                _Section(title: 'Storage', children: [_CacheTile()]),
-                const SizedBox(height: 24),
+                const _SectionDivider(),
                 _Section(
-                  title: 'About',
-                  children: [
-                    _InfoTile(
-                      icon: PhosphorIconsFill.images,
-                      title: 'Source',
-                      subtitle: 'Powered by wallhaven.cc',
-                    ),
-                    _InfoTile(
-                      icon: PhosphorIconsFill.codeBlock,
-                      title: 'Open source',
-                      subtitle: 'Free & open. Contributions welcome.',
-                    ),
-                  ],
+                  title: 'Storage',
+                  children: [_CacheTile()],
                 ),
               ],
             ),
@@ -195,18 +176,35 @@ final class _Section extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
-            title.toUpperCase(),
-            style: theme.textTheme.labelMedium?.copyWith(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.primary,
               letterSpacing: 1.0,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
         for (var i = 0; i < children.length; i++) ...[
           children[i],
-          if (i != children.length - 1) const SizedBox(height: 8),
+          if (i != children.length - 1) const SizedBox(height: 12),
         ],
       ],
+    );
+  }
+}
+
+/// Separates Settings groups without drawing a border around each row.
+final class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 24,
+      thickness: 1,
+      indent: 4,
+      endIndent: 4,
+      color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
 }
@@ -371,17 +369,6 @@ final class _InfoTile extends StatelessWidget {
   }
 }
 
-/// Image cache tile: shows accumulated disk cache size and clears on tap.
-///
-/// Implementation:
-/// - Size via [ImageCacheService.getCachedSizeBytes] which sums
-///   `libCachedImageData` (flutter_cache_manager) + legacy
-///   `cacheImageFolderName` (extended_image, orphaned) on IO; on web 0.
-/// - Subheading displays formatted MB (`X.X MB`) and is live — re-queried
-///   on init and after clear.
-/// - Tap clears both disk (`DefaultCacheManager.emptyCache`) and memory
-///   (`PaintingBinding.imageCache`) caches, plus legacy dir, then re-queries
-///   size and shows a `SnackBar`.
 final class _CacheTile extends StatefulWidget {
   const _CacheTile();
 
@@ -462,10 +449,10 @@ final class _CacheTileState extends State<_CacheTile> {
       variant: M3ECardVariant.filled,
       leading: const Icon(PhosphorIconsFill.eraser),
       trailing: _busy
-          ? M3EProgressIndicator.circular(
-              size: 20,
-              strokeWidth: 2,
+          ? M3ELoadingIndicator(
+              size: 24,
               color: scheme.primary,
+              semanticLabel: 'Clearing cache',
             )
           : null,
       onTap: _busy ? null : _clear,

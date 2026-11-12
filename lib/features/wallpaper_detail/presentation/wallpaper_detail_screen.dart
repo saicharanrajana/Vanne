@@ -56,6 +56,19 @@ final class WallpaperDetailScreen extends StatefulWidget {
   State<WallpaperDetailScreen> createState() => _WallpaperDetailScreenState();
 }
 
+/// Peek height of the collapsed sheet — only the drag handle stays visible.
+const double _sheetMinExtent = 0.1;
+
+/// Height the sheet rests at when the route opens.
+const double _sheetRestExtent = 0.3;
+
+/// Upper bound for the expanded sheet, leaving the wallpaper visible.
+const double _sheetCeilingExtent = 0.8;
+
+/// Absorbs sub-pixel rounding so capping to the content never clips the
+/// last row.
+const double _sheetRoundSlackPx = 1;
+
 /// Square face for the controls drawn on the wallpaper.
 ///
 /// The button targets stay 48 dp; only the visible circle grows, so the
@@ -72,11 +85,23 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
 
   final _sheetController = DraggableScrollableController();
 
+  /// Measures the sheet's natural content height so the expanded anchor can
+  /// stop where the content ends instead of always opening to 80 % of the
+  /// screen and leaving dead surface under the action group.
+  final _sheetContentKey = GlobalKey();
+  double _sheetAvailableHeight = 0;
+  double? _measuredContentHeight;
+  bool _measureScheduled = false;
+
+  /// Cached so an identical list instance is reused between rebuilds —
+  /// `DraggableScrollableSheet` re-snaps whenever `snapSizes` changes identity.
+  List<double>? _sheetSnapSizes;
+
   Future<void> _collapseSheet() async {
     if (!_sheetController.isAttached) return;
     try {
       await _sheetController.animateTo(
-        0.1,
+        _sheetMinExtent,
         duration: AppMotion.transition,
         curve: AppMotion.arrivalCurve,
       );
@@ -95,11 +120,65 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
     super.dispose();
   }
 
+  /// Reads the sheet content's laid-out height after the current frame.
+  ///
+  /// The content is measured implicitly: vertical space is unbounded inside
+  /// the sheet's scroll view, so its height does not depend on the sheet
+  /// height and measuring cannot feed back into the layout that triggered it.
+  void _scheduleContentMeasure() {
+    if (_measureScheduled) return;
+    _measureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureScheduled = false;
+      if (!mounted) return;
+      final renderObject = _sheetContentKey.currentContext?.findRenderObject();
+      final height = renderObject is RenderBox && renderObject.hasSize
+          ? renderObject.size.height
+          : null;
+      final measured = _measuredContentHeight;
+      if (height != null &&
+          measured != null &&
+          (height - measured).abs() < 0.5) {
+        return;
+      }
+      if (height == null && measured == null) return;
+      setState(() => _measuredContentHeight = height);
+    });
+  }
+
+  /// Expanded anchor: the content's own height, capped by the ceiling.
+  double _expandedExtent() {
+    final content = _measuredContentHeight;
+    if (content == null || _sheetAvailableHeight <= 0) {
+      return _sheetCeilingExtent;
+    }
+    final fitted = (content + _sheetRoundSlackPx) / _sheetAvailableHeight;
+    return fitted.clamp(_sheetMinExtent, _sheetCeilingExtent);
+  }
+
+  /// Resting anchor, kept at [_sheetRestExtent] unless content is shorter.
+  double _restExtent(double expanded) =>
+      _sheetRestExtent.clamp(_sheetMinExtent, expanded);
+
+  /// Interior snap anchor between min and max, deduplicated across rebuilds.
+  List<double>? _resolveSnapSizes(double rest, double expanded) {
+    final next = <double>[if (rest > _sheetMinExtent && rest < expanded) rest];
+    final current = _sheetSnapSizes;
+    if (current != null && listEquals(current, next)) return current;
+    if (current == null && next.isEmpty) return null;
+    _sheetSnapSizes = next.isEmpty ? null : List<double>.unmodifiable(next);
+    return _sheetSnapSizes;
+  }
+
   @override
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final brightness = baseTheme.brightness;
     final favorites = locator<FavoritesController>();
+
+    // Re-anchor after layout-dependent changes (rotation, text scale) that do
+    // not resize the content itself.
+    _scheduleContentMeasure();
 
     // Wallpaper-derived theme — every descendant that uses Theme.of will
     // automatically get wallpaper colors. This makes the screen robust:
@@ -191,31 +270,48 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                     ),
                   ),
                 ),
-                // Draggable info sheet — collapses to a 0.08 peek and
-                // expands to 0.9 for the full metadata / colors / tags /
-                // actions content; content scrolls once expanded. Uses
-                // native DraggableScrollableSheet for consistency.
-                DraggableScrollableSheet(
-                  controller: _sheetController,
-                  initialChildSize: 0.3,
-                  minChildSize: 0.1,
-                  maxChildSize: 0.8,
-                  snap: true,
-                  snapSizes: const [0.1, 0.3, 0.8],
-                  builder: (context, scrollController) {
-                    return ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(28),
-                      ),
-                      child: _DraggableInfoSheet(
-                        controller: widget.controller,
-                        scrollController: scrollController,
-                        onColorTap: widget.onColorTap,
-                        onTagTap: widget.onTagTap,
-                        onCollapseForSet: _collapseSheet,
-                      ),
-                    );
-                  },
+                // Draggable info sheet — snaps between a collapsed peek, a
+                // resting height and an expanded anchor capped at the content
+                // height (max 0.8) so no dead surface is left below the
+                // actions. Content scrolls once it exceeds the sheet.
+                Positioned.fill(
+                  child: NotificationListener<SizeChangedLayoutNotification>(
+                    onNotification: (_) {
+                      _scheduleContentMeasure();
+                      return true;
+                    },
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        _sheetAvailableHeight = constraints.maxHeight;
+                        final expanded = _expandedExtent();
+                        final rest = _restExtent(expanded);
+                        return DraggableScrollableSheet(
+                          controller: _sheetController,
+                          initialChildSize: rest,
+                          minChildSize: _sheetMinExtent,
+                          maxChildSize: expanded,
+                          snap: true,
+                          snapSizes: _resolveSnapSizes(rest, expanded),
+                          builder: (context, scrollController) {
+                            return ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(28),
+                              ),
+                              child: _DraggableInfoSheet(
+                                controller: widget.controller,
+                                scrollController: scrollController,
+                                contentKey: _sheetContentKey,
+                                onContentLaidOut: _scheduleContentMeasure,
+                                onColorTap: widget.onColorTap,
+                                onTagTap: widget.onTagTap,
+                                onCollapseForSet: _collapseSheet,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -226,19 +322,33 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   }
 }
 
-/// Draggable, scrollable info sheet over the wallpaper: a 2×3 metadata
+/// Draggable, scrollable info sheet over the wallpaper: a 2×2 metadata
 /// card grid, Colors and Tags sections, and the action group. Colors are
 /// derived from the wallpaper's dominant colors for a vibrant but readable
-/// look in both light/dark. Shows a centered contained loading indicator
-/// until details are fetched.
+/// look in both light/dark. Shows a plain circular indicator until details
+/// are fetched.
 ///
 /// The outer [DraggableScrollableSheet] in the screen owns the sheet height;
 /// this widget provides the wallpaper-derived surface, drag handle, and
 /// scrollable content using the sheet's [scrollController] so drag and
 /// scroll are unified (native iOS/Android physics).
+///
+/// Loaded content is wrapped in a [SizeChangedLayoutNotifier] and keyed by
+/// [contentKey] so the screen can cap the expanded sheet to its real height.
 final class _DraggableInfoSheet extends StatelessWidget {
   final WallpaperDetailController controller;
   final ScrollController scrollController;
+  final GlobalKey contentKey;
+
+  /// Called whenever loaded content is about to lay out.
+  ///
+  /// [SizeChangedLayoutNotifier] deliberately skips the *first* layout, and
+  /// the outer screen does not rebuild when only this subtree swaps from the
+  /// loading indicator to loaded content — e.g. when `/w/{id}` resolves after
+  /// the route opened. Without this hook that first real content is never
+  /// measured and the expanded sheet stays at its 80 % ceiling.
+  final VoidCallback onContentLaidOut;
+
   final ValueChanged<String>? onColorTap;
   final ValueChanged<String>? onTagTap;
   final Future<void> Function()? onCollapseForSet;
@@ -246,6 +356,8 @@ final class _DraggableInfoSheet extends StatelessWidget {
   const _DraggableInfoSheet({
     required this.controller,
     required this.scrollController,
+    required this.contentKey,
+    required this.onContentLaidOut,
     this.onColorTap,
     this.onTagTap,
     this.onCollapseForSet,
@@ -263,6 +375,9 @@ final class _DraggableInfoSheet extends StatelessWidget {
             !wallpaper.hasDetails &&
             controller.details.value == null &&
             controller.detailsError.value == null;
+        // Chain into the screen's debounced post-frame measure: this rebuild
+        // is triggered by a signal, not by the screen's own build.
+        if (!isLoading) onContentLaidOut();
         return Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
@@ -273,60 +388,68 @@ final class _DraggableInfoSheet extends StatelessWidget {
           child: CustomScrollView(
             controller: scrollController,
             slivers: [
-              SliverToBoxAdapter(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 12, bottom: 8),
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+              if (isLoading) ...[
+                SliverToBoxAdapter(
+                  child: _SheetDragHandle(
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
                 ),
-              ),
-              if (isLoading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: M3ELoadingIndicator(
-                      variant: M3ELoadingIndicatorVariant.contained,
+                      size: 60,
+                      semanticLabel: 'Loading wallpaper details',
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _MetadataGrid(wallpaper: wallpaper),
-                            AppSpacing.lg.gap,
-                            WallpaperColorPalette(
-                              controller: controller,
-                              onColorTap: onColorTap,
+                ),
+              ] else
+                SliverToBoxAdapter(
+                  child: SizeChangedLayoutNotifier(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                      ),
+                      child: Column(
+                        key: contentKey,
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _SheetDragHandle(
+                            color: scheme.onSurfaceVariant.withValues(
+                              alpha: 0.4,
                             ),
-                            AppSpacing.lg.gap,
-                            WallpaperTagsSection(
-                              controller: controller,
-                              onTagTap: onTagTap,
+                          ),
+                          AppSpacing.sm.gap,
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 520),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _MetadataGrid(wallpaper: wallpaper),
+                                  AppSpacing.lg.gap,
+                                  WallpaperColorPalette(
+                                    controller: controller,
+                                    onColorTap: onColorTap,
+                                  ),
+                                  AppSpacing.lg.gap,
+                                  WallpaperTagsSection(
+                                    controller: controller,
+                                    onTagTap: onTagTap,
+                                  ),
+                                  AppSpacing.lg.gap,
+                                  WallpaperActionBar(
+                                    controller: controller,
+                                    onBeforeSetPopup: onCollapseForSet,
+                                  ),
+                                  BottomPadding(),
+                                ],
+                              ),
                             ),
-                            AppSpacing.lg.gap,
-                            WallpaperActionBar(
-                              controller: controller,
-                              onBeforeSetPopup: onCollapseForSet,
-                            ),
-                            BottomPadding(),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -335,6 +458,30 @@ final class _DraggableInfoSheet extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Rounded drag affordance at the top of the info sheet.
+final class _SheetDragHandle extends StatelessWidget {
+  final Color color;
+
+  const _SheetDragHandle({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Center(
+        child: Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -420,9 +567,11 @@ final class _FullBleedImage extends StatelessWidget {
   }
 }
 
-/// 2-column metadata grid: Resolution · File size / Aspect ratio ·
-/// Favorites / Uploader · Uploaded. Values come from the pure
-/// [WallpaperMetadata] formatters; cards render with the ambient
+/// 2-column metadata grid: Resolution · File size / Favorites · Uploader.
+///
+/// Aspect ratio and upload date are deliberately not shown: they added two
+/// cards without changing how anyone chooses a wallpaper. Values come from
+/// the pure [WallpaperMetadata] formatters; cards render with the ambient
 /// wallpaper-derived theme.
 final class _MetadataGrid extends StatelessWidget {
   final Wallpaper wallpaper;
@@ -433,10 +582,6 @@ final class _MetadataGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final size = WallpaperMetadata.fileSize(wallpaper.fileSizeBytes, locale);
-    final uploaded = WallpaperMetadata.uploadedDate(
-      wallpaper.createdAt,
-      locale,
-    );
 
     final cells = <({IconData icon, String label, String value})>[
       (
@@ -446,11 +591,6 @@ final class _MetadataGrid extends StatelessWidget {
       ),
       (icon: PhosphorIconsFill.file, label: 'File size', value: size ?? '-'),
       (
-        icon: PhosphorIconsFill.crop,
-        label: 'Aspect ratio',
-        value: WallpaperMetadata.aspectRatio(wallpaper),
-      ),
-      (
         icon: PhosphorIconsFill.heart,
         label: 'Favorites',
         value: WallpaperMetadata.count(wallpaper.favorites, locale),
@@ -459,11 +599,6 @@ final class _MetadataGrid extends StatelessWidget {
         icon: PhosphorIconsFill.user,
         label: 'Uploader',
         value: wallpaper.uploader?.username ?? '-',
-      ),
-      (
-        icon: PhosphorIconsFill.calendar,
-        label: 'Uploaded',
-        value: uploaded ?? '-',
       ),
     ];
 

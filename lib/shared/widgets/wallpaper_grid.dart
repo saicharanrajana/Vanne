@@ -1,7 +1,6 @@
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals.dart';
 import 'package:signals/signals_flutter.dart';
@@ -237,7 +236,15 @@ final class _GridFooter extends StatelessWidget {
     }
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 18),
-      child: Center(child: M3EProgressIndicator.circularWavy(size: 28)),
+      child: Center(
+        child: SizedBox.square(
+          dimension: 36,
+          child: M3ELoadingIndicator(
+            size: 60,
+            semanticLabel: 'Loading more wallpapers',
+          ),
+        ),
+      ),
     );
   }
 }

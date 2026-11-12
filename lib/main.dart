@@ -1,4 +1,4 @@
-import 'package:google_fonts/google_fonts.dart';
+import 'package:google_fonts/google_fonts_lite.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -34,11 +34,11 @@ Future<void> main() async {
 /// ever paints in the fallback font on a cold start.
 Future<void> _preloadFonts() async {
   try {
-    await GoogleFonts.pendingFonts([
-      GoogleFonts.outfit(fontWeight: FontWeight.w400),
-      GoogleFonts.outfit(fontWeight: FontWeight.w500),
-      GoogleFonts.outfit(fontWeight: FontWeight.w600),
-      GoogleFonts.outfit(fontWeight: FontWeight.w700),
+    await GoogleFontsLite.pendingFonts([
+      GoogleFontsLite.getFont('Outfit', fontWeight: FontWeight.w400),
+      GoogleFontsLite.getFont('Outfit', fontWeight: FontWeight.w500),
+      GoogleFontsLite.getFont('Outfit', fontWeight: FontWeight.w600),
+      GoogleFontsLite.getFont('Outfit', fontWeight: FontWeight.w700),
     ]);
   } catch (error) {
     debugPrint('Font preload skipped: $error');

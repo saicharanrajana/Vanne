@@ -2,7 +2,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../app/dependencies.dart';
@@ -122,13 +121,12 @@ final class _CreateCollectionDialogState
           size: M3EButtonSize.md,
           onPressed: _saving ? null : _save,
           icon: _saving
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: M3EProgressIndicator.circularWavy(
-                    size: 16,
-                    color: scheme.onPrimary,
-                  ),
+              ? M3ELoadingIndicator(
+                  containerWidth: 24,
+                  containerHeight: 24,
+                  indicatorSize: 18,
+                  color: scheme.onPrimary,
+                  semanticLabel: 'Creating collection',
                 )
               : const Icon(PhosphorIconsBold.plus, size: 16),
           label: Text(_saving ? 'Creating…' : 'Create'),

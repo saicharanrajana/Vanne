@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
@@ -69,6 +68,18 @@ const double _sheetCeilingExtent = 0.8;
 /// last row.
 const double _sheetRoundSlackPx = 1;
 
+/// Tolerance, in pixels, for treating the sheet as resting on a snap anchor.
+const double _sheetAnchorTolerancePx = 1;
+
+/// The sheet's interior snap anchors, as one constant list.
+///
+/// `DraggableScrollableSheet` re-snaps the sheet from a post-frame callback
+/// whenever `snapSizes` changes *identity*, and that snap can dispose the
+/// scroll position's in-flight drag/hold out from under a finger. A single
+/// constant list never changes identity, so the interior anchor survives every
+/// content change while the expanded cap moves (see [_expandedExtent]).
+const List<double> _sheetSnapSizes = <double>[_sheetRestExtent];
+
 /// Square face for the controls drawn on the wallpaper.
 ///
 /// The button targets stay 48 dp; only the visible circle grows, so the
@@ -93,9 +104,10 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   double? _measuredContentHeight;
   bool _measureScheduled = false;
 
-  /// Cached so an identical list instance is reused between rebuilds —
-  /// `DraggableScrollableSheet` re-snaps whenever `snapSizes` changes identity.
-  List<double>? _sheetSnapSizes;
+  /// Expanded anchor the sheet was last built with, so a content-driven cap
+  /// change can re-anchor a sheet left behind at the old one.
+  double? _lastExpandedExtent;
+  bool _reanchorScheduled = false;
 
   Future<void> _collapseSheet() async {
     if (!_sheetController.isAttached) return;
@@ -147,27 +159,43 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   }
 
   /// Expanded anchor: the content's own height, capped by the ceiling.
+  ///
+  /// Never below [_sheetRestExtent], so the resting anchor is always a valid
+  /// snap size and [_sheetSnapSizes] can stay a constant.
   double _expandedExtent() {
     final content = _measuredContentHeight;
     if (content == null || _sheetAvailableHeight <= 0) {
       return _sheetCeilingExtent;
     }
     final fitted = (content + _sheetRoundSlackPx) / _sheetAvailableHeight;
-    return fitted.clamp(_sheetMinExtent, _sheetCeilingExtent);
+    return fitted.clamp(_sheetRestExtent, _sheetCeilingExtent);
   }
 
-  /// Resting anchor, kept at [_sheetRestExtent] unless content is shorter.
-  double _restExtent(double expanded) =>
-      _sheetRestExtent.clamp(_sheetMinExtent, expanded);
-
-  /// Interior snap anchor between min and max, deduplicated across rebuilds.
-  List<double>? _resolveSnapSizes(double rest, double expanded) {
-    final next = <double>[if (rest > _sheetMinExtent && rest < expanded) rest];
-    final current = _sheetSnapSizes;
-    if (current != null && listEquals(current, next)) return current;
-    if (current == null && next.isEmpty) return null;
-    _sheetSnapSizes = next.isEmpty ? null : List<double>.unmodifiable(next);
-    return _sheetSnapSizes;
+  /// Re-anchors the sheet after a content-driven cap change.
+  ///
+  /// A sheet parked at the old cap would otherwise rest *between* snap anchors
+  /// once the cap moves. `DraggableScrollableSheet` starts its snap without
+  /// beginning a new scroll activity, which leaves the scrollable's pointer
+  /// hold undisposed; the next tap inside the sheet then trips Flutter's
+  /// `ScrollableState._handleDragCancel` assertion (`_hold == null`). Following
+  /// the cap keeps every resting position on an anchor.
+  void _scheduleSheetReanchor() {
+    if (_reanchorScheduled) return;
+    _reanchorScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reanchorScheduled = false;
+      if (!mounted || !_sheetController.isAttached) return;
+      final expanded = _expandedExtent();
+      final tolerance = _sheetAvailableHeight > 0
+          ? _sheetAnchorTolerancePx / _sheetAvailableHeight
+          : 0.001;
+      final size = _sheetController.size;
+      final onAnchor =
+          size <= _sheetMinExtent + tolerance ||
+          (size - _sheetRestExtent).abs() <= tolerance ||
+          (size - expanded).abs() <= tolerance;
+      if (!onAnchor) _sheetController.jumpTo(expanded);
+    });
   }
 
   @override
@@ -284,14 +312,18 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                       builder: (context, constraints) {
                         _sheetAvailableHeight = constraints.maxHeight;
                         final expanded = _expandedExtent();
-                        final rest = _restExtent(expanded);
+                        if (_lastExpandedExtent != null &&
+                            expanded != _lastExpandedExtent) {
+                          _scheduleSheetReanchor();
+                        }
+                        _lastExpandedExtent = expanded;
                         return DraggableScrollableSheet(
                           controller: _sheetController,
-                          initialChildSize: rest,
+                          initialChildSize: _sheetRestExtent,
                           minChildSize: _sheetMinExtent,
                           maxChildSize: expanded,
                           snap: true,
-                          snapSizes: _resolveSnapSizes(rest, expanded),
+                          snapSizes: _sheetSnapSizes,
                           builder: (context, scrollController) {
                             return ClipRRect(
                               borderRadius: const BorderRadius.vertical(

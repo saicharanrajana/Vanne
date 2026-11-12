@@ -46,9 +46,9 @@ Future<void> bootstrap() async {
 
   final collectionsRepository = CollectionsRepository();
   await collectionsRepository.open();
-  if ((await collectionsRepository.getAll()).isEmpty) {
-    await collectionsRepository.addAll(seedCollections);
-  }
+  // Seeds only on a real first launch; deleting every collection must
+  // survive a restart (see [seedCollectionsOnce]).
+  await seedCollectionsOnce(settingsStore, collectionsRepository);
 
   final repository = WallpaperRepository(
     client: WallhavenClient(apiKeyManager: ApiKeyManager()),

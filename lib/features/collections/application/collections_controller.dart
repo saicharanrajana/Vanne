@@ -7,8 +7,10 @@ import '../../../core/domain/feed_filter.dart';
 
 /// Owns local collections state — CRUD + multi-selection for deletion.
 ///
-/// Optimistically updates signals first, then persists. On persist failure
-/// rolls back. Mirrors `FavoritesController` pattern.
+/// Optimistically updates signals first, then persists. A failed write rolls
+/// back only what that call changed, never a whole-map snapshot that could
+/// discard an unrelated success, and `create` reports every failure as a
+/// message instead of throwing at the dialog.
 final class CollectionsController {
   CollectionsController(this._repo);
 
@@ -52,7 +54,8 @@ final class CollectionsController {
     for (final e in _entries.value.values) {
       if (e.name.toLowerCase() == lower) return 'Name already exists';
     }
-    final id = 'c_${DateTime.now().microsecondsSinceEpoch}_${trimmedName.hashCode.abs()}';
+    final now = DateTime.now();
+    final id = 'c_${now.microsecondsSinceEpoch}_${trimmedName.hashCode.abs()}';
     final entry = CollectionEntry(
       id: id,
       name: trimmedName,
@@ -60,40 +63,59 @@ final class CollectionsController {
       kinds: List.unmodifiable(kinds),
       filter: filter,
       colors: List.unmodifiable(colors),
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
-    final prev = Map<String, CollectionEntry>.from(_entries.value);
-    _entries.value = {...prev, id: entry};
-    final ok = await _repo.add(entry);
-    if (!ok) {
-      _entries.value = prev;
-      return 'Failed to save';
+    _entries.value = {..._entries.peek(), id: entry};
+    var stored = false;
+    try {
+      stored = await _repo.add(entry);
+    } catch (_) {
+      // Storage refused the write (full disk, provider error). The caller
+      // gets the same message as a rejected write instead of an exception
+      // escaping into the dialog, which would leave it stuck on "saving".
     }
-    return null;
+    if (stored) return null;
+    _dropEntry(id);
+    return 'Failed to save';
   }
 
   /// Deletes [idsToRemove] optimistically; rolls back and returns `false`
   /// when persistence fails so callers can surface an error instead of a
   /// false success.
+  ///
+  /// Rollback restores only the entries this call removed; collections
+  /// created or deleted meanwhile are left exactly as the user left them.
   Future<bool> removeMany(Set<String> idsToRemove) async {
     if (idsToRemove.isEmpty) return true;
-    final prev = Map<String, CollectionEntry>.from(_entries.value);
-    final next = Map<String, CollectionEntry>.from(prev);
+    final current = _entries.peek();
+    final removed = <String, CollectionEntry>{};
     for (final id in idsToRemove) {
-      next.remove(id);
+      final entry = current[id];
+      if (entry != null) removed[id] = entry;
     }
+    final next = Map<String, CollectionEntry>.from(current)
+      ..removeWhere((id, _) => idsToRemove.contains(id));
     _entries.value = next;
     // prune selection that no longer exists
-    final remainingIds = next.keys.toSet();
-    selectedIds.value =
-        selectedIds.value.where(remainingIds.contains).toSet();
+    selectedIds.value = selectedIds.value.where(next.containsKey).toSet();
     try {
       await _repo.removeMany(idsToRemove);
       return true;
     } catch (_) {
-      _entries.value = prev;
+      final restored = Map<String, CollectionEntry>.from(_entries.peek());
+      for (final entry in removed.entries) {
+        restored.putIfAbsent(entry.key, () => entry.value);
+      }
+      _entries.value = restored;
       return false;
     }
+  }
+
+  /// Removes one optimistic entry, leaving every other entry untouched.
+  void _dropEntry(String id) {
+    if (!_entries.peek().containsKey(id)) return;
+    _entries.value = Map<String, CollectionEntry>.from(_entries.peek())
+      ..remove(id);
   }
 
   void toggleSelection(String id) {

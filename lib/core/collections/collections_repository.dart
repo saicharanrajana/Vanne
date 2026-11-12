@@ -6,7 +6,6 @@ import 'collection_entry.dart';
 /// Local collections store backed by Hive box `collections`.
 ///
 /// Each entry is JSON-encoded [CollectionEntry] keyed by id.
-/// Mirrors `FavoritesRepository` pattern.
 /// Not `final` so tests can provide fakes via `implements`.
 class CollectionsRepository {
   static const _boxName = 'collections';
@@ -25,19 +24,27 @@ class CollectionsRepository {
     return compute(_decodeCollections, raws);
   }
 
+  /// Adds [entry]; returns `false` when it could not be stored.
+  ///
+  /// One entry is a ~300-byte string, so it is encoded inline: an isolate
+  /// round-trip would cost more than it saves.
   Future<bool> add(CollectionEntry entry) async {
     final box = _box;
     if (box == null || box.containsKey(entry.id)) return false;
-    await box.put(entry.id, await compute(_encodeCollection, entry));
+    await box.put(entry.id, entry.encode());
     return true;
   }
 
   /// Inserts [entries] in one Hive batch; used for first-run seeding.
+  ///
+  /// Encoding happens in a single isolate round-trip rather than one per
+  /// entry, which keeps first launch off the slow path.
   Future<void> addAll(List<CollectionEntry> entries) async {
     final box = _box;
-    if (box == null) return;
+    if (box == null || entries.isEmpty) return;
+    final encoded = await compute(_encodeCollections, entries);
     await box.putAll({
-      for (final entry in entries) entry.id: await compute(_encodeCollection, entry),
+      for (var i = 0; i < entries.length; i++) entries[i].id: encoded[i],
     });
   }
 
@@ -51,4 +58,5 @@ class CollectionsRepository {
 List<CollectionEntry> _decodeCollections(List<String> raws) =>
     [for (final raw in raws) ?CollectionEntry.decode(raw)];
 
-String _encodeCollection(CollectionEntry entry) => entry.encode();
+List<String> _encodeCollections(List<CollectionEntry> entries) =>
+    [for (final entry in entries) entry.encode()];

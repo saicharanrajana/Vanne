@@ -138,8 +138,11 @@ final class WallpaperActionBar extends StatelessWidget {
       );
       return;
     }
-    final state = controller.download.peek();
+    // The route may have been popped while the transfer was finishing; the
+    // controller's signals are disposed with it, so read them only while the
+    // screen is still mounted.
     if (!context.mounted) return;
+    final state = controller.download.peek();
     if (state.done) {
       // Report the folder that actually received the file, not whatever is
       // selected now (the user may have changed it mid-transfer).

@@ -10,9 +10,9 @@ import 'wallpaper_repository.dart';
 /// while [paginationError] preserves already-loaded pages and offers a
 /// retry affordance at the end of the grid.
 ///
-/// Items are stored as a [Set] via signals for deduplication (equatable
-/// on author/size/dimension/url) and exposed as a [List] for the UI.
-/// The set is in-memory only and not persisted.
+/// Items are deduplicated by wallpaper ID and exposed as a [List] for the
+/// UI in the order the server sent them. The set is in-memory only and not
+/// persisted.
 final class FeedState {
   final Set<Wallpaper> items;
 
@@ -94,25 +94,27 @@ abstract class FeedController {
 
   /// Releases reactive resources; safe to call more than once.
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     state.dispose();
   }
 
   /// Starts (or restarts) the feed from page 1.
   Future<void> reload() async {
+    if (_disposed) return;
     // Invalidate any in-flight page load (pagination or first load).
     _generation++;
     final generation = _generation;
     _inFlight = false;
     _seed = null;
     _pagesRequested = 0;
-    if (_disposed) return;
     state.set(const FeedState.initialLoading());
     await _loadPage(append: false, generation: generation);
   }
 
   /// Loads the next page when available; no-op while busy or exhausted.
   Future<void> loadMore() async {
+    if (_disposed) return;
     final current = state.value;
     if (_inFlight || !current.hasMore || current.loadingFirst) return;
     await _loadPage(append: true, generation: _generation);
@@ -145,19 +147,23 @@ abstract class FeedController {
       _seed = outcome.page.meta.seed ?? _seed;
       _pagesRequested = outcome.page.currentPage;
 
-      // Dedup via Wallpaper equatable (author/size/dimension/url) stored
-      // in a Set signal. Covers cross-page repeats and intra-page dupes
-      // in one pass; Set preserves insertion order for the grid.
-      final seen = Set<Wallpaper>.from(state.value.items);
-      final fresh = <Wallpaper>{
-        for (final item in outcome.page.items)
-          if (seen.add(item)) item,
-      };
-      final merged = append ? {...state.value.items, ...fresh} : fresh;
+      // Dedupe by wallpaper ID, never by domain equality: equality also
+      // compares mutable metadata (resolution, path, size), so a re-sent
+      // wallpaper with updated metadata would slip through as a second tile
+      // with a duplicate grid key and Hero tag. Insertion order is kept so
+      // existing tiles never reshuffle.
+      final seen = <String>{for (final item in state.value.items) item.id};
+      final merged = <Wallpaper>[
+        if (append) ...state.value.items,
+      ];
+      for (final item in outcome.page.items) {
+        if (seen.add(item.id)) merged.add(item);
+      }
 
       state.set(
         FeedState(
-          items: merged,
+          // LinkedHashSet keeps the order above; IDs are already unique.
+          items: merged.toSet(),
           hasMore:
               outcome.page.hasNextPage &&
               outcome.page.currentPage < outcome.page.lastPage,
@@ -177,12 +183,16 @@ abstract class FeedController {
         state.set(FeedState(error: error.message));
       }
     } finally {
-      _inFlight = false;
+      // Only the live generation owns the guard. A superseded request that
+      // finishes late must not free it, or a second page could start while
+      // the current request is still running.
+      if (generation == _generation) _inFlight = false;
     }
   }
 
   /// Retries a failed load-more without touching loaded pages.
   Future<void> retryPagination() async {
+    if (_disposed) return;
     if (_inFlight || !state.value.hasMore) return;
     await _loadPage(append: true, generation: _generation);
   }

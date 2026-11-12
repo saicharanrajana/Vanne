@@ -12,6 +12,7 @@ final class SettingsStore {
   static const _pitchBlackKey = 'pitch_black';
   static const _themeModeKey = 'theme_mode';
   static const _blockedTagsKey = 'wallhaven_tag_blacklist';
+  static const _collectionsSeededKey = 'collections_seeded';
   static const _downloadTreeUriKey = 'downloads_tree_uri';
   static const _downloadParentLabelKey = 'downloads_parent_label';
 
@@ -79,6 +80,18 @@ final class SettingsStore {
 
   Future<void> setThemeModeName(String value) =>
       _box!.put(_themeModeKey, value);
+
+  // -- First run ------------------------------------------------------------
+
+  /// Whether the built-in collections were seeded on this install.
+  ///
+  /// A marker, not an emptiness check: deleting every collection is a
+  /// legitimate state that must survive a restart.
+  bool get collectionsSeeded =>
+      _readBool(_collectionsSeededKey, fallback: false);
+
+  Future<void> markCollectionsSeeded() async =>
+      _box?.put(_collectionsSeededKey, true);
 
   // -- Downloads ------------------------------------------------------------
 

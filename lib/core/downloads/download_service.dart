@@ -106,11 +106,13 @@ final class DownloadService {
   }) async {
     final destination =
         _destination?.destination.peek() ?? const DefaultDownloadDestination();
-    File? tempFile;
+    Directory? scratch;
     _destination?.beginSave();
     try {
-      final dir = await getTemporaryDirectory();
-      tempFile = File('${dir.path}/${fileNameFor(wallpaper)}');
+      // One scratch directory per save: two concurrent saves of the same
+      // wallpaper must never overwrite — or clean up — each other's file.
+      scratch = await _createScratchDirectory();
+      final tempFile = File('${scratch.path}/${fileNameFor(wallpaper)}');
       await downloadToFile(
         wallpaper,
         tempFile,
@@ -140,16 +142,30 @@ final class DownloadService {
           throw DownloadException(_messageFor(code, message));
       }
     } finally {
-      // The platform copy owns the file; the cache copy is garbage.
+      // The platform copy owns the file; the cache copy is garbage. Whole
+      // directory, so a failed transfer and its partial file both go.
       try {
-        if (tempFile != null && await tempFile.exists()) {
-          await tempFile.delete();
+        if (scratch != null && await scratch.exists()) {
+          await scratch.delete(recursive: true);
         }
       } on FileSystemException {
         // Non-fatal: the OS clears cache storage eventually.
       }
       _destination?.endSave();
     }
+  }
+
+  /// Unique per-save directory under the platform cache root.
+  static int _scratchSequence = 0;
+
+  static Future<Directory> _createScratchDirectory() async {
+    final cacheRoot = await getTemporaryDirectory();
+    final dir = Directory(
+      '${cacheRoot.path}/vanne_download_'
+      '${DateTime.now().microsecondsSinceEpoch}_${_scratchSequence++}',
+    );
+    await dir.create(recursive: true);
+    return dir;
   }
 
   static String _mimeTypeFor(Wallpaper wallpaper) {

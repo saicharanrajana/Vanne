@@ -5,6 +5,7 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../core/collections/collection_entry.dart';
 import '../../../core/wallpaper/wallpaper_repository.dart';
 import '../../../shared/utils/display_title.dart';
 import '../../../shared/widgets/app_snack.dart';
@@ -16,8 +17,9 @@ import '../../collections/application/collections_controller.dart';
 
 /// Ephemeral wallpapers list opened from a tapped tag or color.
 ///
-/// Looks like collection explore (paginated grid, sort & filter) but offers
-/// "Add as collection" in the app bar to promote to a persisted collection.
+/// Looks like collection explore (paginated grid, sort & filter) but offers a
+/// collection toggle in the app bar: tapping saves this query as a collection,
+/// tapping again removes that collection again.
 final class FilteredWallpapersScreen extends StatefulWidget {
   final String title;
   final String query;
@@ -55,6 +57,11 @@ final class _FilteredWallpapersScreenState
     super.dispose();
   }
 
+  /// Guards the collection toggle against double taps: collection create and
+  /// delete are async, and two overlapping calls could create duplicates or
+  /// delete a row that is about to be recreated.
+  bool _collectionBusy = false;
+
   String get _heroScope {
     if (widget.colorHexes.isNotEmpty) {
       return 'color-${widget.colorHexes.first}-';
@@ -64,37 +71,61 @@ final class _FilteredWallpapersScreenState
 
   String get _displayTitle => formatDisplayTitle(widget.title);
 
-  Future<void> _saveAsCollection() async {
-    final collections = locator<CollectionsController>();
-    final title = _displayTitle;
-    // Normalize like CollectionsController does: case-insensitive check.
-    final exists = collections.entries.value.any(
-      (e) => e.name.toLowerCase() == title.toLowerCase(),
-    );
-    if (exists) {
-      if (mounted) {
-        AppSnack.show(
-          context,
-          'Collection already exists',
-          type: AppSnackType.info,
-        );
-      }
-      return;
+  /// The collection this screen represents, matched on the same display title
+  /// [CollectionsController.create] stores. `null` when the query is not saved.
+  CollectionEntry? _savedCollection(CollectionsController collections) {
+    final target = _displayTitle.toLowerCase();
+    for (final entry in collections.entries.value) {
+      if (entry.name.toLowerCase() == target) return entry;
     }
-    final err = await collections.create(
-      name: title,
-      query: widget.query,
-      colors: widget.colorHexes,
-      filter: _controller.filter.value,
-    );
-    if (!mounted) return;
-    if (err != null) {
-      AppSnack.show(context, err, type: AppSnackType.error);
-    } else {
-      AppSnack.showRoot(
-        'Added "$title" to collections',
-        type: AppSnackType.success,
+    return null;
+  }
+
+  /// Saves or removes this query's collection — a real toggle, not a one-way
+  /// promotion. Persistence goes through the repository behind
+  /// [CollectionsController], which rolls back on failure, so the snackbar
+  /// only reports a state that actually stuck.
+  Future<void> _toggleCollection() async {
+    if (_collectionBusy) return;
+    setState(() => _collectionBusy = true);
+    try {
+      final collections = locator<CollectionsController>();
+      final saved = _savedCollection(collections);
+      if (saved != null) {
+        final removed = await collections.removeMany({saved.id});
+        if (!mounted) return;
+        if (removed) {
+          AppSnack.showRoot(
+            'Removed from Collections',
+            type: AppSnackType.removal,
+          );
+        } else {
+          AppSnack.show(
+            context,
+            'Could not remove the collection',
+            type: AppSnackType.error,
+          );
+        }
+        return;
+      }
+      final error = await collections.create(
+        name: _displayTitle,
+        query: widget.query,
+        colors: widget.colorHexes,
+        filter: _controller.filter.value,
       );
+      if (!mounted) return;
+      if (error != null) {
+        AppSnack.show(context, error, type: AppSnackType.error);
+      } else {
+        AppSnack.showRoot('Added to Collections', type: AppSnackType.success);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _collectionBusy = false);
+      } else {
+        _collectionBusy = false;
+      }
     }
   }
 
@@ -163,21 +194,32 @@ final class _FilteredWallpapersScreenState
                       padding: const EdgeInsetsDirectional.only(end: 8),
                       child: SignalBuilder(
                         builder: (context) {
-                          final exists = colorsController.entries.value.any(
-                            (e) =>
-                                e.name.toLowerCase() ==
-                                widget.title.toLowerCase(),
-                          );
-                          // Re-read alreadyExists via signal so icon updates.
+                          final saved =
+                              _savedCollection(colorsController) != null;
                           return M3EIconButton(
-                            onPressed: exists ? null : _saveAsCollection,
-                            tooltip: exists
-                                ? 'Already in collections'
-                                : 'Add as collection',
-                            icon: Icon(
-                              exists
-                                  ? PhosphorIconsFill.bookmarkSimple
-                                  : PhosphorIconsBold.plus,
+                            // A transparent app-bar action, not a primary
+                            // call to action: the 1.1.3 default `filled`
+                            // variant painted a primary disc that also
+                            // changed shape when the action became disabled.
+                            variant: M3EIconButtonVariant.standard,
+                            isSelected: saved,
+                            // Busy only briefly while persisting; disabling
+                            // the control keeps a second tap from racing the
+                            // create/delete.
+                            onPressed: _collectionBusy
+                                ? null
+                                : _toggleCollection,
+                            tooltip: saved
+                                ? 'Remove from Collections'
+                                : 'Save to Collections',
+                            semanticLabel: saved
+                                ? 'Remove from Collections'
+                                : 'Save to Collections',
+                            // Outline when absent, filled when saved: the
+                            // glyph carries the state, not colour alone.
+                            icon: const Icon(PhosphorIconsBold.bookmarkSimple),
+                            selectedIcon: const Icon(
+                              PhosphorIconsFill.bookmarkSimple,
                             ),
                           );
                         },

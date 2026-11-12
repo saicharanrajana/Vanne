@@ -6,7 +6,17 @@ import '../../app/theme/app_shapes.dart';
 import '../../app/theme/app_spacing.dart';
 
 /// The semantic presentation of an application snackbar.
-enum AppSnackType { info, success, error }
+enum AppSnackType {
+  info,
+  success,
+
+  /// A successful but destructive outcome, such as removing a saved
+  /// collection. Uses the theme's error pair so the removal reads as
+  /// destructive, without reusing the wording or icon of a failure.
+  removal,
+
+  error,
+}
 
 /// The app's single snackbar entry point.
 ///
@@ -82,6 +92,14 @@ abstract final class AppSnack {
         scheme.primaryContainer,
         scheme.onPrimaryContainer,
         PhosphorIconsFill.checkCircle,
+      ),
+      // `error`/`onError` is the strongest destructive signal the scheme
+      // provides and is a contrast-checked pair. The glyph is a minus (not a
+      // warning): nothing went wrong, something was taken away.
+      AppSnackType.removal => (
+        scheme.error,
+        scheme.onError,
+        PhosphorIconsFill.minusCircle,
       ),
       AppSnackType.error => (
         scheme.errorContainer,

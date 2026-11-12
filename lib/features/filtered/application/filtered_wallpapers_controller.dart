@@ -8,7 +8,7 @@ import '../../../shared/utils/wallhaven_color_utils.dart';
 
 /// Ephemeral wallpapers feed for a tapped tag or color from wallpaper details.
 ///
-/// Not persisted — offers "Add as collection" to promote to a
+/// Not persisted — offers a collection toggle to save the query as a
 /// [CollectionEntry]. Supports sort & filter like Discover.
 final class FilteredWallpapersController extends FeedController {
   final String title;

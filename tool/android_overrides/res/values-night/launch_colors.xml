@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode splash and Flutter launch background. The splash draws only
+         the transparent foreground mark, independent of the white launcher tile. -->
+    <color name="launch_background">#FF000000</color>
+</resources>

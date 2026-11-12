@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light-mode launch background. Android 12+ draws only the transparent
+         icon foreground over this colour; the launcher icon itself stays white. -->
+    <color name="launch_background">#FFFFFFFF</color>
+</resources>

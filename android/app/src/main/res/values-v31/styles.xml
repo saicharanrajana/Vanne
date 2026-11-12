@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 31+ draws a system splash screen before the first Flutter frame:
+         the launcher icon on `windowSplashScreenBackground`. Pin that colour to
+         the same value Flutter's first frame uses (see lib/app/launch_background.dart)
+         so the only thing that changes is the icon fading out. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">@color/launch_background</item>
+        <!-- Use the transparent mark rather than the adaptive icon so the
+             fixed-white launcher field cannot show as a tile on dark splash. -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+</resources>

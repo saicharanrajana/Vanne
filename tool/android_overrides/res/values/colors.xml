@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launcher icon stays white in both device themes. The Android
+         splash uses the transparent foreground layer instead, so its own
+         background can independently follow light/dark mode. -->
+    <color name="ic_launcher_background">#FFFFFFFF</color>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The normal launcher icon background stays pure white in both device
+         themes. Android's splash uses the transparent foreground layer instead. -->
+    <background android:drawable="@color/ic_launcher_background" />
+    <!-- Foreground: the Vanne mark. 48dp inside the 108dp canvas — Android's
+         minimum recommended mark size. Bounding corners reach 33.9dp from
+         centre (inside the 36dp visible circle); the artwork's rounded
+         corners are transparent there, so nothing visible is clipped.
+         Regenerate with tool/branding/build_icons.py. -->
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

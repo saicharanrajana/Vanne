@@ -21,6 +21,13 @@
 #      (inferred from each plugin's Android build file via
 #      .flutter-plugins-dependencies; nothing is hardcoded here, so the script
 #      self-heals when plugins raise their requirements — just re-run it)
+#   5. res/ launch + icon resources — the day/night launch colour, the API 31+
+#      splash theme, and the launcher icon colour. `flutter create` restores
+#      the template splash and the stock Flutter logo, which would desync
+#      Android's launch window from Flutter's first frame
+#      (lib/app/launch_background.dart) and from the app icon. Launcher icon
+#      bitmaps are regenerated from the checked-in masters by
+#      tool/branding/build_icons.py (see step 1c).
 #
 # WHEN TO RUN
 # -----------
@@ -68,6 +75,25 @@ for file in MainActivity.kt WallpaperApp.kt; do
     "$OVERRIDES/$file" > "$KOTLIN_DIR/$file"
 done
 echo "ok: MainActivity.kt + WallpaperApp.kt (cached FlutterEngine)"
+
+# 1b. Copy launch/splash resources (day + night colour, drawables, API 31+
+#     splash theme) so Android's launch window keeps matching Flutter's first
+#     frame (lib/app/launch_background.dart) after `flutter create`.
+RES_OVERRIDES="$OVERRIDES/res"
+if [ -d "$RES_OVERRIDES" ]; then
+  while IFS= read -r -d '' src; do
+    rel="${src#"$RES_OVERRIDES"/}"
+    mkdir -p "$ROOT/android/app/src/main/res/$(dirname "$rel")"
+    cp "$src" "$ROOT/android/app/src/main/res/$rel"
+  done < <(find "$RES_OVERRIDES" -type f -print0)
+  echo "ok: res/ launch resources (colour + splash theme)"
+fi
+
+# 1c. Regenerate launcher icons (adaptive foreground, themed monochrome, legacy
+#     day/night bitmaps) from assets/branding/*.png. `flutter create` restores
+#     the stock Flutter logo, and the icons are not hand-maintained: the script
+#     is the single reproducible source (and `--check` verifies them in CI).
+python3 "$ROOT/tool/branding/build_icons.py"
 
 # 2. Patch app/build.gradle.kts: compileSdk / minSdk = max required by plugins.
 #    Requirements are inferred (not hardcoded): each Flutter plugin declares

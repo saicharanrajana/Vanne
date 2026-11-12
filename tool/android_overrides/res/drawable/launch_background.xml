@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android's launch window: a solid colour only.
+     It deliberately shows no icon: API 31+ draws the real launcher icon on
+     top of `windowSplashScreenBackground`, and Flutter's first frame
+     (AppStartup) continues in this exact colour. Colour comes from
+     @color/launch_background so day/night and Flutter stay in sync. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/launch_background" />
+</layer-list>

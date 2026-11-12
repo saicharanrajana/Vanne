@@ -319,10 +319,14 @@ theme and `ScaffoldMessenger` lookups to miss.
 
 The root theme supports system/light/dark mode, a teal-seeded fallback,
 Android Material You dynamic color, and an optional pitch-black dark surface
-ladder. Dynamic system palettes are signals: `futureSignal` reads a global
-refresh tick, and computed light/dark schemes drive the root theme. Applying a
-wallpaper requests one debounced palette refresh after the OS has had time to
-extract colors.
+ladder. The root owns one `DynamicPaletteController`. It reads the system
+palette at startup, on app resume, and after Android Application resource
+configuration changes. A small platform channel carries change notifications
+across Activity recreation with the cached engine. Reads are serialized;
+notifications during a read request a follow-up read. Only changed palette
+values update the computed light/dark schemes. Pending or failed reads retain
+the last valid palette. Wallpaper actions do not schedule theme updates or
+assume a fixed delay for Android color extraction.
 
 Wallpaper detail derives a separate `ColorScheme` from the wallpaper's most
 saturated readable palette color. Its `AnimatedTheme` covers the full detail

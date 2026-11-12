@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
 import 'package:signals/signals_flutter.dart';
-import 'package:wallpaper_app/l10n/generated/app_localizations.dart';
+import 'package:vanne/l10n/generated/app_localizations.dart';
 
 import '../core/services/dynamic_palette_refresher.dart';
 import 'dependencies.dart';
@@ -18,10 +20,8 @@ import '../shared/widgets/app_snack.dart';
 /// signals: dynamic color (Material You with teal fallback), pitch-black
 /// surfaces and system/light/dark mode.
 ///
-/// Dynamic schemes are now reactive signals (`lightDynamicScheme` /
-/// `darkDynamicScheme` in `dynamic_palette_refresher.dart`) driven by a
-/// `futureSignal` that re-fetches `CorePalette` when the tick bumps after
-/// wallpaper apply — no `ValueKey` remount needed.
+/// Dynamic schemes update on app resume and Android resource changes without
+/// remounting the router or resetting screen state.
 final class WallpaperApp extends StatefulWidget {
   const WallpaperApp({super.key});
 
@@ -31,6 +31,8 @@ final class WallpaperApp extends StatefulWidget {
 
 final class _WallpaperAppState extends State<WallpaperApp> {
   final _router = AppRouter();
+  final _dynamicPalette = DynamicPaletteController();
+  late final AppLifecycleListener _paletteLifecycle;
   late final _routerConfig = _router.config(
     includePrefixMatches: true,
     deepLinkTransformer: appDeepLinkTransformer,
@@ -38,6 +40,8 @@ final class _WallpaperAppState extends State<WallpaperApp> {
 
   @override
   void dispose() {
+    _paletteLifecycle.dispose();
+    _dynamicPalette.dispose();
     _router.dispose();
     super.dispose();
   }
@@ -45,6 +49,10 @@ final class _WallpaperAppState extends State<WallpaperApp> {
   @override
   void initState() {
     super.initState();
+    _paletteLifecycle = AppLifecycleListener(
+      onResume: () => unawaited(_dynamicPalette.refresh()),
+    );
+    _dynamicPalette.start();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
@@ -54,7 +62,7 @@ final class _WallpaperAppState extends State<WallpaperApp> {
 
     // Single SignalBuilder watches:
     // - settings.dynamicColor / themeMode / pitchBlack (via AppTheme)
-    // - lightDynamicScheme / darkDynamicScheme (via futureSignal → computed)
+    // - The last valid light/dark dynamic schemes.
     // Narrowing further would require splitting MaterialApp props, but the
     // entire MaterialApp must rebuild to propagate a new ColorScheme anyway,
     // so one builder is the minimal churn for this infrequent event.
@@ -67,8 +75,15 @@ final class _WallpaperAppState extends State<WallpaperApp> {
           AppThemeMode.dark => ThemeMode.dark,
         };
         final pitchBlack = settings.pitchBlack.value;
-        final lightDynamic = lightDynamicScheme.value;
-        final darkDynamicRaw = darkDynamicScheme.value;
+        final lightDynamic = _dynamicPalette.lightScheme.value;
+        final darkDynamicLegacy = _dynamicPalette.darkScheme.value;
+        // Pitch black overwrites the surface ladder, so it keeps the scheme it
+        // has always used; normal dark uses the system-resolved surfaces.
+        final darkDynamic =
+            (pitchBlack
+                ? darkDynamicLegacy
+                : _dynamicPalette.darkSurfaceScheme.value) ??
+            darkDynamicLegacy;
 
         return MaterialApp.router(
           title: 'Prisma Wallpapers',
@@ -87,7 +102,7 @@ final class _WallpaperAppState extends State<WallpaperApp> {
           ),
           darkTheme: AppTheme.build(
             brightness: Brightness.dark,
-            dynamicScheme: useDynamic ? darkDynamicRaw : null,
+            dynamicScheme: useDynamic ? darkDynamic : null,
             pitchBlack: pitchBlack,
           ),
           themeMode: themeMode,

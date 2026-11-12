@@ -16,8 +16,9 @@ API-key storage.
   sheet (purity, portrait-only).
 - **Search** — power-user query syntax plus dominant-color chips and genre
   chips; rapid input is debounced into single requests.
-- **Collections** — local shortcuts combining a query + filters; multi-select
-  deletion with optimistic updates.
+- **Collections** — bookmark a tag or color grid to save it as a square card,
+  with a stable wallpaper cover, readable color names, and multi-select
+  deletion. Four curated cards ship with bundled covers on first install.
 - **Favorites** — persisted snapshots that render fully offline, even if the
   wallpaper disappears from Wallhaven.
 - **Detail** — full-bleed hero, draggable info sheet with metadata cards,
@@ -28,6 +29,10 @@ API-key storage.
   secure storage.
 
 ## Credits
+
+Bundled collection covers are CC0/public-domain works; see
+[`docs/collection-covers.md`](docs/collection-covers.md) for sources and
+licences.
 
 Inspired by [BunPod](https://github.com/kamranbekirovyz/bunpod) by
 [Kamran Bekirov](https://kamranbekirov.com) — its feature-first project

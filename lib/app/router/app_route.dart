@@ -8,7 +8,6 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../dependencies.dart';
 import '../../features/collections/presentation/collection_explore_screen.dart';
 import '../../features/collections/presentation/collections_screen.dart';
-import '../../features/collections/presentation/widgets/create_collection_dialog.dart';
 import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/favorites/presentation/favorites_screen.dart';
 import '../../features/filtered/presentation/filtered_wallpapers_screen.dart';
@@ -72,13 +71,6 @@ final class AppRouter extends RootStackRouter {
     AutoRoute(page: FilteredWallpapersRoute.page, path: '/filtered'),
     AutoRoute(page: ApiKeySettingsRoute.page, path: '/settings/api-key'),
     AutoRoute(page: BlockedTagsRoute.page, path: '/settings/blocked-tags'),
-    CustomRoute(
-      page: CreateCollectionDialogRoute.page,
-      path: '/_modal/create-collection',
-      opaque: false,
-      barrierDismissible: true,
-      customRouteBuilder: m3eDialogRouteBuilder,
-    ),
     CustomRoute(
       page: DeleteCollectionsDialogRoute.page,
       path: '/_modal/delete-collections',
@@ -484,46 +476,20 @@ final class BlockedTagsPage extends StatelessWidget {
 }
 
 @RoutePage()
-final class CreateCollectionDialogPage extends StatelessWidget {
-  const CreateCollectionDialogPage({super.key});
-
-  @override
-  Widget build(BuildContext context) => const CreateCollectionDialogContent();
-}
-
-@RoutePage()
 final class DeleteCollectionsDialogPage extends StatelessWidget {
-  const DeleteCollectionsDialogPage({required this.names, super.key});
+  const DeleteCollectionsDialogPage({required this.count, super.key});
 
-  final List<String> names;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final count = names.length;
 
     return M3EDialog(
-      title: 'Delete $count collection${count == 1 ? '' : 's'}?',
-      content: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: names.join(', '),
-              style: textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
-              ),
-            ),
-            TextSpan(
-              text: '\n\nWallpapers aren\'t deleted. Only these shortcuts.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+      title: count == 1
+          ? 'Remove collection?'
+          : 'Remove $count collections?',
+      content: const Text('Wallpapers and favorites won’t be affected.'),
       actions: [
         M3EButton.text(
           onPressed: () => context.router.root.pop(false),
@@ -535,7 +501,7 @@ final class DeleteCollectionsDialogPage extends StatelessWidget {
             foregroundColor: WidgetStatePropertyAll(scheme.onError),
           ),
           onPressed: () => context.router.root.pop(true),
-          child: const Text('Delete'),
+          child: const Text('Remove'),
         ),
       ],
     );

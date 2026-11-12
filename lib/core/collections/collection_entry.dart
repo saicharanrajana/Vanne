@@ -16,6 +16,15 @@ final class CollectionEntry {
   final List<WallhavenCategory> kinds;
   final FeedFilter filter;
   final List<String> colors;
+
+  /// Snapshot of the first wallpaper thumbnail when the user bookmarked the
+  /// query. Stable afterwards; never refreshed by sorting or reopening.
+  final String? coverUrl;
+
+  /// Bundled cover for curated seeds. User-created collections use
+  /// [coverUrl] instead.
+  final String? coverAsset;
+
   final DateTime createdAt;
 
   const CollectionEntry({
@@ -25,8 +34,25 @@ final class CollectionEntry {
     this.kinds = const [],
     this.filter = const FeedFilter(),
     this.colors = const [],
+    this.coverUrl,
+    this.coverAsset,
     required this.createdAt,
   });
+
+  /// Returns a copy with cover metadata replaced. A null argument keeps the
+  /// current value; cover updates never clear an existing cover.
+  CollectionEntry copyWith({String? coverUrl, String? coverAsset}) =>
+      CollectionEntry(
+        id: id,
+        name: name,
+        query: query,
+        kinds: kinds,
+        filter: filter,
+        colors: colors,
+        coverUrl: coverUrl ?? this.coverUrl,
+        coverAsset: coverAsset ?? this.coverAsset,
+        createdAt: createdAt,
+      );
 
   /// Display name in Pascal casing per word, e.g. `dark minimal` →
   /// `Dark Minimal`. Storage keeps the raw input; only presentation cases.
@@ -45,6 +71,8 @@ final class CollectionEntry {
       'minResolution': filter.minResolution,
     },
     'colors': colors,
+    if (coverUrl != null) 'coverUrl': coverUrl,
+    if (coverAsset != null) 'coverAsset': coverAsset,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -80,6 +108,8 @@ final class CollectionEntry {
       for (final raw in colorsRaw)
         if (raw is String && raw.isNotEmpty) raw,
     ];
+    final coverUrl = json['coverUrl'];
+    final coverAsset = json['coverAsset'];
 
     return CollectionEntry(
       id: json['id'] as String,
@@ -92,6 +122,10 @@ final class CollectionEntry {
         minResolution: minRes,
       ),
       colors: colors,
+      coverUrl: coverUrl is String && coverUrl.isNotEmpty ? coverUrl : null,
+      coverAsset: coverAsset is String && coverAsset.isNotEmpty
+          ? coverAsset
+          : null,
       createdAt: json['createdAt'] == null
           ? DateTime.now()
           : DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now(),

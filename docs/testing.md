@@ -22,8 +22,8 @@ flutter test integration_test/app_journeys_test.dart -d <emulator-id>
 
 The integration suite needs no network and no OS dialogs; any emulator works.
 
-Currently about **145 host tests** (journeys, widgets, contracts) plus **3
-on-device integration journeys**, completing in ~10 s and ~30 s respectively.
+Currently about **148 host tests** (journeys, widgets, contracts) plus **4
+on-device integration journeys**, completing in ~10 s and ~40 s respectively.
 
 Binary Android resources (launcher icon geometry/backgrounds, splash colours)
 are checked by decoding the shipped PNGs: `test/widgets/launcher_icon_test.dart`,

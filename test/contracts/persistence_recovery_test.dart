@@ -492,10 +492,9 @@ void main() {
       final controller = CollectionsController(_ScriptedCollectionsRepository());
 
       expect(await controller.create(name: '   ', query: 'x'), 'Name required');
-      expect(
-        await controller.create(name: 'x' * 31, query: 'x'),
-        'Name too long (max 30)',
-      );
+      // Collections are created by bookmarking tag grids, whose names are
+      // not length-limited; the card ellipsizes long titles.
+      expect(await controller.create(name: 'x' * 31, query: 'x'), isNull);
       expect(await controller.create(name: 'Space', query: 'space'), isNull);
       expect(
         await controller.create(name: ' space ', query: 'space'),

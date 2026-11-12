@@ -159,7 +159,7 @@ final class _SetWallpaperDialogState extends State<SetWallpaperDialog> {
 
         return M3EDialog(
           // Supplying an icon centers the title above the content, matching
-          // the create-collection dialog's language.
+          // the app's other page-backed dialogs.
           icon: const Icon(PhosphorIconsFill.image),
           title: 'Set wallpaper',
           // The package's content padding is horizontal-only when no

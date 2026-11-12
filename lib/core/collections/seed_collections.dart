@@ -4,13 +4,33 @@ import '../storage/settings_store.dart';
 import 'collection_entry.dart';
 import 'collections_repository.dart';
 
+/// Bundled square covers for the curated first-install collections.
+///
+/// Assets are shipped with the app, so these cards render on the first launch
+/// without a network request or a cache warm-up. The 400×400 crops are drawn
+/// with BoxFit.cover, which fills the square card without distortion.
+const seedArtCover = 'assets/collections/art.jpg';
+const seedNatureCover = 'assets/collections/nature.jpg';
+const seedAbstractCover = 'assets/collections/abstract.jpg';
+const seedMinimalCover = 'assets/collections/minimal.jpg';
+
+/// Known covers by seed id. Also lets installs created before cover metadata
+/// existed show a bundled cover without being rewritten.
+const seedCoverAssets = <String, String>{
+  'seed-art': seedArtCover,
+  'seed-nature': seedNatureCover,
+  'seed-abstract': seedAbstractCover,
+  'seed-minimal': seedMinimalCover,
+};
+
 /// Curated seed collections for first install. Stable ids avoid churn.
 final seedCollections = <CollectionEntry>[
   CollectionEntry(
-    id: 'seed-anime',
-    name: 'Anime',
-    query: 'anime',
-    kinds: const [WallhavenCategory.anime],
+    id: 'seed-art',
+    name: 'Art',
+    query: 'art',
+    kinds: const [],
+    coverAsset: seedArtCover,
     createdAt: DateTime(2025, 1, 1),
   ),
   CollectionEntry(
@@ -18,6 +38,7 @@ final seedCollections = <CollectionEntry>[
     name: 'Nature',
     query: 'nature landscape',
     kinds: const [],
+    coverAsset: seedNatureCover,
     createdAt: DateTime(2025, 1, 2),
   ),
   CollectionEntry(
@@ -25,6 +46,7 @@ final seedCollections = <CollectionEntry>[
     name: 'Abstract',
     query: 'abstract',
     kinds: const [WallhavenCategory.general],
+    coverAsset: seedAbstractCover,
     createdAt: DateTime(2025, 1, 3),
   ),
   CollectionEntry(
@@ -32,21 +54,8 @@ final seedCollections = <CollectionEntry>[
     name: 'Minimal',
     query: 'minimalist',
     kinds: const [],
+    coverAsset: seedMinimalCover,
     createdAt: DateTime(2025, 1, 4),
-  ),
-  CollectionEntry(
-    id: 'seed-architecture',
-    name: 'Architecture',
-    query: 'architecture building',
-    kinds: const [],
-    createdAt: DateTime(2025, 1, 5),
-  ),
-  CollectionEntry(
-    id: 'seed-art',
-    name: 'Art',
-    query: 'art',
-    kinds: const [],
-    createdAt: DateTime(2025, 1, 6),
   ),
 ];
 

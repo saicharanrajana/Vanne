@@ -53,6 +53,16 @@ class CollectionsRepository {
     if (box == null) return;
     await box.deleteAll(ids);
   }
+
+  /// Replaces an existing entry (used to fill a missing cover once).
+  ///
+  /// One entry is small enough to encode inline, matching [add].
+  Future<bool> update(CollectionEntry entry) async {
+    final box = _box;
+    if (box == null) return false;
+    await box.put(entry.id, entry.encode());
+    return true;
+  }
 }
 
 List<CollectionEntry> _decodeCollections(List<String> raws) =>

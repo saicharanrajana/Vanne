@@ -34,7 +34,7 @@ void main() {
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
     await app.tap(tester, tabLabel('Collections'));
-    await pumpUntil(tester, find.text('Anime'), reason: 'seeded collections');
+    await pumpUntil(tester, find.text('Art'), reason: 'seeded collections');
     expect(activeTab(tester), 1);
 
     await app.tap(tester, tabLabel('Favorites'));

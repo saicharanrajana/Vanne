@@ -136,4 +136,77 @@ void main() {
       'https://wallhaven.cc/w/alpha',
     );
   });
+
+  appTest('collections show bundled covers and bookmark a tag grid', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    await app.tap(tester, find.text('Collections').first);
+    await pumpUntil(tester, find.text('Art'), reason: 'seeded collections');
+    expect(find.text('Nature'), findsOneWidget);
+    expect(find.text('Abstract'), findsOneWidget);
+    expect(find.text('Minimal'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('collection-cover-seed-art')),
+      findsOneWidget,
+    );
+
+    // Open a wallpaper detail, then a tag grid, like a user browsing.
+    await app.tap(tester, find.text('Discover').first);
+    await pumpUntil(tester, tile('alpha'), reason: 'back on discover');
+    await app.tap(tester, tile('alpha'));
+    await pumpUntil(
+      tester,
+      find.byType(WallpaperDetailPage),
+      reason: 'detail page',
+    );
+    await pumpUntil(
+      tester,
+      find.text('fixture-user'),
+      reason: 'detail metadata loaded',
+    );
+    final tag = find.text('landscape').first;
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -300),
+    );
+    await pumpFrames(tester, 8, const Duration(milliseconds: 100));
+    await tester.ensureVisible(tag);
+    await pumpFrames(tester, 4);
+    await app.tap(tester, tag);
+    await pumpUntil(
+      tester,
+      find.byType(FilteredWallpapersPage),
+      reason: 'tag grid',
+    );
+    await pumpUntil(tester, tile('alpha'), reason: 'tag results');
+
+    await app.persistTap(
+      tester,
+      find.byIcon(PhosphorIconsBold.bookmarkSimple).first,
+    );
+    await app.settleUntil(
+      tester,
+      () => app.collections.entries.value.any((e) => e.name == 'Landscape'),
+      reason: 'bookmarked collection persisted',
+    );
+    final entry = app.collections.entries.value.firstWhere(
+      (e) => e.name == 'Landscape',
+    );
+    expect(entry.coverUrl, isNotNull);
+
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
+    await pumpFrames(tester, 8);
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
+    await pumpFrames(tester, 8);
+    await app.tap(tester, find.text('Collections').first);
+    await pumpUntil(tester, find.text('Landscape'), reason: 'saved card');
+    expect(
+      find.byKey(ValueKey('collection-cover-${entry.id}')),
+      findsOneWidget,
+    );
+  });
 }

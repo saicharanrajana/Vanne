@@ -169,7 +169,11 @@ final class TestApp {
         () => SearchController(locator<WallpaperRepository>()),
       )
       ..registerFactoryParam<CollectionExploreController, CollectionEntry, void>(
-        (entry, _) => CollectionExploreController(entry, repository),
+        (entry, _) => CollectionExploreController(
+          entry,
+          repository,
+          onCoverAvailable: (url) => collections.ensureCover(entry.id, url),
+        ),
       )
       ..registerFactoryParam<WallpaperDetailController, String, Wallpaper?>(
         (id, initial) => WallpaperDetailController(

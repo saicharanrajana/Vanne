@@ -105,7 +105,14 @@ Future<void> bootstrap() async {
       () => SearchController(locator<WallpaperRepository>()),
     )
     ..registerFactoryParam<CollectionExploreController, CollectionEntry, void>(
-      (entry, _) => CollectionExploreController(entry, repository),
+      (entry, _) => CollectionExploreController(
+        entry,
+        repository,
+        // A missing cover is filled from the first wallpaper this actual grid
+        // visit fetches — no cover-only searches from the overview.
+        onCoverAvailable: (url) =>
+            locator<CollectionsController>().ensureCover(entry.id, url),
+      ),
     )
     // Detail controllers are per-screen instances; [initial] carries the
     // listing entry for an instant Hero, or null on cold deep links.

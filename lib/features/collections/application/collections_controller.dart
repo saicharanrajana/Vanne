@@ -3,6 +3,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../core/collections/collection_entry.dart';
 import '../../../core/collections/collections_repository.dart';
+import '../../../core/collections/seed_collections.dart';
 import '../../../core/domain/feed_filter.dart';
 
 /// Owns local collections state — CRUD + multi-selection for deletion.
@@ -10,7 +11,7 @@ import '../../../core/domain/feed_filter.dart';
 /// Optimistically updates signals first, then persists. A failed write rolls
 /// back only what that call changed, never a whole-map snapshot that could
 /// discard an unrelated success, and `create` reports every failure as a
-/// message instead of throwing at the dialog.
+/// message instead of throwing at the bookmark toggle.
 final class CollectionsController {
   CollectionsController(this._repo);
 
@@ -46,10 +47,10 @@ final class CollectionsController {
     List<WallhavenCategory> kinds = const [],
     FeedFilter filter = const FeedFilter(),
     List<String> colors = const [],
+    String? coverUrl,
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return 'Name required';
-    if (trimmedName.length > 30) return 'Name too long (max 30)';
     final lower = trimmedName.toLowerCase();
     for (final e in _entries.value.values) {
       if (e.name.toLowerCase() == lower) return 'Name already exists';
@@ -63,6 +64,7 @@ final class CollectionsController {
       kinds: List.unmodifiable(kinds),
       filter: filter,
       colors: List.unmodifiable(colors),
+      coverUrl: coverUrl,
       createdAt: now,
     );
     _entries.value = {..._entries.peek(), id: entry};
@@ -77,6 +79,48 @@ final class CollectionsController {
     if (stored) return null;
     _dropEntry(id);
     return 'Failed to save';
+  }
+
+  /// Fills a missing cover with the first wallpaper seen for this collection.
+  ///
+  /// Never replaces an existing cover, and curated seeds keep their bundled
+  /// asset. The update is optimistic and rolled back only when persistence
+  /// fails, so the grid still opens even if storage is unavailable.
+  Future<void> ensureCover(String id, String coverUrl) async {
+    if (coverUrl.isEmpty) return;
+    final current = _entries.peek();
+    final entry = current[id];
+    if (entry == null ||
+        entry.coverUrl != null ||
+        entry.coverAsset != null ||
+        seedCoverAssets.containsKey(id)) {
+      return;
+    }
+
+    final updated = entry.copyWith(coverUrl: coverUrl);
+    _entries.value = {...current, id: updated};
+    var stored = false;
+    try {
+      stored = await _repo.update(updated);
+    } catch (_) {
+      // Storage refused the write; the cover is presentation-only, so the
+      // fallback card is preferable to surfacing an error on a grid visit.
+    }
+    if (stored) {
+      // The collection may have been deleted while the write was in flight.
+      // Remove the resurrected row so a restart cannot bring it back.
+      if (!_entries.peek().containsKey(id)) {
+        try {
+          await _repo.removeMany({id});
+        } catch (_) {}
+      }
+      return;
+    }
+
+    final live = _entries.peek();
+    final liveEntry = live[id];
+    if (liveEntry == null || liveEntry.coverUrl != coverUrl) return;
+    _entries.value = {...live, id: _withoutCover(liveEntry)};
   }
 
   /// Deletes [idsToRemove] optimistically; rolls back and returns `false`
@@ -110,6 +154,18 @@ final class CollectionsController {
       return false;
     }
   }
+
+  static CollectionEntry _withoutCover(CollectionEntry entry) =>
+      CollectionEntry(
+        id: entry.id,
+        name: entry.name,
+        query: entry.query,
+        kinds: entry.kinds,
+        filter: entry.filter,
+        colors: entry.colors,
+        coverAsset: entry.coverAsset,
+        createdAt: entry.createdAt,
+      );
 
   /// Removes one optimistic entry, leaving every other entry untouched.
   void _dropEntry(String id) {

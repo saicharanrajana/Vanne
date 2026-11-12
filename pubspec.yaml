@@ -99,6 +99,9 @@ flutter:
   assets:
     # SIL Open Font License shipped alongside the bundled Outfit font.
     - assets/fonts/OFL.txt
+    # Square 400×400 covers for the four curated first-install collections.
+    # Provenance and licences: docs/collection-covers.md.
+    - assets/collections/
 
   # Outfit is bundled so the first frame never waits on fonts.gstatic.com.
   # The single variable file carries the wght axis (100–900). Declaring it

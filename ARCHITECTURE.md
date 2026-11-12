@@ -87,7 +87,7 @@ The root stack contains:
   tab routes.
 - Full-screen Search, collection exploration, wallpaper detail, filtered
   wallpapers, API-key settings, and blocked-tags routes.
-- Page-backed modal routes for create/delete collection, remove API key, set
+- Page-backed modal routes for remove collections, remove API key, set
   wallpaper, and the feed-filter sheet.
 
 The shell keeps the four tab destinations alive, preserving their widget and
@@ -115,6 +115,13 @@ that route is removed:
 - Filtered wallpapers owns an ephemeral `FilteredWallpapersController`.
 - Wallpaper detail creates its controller in route `initState` and disposes it
   in route `dispose`.
+
+Collections are saved only from the bookmark in a filtered tag/color grid;
+the Collections tab has no manual create action. When the bookmark is
+tapped after results arrive, the first already-fetched thumbnail is persisted
+as a stable cover. Reopening a collection, changing its sort, or retrying does
+not replace that snapshot. Legacy entries without a cover may be filled once
+from a successful grid visit, while curated seeds keep their bundled asset.
 
 ## State management
 
@@ -150,6 +157,13 @@ change, and roll back on persistence failure. Grid tiles subscribe only to the
 favorite-ID membership signal, so a favorite tap does not rebuild the entire
 grid. Collection cards subscribe only to the relevant selection membership.
 
+Collection cards render the exact saved hex as a color background, with a
+hue-related foreground adjusted until both title and hex reach 4.5:1 contrast.
+Image-backed cards use light text over a fixed central scrim instead of
+sampling the wallpaper. Color names are presentation-only: they come from a
+small offline palette by perceptual nearest match, while the stored hex keeps
+bookmark identity unchanged.
+
 All controllers guard signal writes after disposal. Detail downloads use a
 cancel token tied to the screen lifetime, while feed reload generations prevent
 stale network results from corrupting current state.
@@ -165,9 +179,11 @@ Hive CE stores non-secret app data in three boxes:
   ratio, file metadata, and creation date, so favorites can render offline
   even when Wallhaven removes the wallpaper.
 - `collections`: JSON-encoded `CollectionEntry` values keyed by collection ID.
-  An entry stores its display name, query, categories, colors, feed filter, and
-  creation date. Six curated collections are inserted when the store is empty
-  on first bootstrap.
+  An entry stores its display name, query, categories, colors, feed filter,
+  optional wallpaper-cover snapshot, and creation date. Four curated
+  collections (Art, Nature, Abstract, Minimal) are inserted when the store is
+  empty on first bootstrap; their bundled square covers are declared in
+  `pubspec.yaml` and credited in `docs/collection-covers.md`.
 
 Favorites and collections use `compute` for JSON work. Restore is batched where
 possible and malformed snapshots are skipped rather than preventing all local

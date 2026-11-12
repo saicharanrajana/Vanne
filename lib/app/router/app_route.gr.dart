@@ -115,32 +115,16 @@ class CollectionsTabRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [CreateCollectionDialogPage]
-class CreateCollectionDialogRoute extends PageRouteInfo<void> {
-  const CreateCollectionDialogRoute({List<PageRouteInfo>? children})
-    : super(CreateCollectionDialogRoute.name, initialChildren: children);
-
-  static const String name = 'CreateCollectionDialogRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      return const CreateCollectionDialogPage();
-    },
-  );
-}
-
-/// generated route for
 /// [DeleteCollectionsDialogPage]
 class DeleteCollectionsDialogRoute
     extends PageRouteInfo<DeleteCollectionsDialogRouteArgs> {
   DeleteCollectionsDialogRoute({
-    required List<String> names,
+    required int count,
     Key? key,
     List<PageRouteInfo>? children,
   }) : super(
          DeleteCollectionsDialogRoute.name,
-         args: DeleteCollectionsDialogRouteArgs(names: names, key: key),
+         args: DeleteCollectionsDialogRouteArgs(count: count, key: key),
          initialChildren: children,
        );
 
@@ -150,33 +134,32 @@ class DeleteCollectionsDialogRoute
     name,
     builder: (data) {
       final args = data.argsAs<DeleteCollectionsDialogRouteArgs>();
-      return DeleteCollectionsDialogPage(names: args.names, key: args.key);
+      return DeleteCollectionsDialogPage(count: args.count, key: args.key);
     },
   );
 }
 
 class DeleteCollectionsDialogRouteArgs {
-  const DeleteCollectionsDialogRouteArgs({required this.names, this.key});
+  const DeleteCollectionsDialogRouteArgs({required this.count, this.key});
 
-  final List<String> names;
+  final int count;
 
   final Key? key;
 
   @override
   String toString() {
-    return 'DeleteCollectionsDialogRouteArgs{names: $names, key: $key}';
+    return 'DeleteCollectionsDialogRouteArgs{count: $count, key: $key}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! DeleteCollectionsDialogRouteArgs) return false;
-    return const ListEquality<String>().equals(names, other.names) &&
-        key == other.key;
+    return count == other.count && key == other.key;
   }
 
   @override
-  int get hashCode => const ListEquality<String>().hash(names) ^ key.hashCode;
+  int get hashCode => count.hashCode ^ key.hashCode;
 }
 
 /// generated route for

@@ -10,6 +10,14 @@ import '../../../shared/utils/wallhaven_color_utils.dart';
 final class CollectionExploreController extends FeedController {
   final CollectionEntry entry;
 
+  /// Called once with the first wallpaper of a successful load so the
+  /// collection can snapshot a missing cover. Errors and empty results leave
+  /// the cover open for a later retry or filter change.
+  final void Function(String coverUrl)? onCoverAvailable;
+
+  bool _coverCaptured = false;
+  bool _disposed = false;
+
   /// Session-only filter seeded from the persisted entry. Not written back.
   // TODO(settings-persist-filter): Make filter persistence configurable via
   // Settings. Currently session-only (signal local, not persisted). If a
@@ -17,8 +25,26 @@ final class CollectionExploreController extends FeedController {
   // Search, Collections/Filtered).
   late final filter = signal(entry.filter);
 
-  CollectionExploreController(this.entry, super.repository) {
+  CollectionExploreController(
+    this.entry,
+    super.repository, {
+    this.onCoverAvailable,
+  }) {
     reload();
+  }
+
+  @override
+  Future<void> reload() async {
+    await super.reload();
+    if (_disposed || _coverCaptured) return;
+    final items = state.peek().items;
+    if (items.isEmpty) return;
+    final thumbnails = items.first.thumbnails;
+    final coverUrl =
+        thumbnails.large ?? thumbnails.original ?? thumbnails.small;
+    if (coverUrl == null || coverUrl.isEmpty) return;
+    _coverCaptured = true;
+    onCoverAvailable?.call(coverUrl);
   }
 
   Future<void> applyFilter(FeedFilter newFilter) async {
@@ -42,6 +68,7 @@ final class CollectionExploreController extends FeedController {
 
   @override
   void dispose() {
+    _disposed = true;
     filter.dispose();
     super.dispose();
   }

@@ -81,6 +81,16 @@ final class _FilteredWallpapersScreenState
     return null;
   }
 
+  /// The collection cover is the first wallpaper already fetched for this
+  /// query. Saving before the first page arrives (or for an empty query)
+  /// leaves the cover empty and falls back to a theme card.
+  String? get _coverUrl {
+    final items = _controller.state.value.items;
+    if (items.isEmpty) return null;
+    final thumbnails = items.first.thumbnails;
+    return thumbnails.large ?? thumbnails.original ?? thumbnails.small;
+  }
+
   /// Saves or removes this query's collection — a real toggle, not a one-way
   /// promotion. Persistence goes through the repository behind
   /// [CollectionsController], which rolls back on failure, so the snackbar
@@ -113,6 +123,7 @@ final class _FilteredWallpapersScreenState
         query: widget.query,
         colors: widget.colorHexes,
         filter: _controller.filter.value,
+        coverUrl: _coverUrl,
       );
       if (!mounted) return;
       if (error != null) {

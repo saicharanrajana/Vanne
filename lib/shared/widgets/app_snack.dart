@@ -38,8 +38,15 @@ abstract final class AppSnack {
 
   static const Duration _dedupeWindow = Duration(seconds: 2);
   static const Duration _duration = Duration(milliseconds: 2500);
-  static String? _lastMessage;
-  static DateTime _lastShownAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Dedupe state is scoped to the messenger that actually showed the snack.
+  ///
+  /// A process-global "last message" leaked across app lifetimes (tests,
+  /// hot restart, a re-created root), suppressing the first snack of a fresh
+  /// UI. The messenger is recreated with each app shell, so keying history
+  /// off it keeps duplicate suppression for one session without carrying
+  /// state into the next.
+  static final Expando<_SnackHistory> _history = Expando('AppSnack.history');
 
   /// Shows [message] using the requested semantic [type].
   static void show(
@@ -70,11 +77,13 @@ abstract final class AppSnack {
   ) {
     if (messenger == null) return;
 
+    final history = _history[messenger] ??= _SnackHistory();
     final now = DateTime.now();
     final isDuplicate =
-        message == _lastMessage && now.difference(_lastShownAt) < _dedupeWindow;
-    _lastMessage = message;
-    _lastShownAt = now;
+        message == history.message &&
+        now.difference(history.shownAt) < _dedupeWindow;
+    history.message = message;
+    history.shownAt = now;
     if (isDuplicate) return;
 
     // Theme is read from the MESSENGER's context, never the caller's: a
@@ -141,4 +150,10 @@ abstract final class AppSnack {
       ),
     );
   }
+}
+
+/// Last snack shown by one messenger; see [AppSnack._history].
+final class _SnackHistory {
+  String? message;
+  DateTime shownAt = DateTime.fromMillisecondsSinceEpoch(0);
 }

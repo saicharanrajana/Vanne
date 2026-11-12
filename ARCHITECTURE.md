@@ -37,10 +37,25 @@ future provider.
 
 `lib/main.dart` performs startup in this order:
 
-1. Initialize Flutter bindings and enlarge Flutter's image-cache limits.
-2. Load `intl` date data and preload the Outfit font weights used by the app.
-3. Run `bootstrap()` in `lib/app/dependencies.dart`.
-4. Install the global `ErrorWidget` fallback and call `runApp()`.
+1. Initialize Flutter bindings, enlarge Flutter's image-cache limits and
+   install the global `ErrorWidget` fallback.
+2. Call `runApp()` immediately with `AppStartup`, which paints the launch
+   surface on the very first frame: a plain screen in the same colour as
+   Android's launch window (`lib/app/launch_background.dart`, mirrored by
+   `res/values{,-night}/launch_colors.xml`). It draws no icon of its own. The
+   launch colour is independent of the launcher icon background. The normal
+   launcher icon stays white in both modes; API 31+ splash themes use only its
+   transparent foreground layer, so the dark splash remains black without a
+   white tile. The first real screen is slightly tinted — see
+   `test/widgets/launcher_icon_test.dart`.
+3. `AppStartup` then runs initialization off the first-frame path: load
+   `intl` date data and run `bootstrap()` in `lib/app/dependencies.dart`.
+4. Only after initialization succeeds is `WallpaperApp` mounted. A failure
+   releases partial registrations and shows a retry surface instead of a
+   blank window or half-registered services.
+
+Outfit is a bundled variable font (`assets/fonts/`), so no text waits on a
+network font fetch and `google_fonts` is not used at runtime.
 
 `bootstrap()` initializes Hive, opens the settings/favorites/collections
 stores, seeds the built-in collections on first install, constructs the
@@ -398,12 +413,26 @@ overrides in `tool/android_overrides/` and reapplies them with
 1. Activity `configChanges` includes `colorMode`, `navigation`, `mcc`, and
    `mnc` along with Flutter's normal configuration flags.
 2. `WallpaperApp.kt` pre-warms a Flutter engine and stores it as
-   `"main_engine"` in `FlutterEngineCache`.
+   `"main_engine"` in `FlutterEngineCache`. The `FlutterEngine` constructor
+   registers the generated plugins; the app must not also call
+   `GeneratedPluginRegistrant.registerWith()` (that registered every plugin
+   twice and logged "already registered with this FlutterEngine").
 3. `MainActivity.kt` binds to that cached engine and sets
-   `shouldDestroyEngineWithHost = false`.
+   `shouldDestroyEngineWithHost = false`. Because the engine is
+   host-provided, the embedding skips its own plugin registration, so the
+   plugins stay registered exactly once, before Dart runs.
 4. `android/app/build.gradle.kts` gets compile/min SDK floors based on the
    maximum numeric requirement found in the plugins listed by
    `.flutter-plugins-dependencies`.
+5. `res/` carries the launch resources `flutter create` would otherwise
+   reset: the day/night launch colour (`values*/launch_colors.xml`), the
+   drawable launch background, the API 31+ `LaunchTheme`
+   (`values*-v31/styles.xml`) that pins `windowSplashScreenBackground` to the
+   same colour Flutter paints first and uses the transparent icon foreground,
+   and the fixed-white launcher icon background (`values/colors.xml`). Launcher
+   icon bitmaps are generated from
+   `assets/branding/*.png` by `tool/branding/build_icons.py`, which the script
+   runs; `--check` verifies the shipped PNGs are current.
 
 The Pixel wallpaper picker can trigger a Runtime Resource Overlay change in
 System UI. That can recreate the activity even with the configuration flags;
@@ -424,14 +453,18 @@ after `rm -rf android && flutter create .` remains an operational requirement.
 - The opt-in live suite under `packages/wallhaven_client/test/live/` is gated
   by `WALLHAVEN_LIVE=1`, uses at most about five unauthenticated requests, and
   adds authenticated checks only when `WALLHAVEN_API_KEY` is present.
-- App tests fake `WallpaperRepository` and platform seams, then run screens
-  inside the real `material_ui`/M3E theme. They cover feed pagination and
-  deduplication, routed deep links and back behavior, Hero transitions,
-  settings, snackbar roles, image transitions, metadata formatting, and
-  wallpaper-detail interactions.
-- `integration_test/app_test.dart` runs on a device/emulator against the real
-  Wallhaven API and checks discover loading, detail navigation, and favorites
-  empty state.
+- App widget tests (`test/`) mount the real `WallpaperApp` against temporary
+  Hive boxes, real controllers/repositories, and scripted HTTP/platform fakes
+  (`test/support/test_app.dart`). Journeys cover discover/search/pagination,
+  favorites, collections, settings, navigation, downloads and applying a
+  wallpaper; contract tests cover feed races and persistence recovery.
+- `integration_test/app_journeys_test.dart` repeats the critical journeys on
+  an emulator/device with the real engine, Hive and isolates (network and OS
+  channels stay faked, so runs need no connectivity).
+- Dynamic-color behaviour is driven through scripted platform channels, so
+  push notifications, resume refresh and failed reads are deterministic.
+- `docs/testing.md` documents the harness rules, the feature-change checklist
+  and what is deliberately not covered.
 
 ## Security posture
 

@@ -105,6 +105,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restarting the app should fix it.'**
   String get restartMayFixIt;
+
+  /// Heading shown when app initialization fails before the UI mounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not start'**
+  String get startupErrorTitle;
+
+  /// Body shown on the startup failure surface; explains data is intact and offers recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved wallpapers are safe. Try again, or restart the app if this keeps happening.'**
+  String get startupErrorMessage;
+
+  /// Retry button on the startup failure surface.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get tryAgain;
 }
 
 class _AppLocalizationsDelegate

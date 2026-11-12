@@ -14,4 +14,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restartMayFixIt => 'Restarting the app should fix it.';
+
+  @override
+  String get startupErrorTitle => 'Could not start';
+
+  @override
+  String get startupErrorMessage =>
+      'Your saved wallpapers are safe. Try again, or restart the app if this keeps happening.';
+
+  @override
+  String get tryAgain => 'Try again';
 }

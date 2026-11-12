@@ -7,5 +7,17 @@
   "restartMayFixIt": "Restarting the app should fix it.",
   "@restartMayFixIt": {
     "description": "Recovery hint shown below the error heading."
+  },
+  "startupErrorTitle": "Could not start",
+  "@startupErrorTitle": {
+    "description": "Heading shown when app initialization fails before the UI mounts."
+  },
+  "startupErrorMessage": "Your saved wallpapers are safe. Try again, or restart the app if this keeps happening.",
+  "@startupErrorMessage": {
+    "description": "Body shown on the startup failure surface; explains data is intact and offers recovery."
+  },
+  "tryAgain": "Try again",
+  "@tryAgain": {
+    "description": "Retry button on the startup failure surface."
   }
 }

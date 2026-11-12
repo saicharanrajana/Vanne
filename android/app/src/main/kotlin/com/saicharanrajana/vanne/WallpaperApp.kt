@@ -5,7 +5,6 @@ import android.content.res.Configuration
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugins.GeneratedPluginRegistrant
 import io.flutter.plugin.common.MethodChannel
 
 class WallpaperApp : Application() {
@@ -24,6 +23,14 @@ class WallpaperApp : Application() {
         // recreation (e.g. RRO overlay change from wallpaper → dynamic color).
         // Without this, WallpaperManager → MagicPortrait → systemui-dynamic.frro
         // triggers AppCompatResourceOverlayPolicy recreation and Flutter loses state.
+        //
+        // The FlutterEngine constructor registers the generated plugins itself
+        // (FlutterEngine's automaticallyRegisterPlugins). Calling
+        // GeneratedPluginRegistrant.registerWith() as well added every plugin
+        // twice and logged "already registered with this FlutterEngine" for
+        // each. MainActivity must not register them either: because it binds a
+        // cached engine, FlutterActivity reports it as host-provided and skips
+        // its own registration.
         val engine = FlutterEngine(this)
         paletteChanges = MethodChannel(
             engine.dartExecutor.binaryMessenger,
@@ -32,7 +39,11 @@ class WallpaperApp : Application() {
         engine.dartExecutor.executeDartEntrypoint(
             DartExecutor.DartEntrypoint.createDefault()
         )
-        GeneratedPluginRegistrant.registerWith(engine)
-        FlutterEngineCache.getInstance().put("main_engine", engine)
+        FlutterEngineCache.getInstance().put(ENGINE_ID, engine)
+    }
+
+    companion object {
+        /** Cache key MainActivity binds to. */
+        const val ENGINE_ID = "main_engine"
     }
 }

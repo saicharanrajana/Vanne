@@ -209,4 +209,30 @@ void main() {
       findsOneWidget,
     );
   });
+
+  appTest('system back cancels a collections selection first', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    await app.tap(tester, find.text('Collections').first);
+    await pumpUntil(tester, find.text('Art'), reason: 'seeded collections');
+
+    await tester.longPress(find.text('Nature'));
+    await pumpFrames(tester, 6);
+    expect(find.byIcon(PhosphorIconsFill.trash), findsOneWidget);
+
+    // The platform back route must clear the selection on a real engine.
+    await app.act(tester, () => tester.binding.handlePopRoute());
+    await pumpFrames(tester, 10);
+    expect(find.byIcon(PhosphorIconsFill.trash), findsNothing);
+    expect(find.text('Nature'), findsOneWidget);
+
+    // Only the next back follows the usual tab policy.
+    await app.act(tester, () => tester.binding.handlePopRoute());
+    await pumpFrames(tester, 10);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
+  });
 }

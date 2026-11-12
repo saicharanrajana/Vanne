@@ -131,6 +131,41 @@ void main() {
     await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
   });
 
+  appTest('system back clears a collections selection before leaving', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    await app.tap(tester, tabLabel('Collections'));
+    await pumpUntil(tester, find.text('Art'), reason: 'seeded collections');
+    expect(activeTab(tester), 1);
+
+    // Long-press enters multi-select; a second tap extends it. Selection is
+    // local UI state, so plain gestures are enough.
+    await tester.longPress(find.text('Art'));
+    await pumpFrames(tester, 4);
+    await app.tap(tester, find.text('Nature'));
+    await pumpFrames(tester, 4);
+    expect(find.byIcon(PhosphorIconsFill.trash), findsOneWidget);
+
+    // Transient selection outranks destination switching: back cancels it and
+    // leaves the user on Collections.
+    await app.act(tester, () => tester.binding.handlePopRoute());
+    await pumpFrames(tester, 10);
+    expect(activeTab(tester), 1);
+    expect(find.byIcon(PhosphorIconsFill.trash), findsNothing);
+    expect(find.text('Art'), findsOneWidget);
+    expect(find.text('Nature'), findsOneWidget);
+
+    // With nothing selected the usual tab policy applies again.
+    await app.act(tester, () => tester.binding.handlePopRoute());
+    await pumpFrames(tester, 10);
+    expect(activeTab(tester), 0);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
+  });
+
   appTest('system back on Discover is left to the platform', (
     tester,
     app,

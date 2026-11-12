@@ -94,7 +94,11 @@ The shell keeps the four tab destinations alive, preserving their widget and
 scroll state. The app-level `TabScrollCoordinator` owns one scroll controller
 per tab; reselecting the active navigation destination scrolls that tab to the
 top. Back from a non-Discover tab first switches to Discover instead of
-leaving the app.
+leaving the app — except on Collections, where a multi-select is active: back
+clears that transient selection and stays put, and only the next back follows
+the tab policy. That policy lives in one place, the shell's `PopScope`, so the
+tab router deliberately has no `homeIndex` (an owning tab router would jump to
+its home tab before the shell could cancel the selection).
 
 Route arguments are typed. Wallpaper detail accepts an optional listing
 wallpaper so a tile can transition immediately through a Hero; a cold deep

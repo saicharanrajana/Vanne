@@ -6,6 +6,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../dependencies.dart';
+import '../../features/collections/application/collections_controller.dart';
 import '../../features/collections/presentation/collection_explore_screen.dart';
 import '../../features/collections/presentation/collections_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
@@ -164,6 +165,11 @@ Route<T> springSheetRouteBuilder<T>(
   );
 }
 
+/// Destinations in [MainShellPage]'s tab router. The shell's back policy and
+/// the route list must agree on these positions.
+const _discoverTabIndex = 0;
+const _collectionsTabIndex = 1;
+
 @RoutePage()
 final class MainShellPage extends StatelessWidget {
   const MainShellPage({super.key});
@@ -171,7 +177,11 @@ final class MainShellPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AutoTabsRouter(
-      homeIndex: 0,
+      // No `homeIndex`: a tab router that owns a home index consumes system
+      // back itself (`TabsRouter.maybePop` jumps straight to its home tab)
+      // before the shell's PopScope can see it. Leaving back to bubble keeps
+      // the whole policy — cancel a collections selection, then switch to
+      // Discover — in this one place.
       routes: const [
         DiscoverTabRoute(),
         CollectionsTabRoute(),
@@ -185,11 +195,23 @@ final class MainShellPage extends StatelessWidget {
           builder: (context, _) => PopScope<void>(
             // The shell is the root page, so the nested tabs router must
             // consume back before the system is allowed to leave the app.
-            canPop: tabsRouter.activeIndex == 0,
+            canPop: tabsRouter.activeIndex == _discoverTabIndex,
             onPopInvokedWithResult: (didPop, _) {
-              if (!didPop && tabsRouter.activeIndex != 0) {
-                tabsRouter.setActiveIndex(0);
+              if (didPop || tabsRouter.activeIndex == _discoverTabIndex) {
+                return;
               }
+              // Transient state outranks destination switching: while
+              // collections are selected, back only cancels that selection
+              // and leaves the user on the Collections tab. A later back then
+              // follows the usual tab policy. The nested tab navigator cannot
+              // own this: its own PopScope never sees the system's back
+              // request, because the shell is the root navigator's top route.
+              if (tabsRouter.activeIndex == _collectionsTabIndex &&
+                  locator<CollectionsController>().hasSelection.value) {
+                locator<CollectionsController>().clearSelection();
+                return;
+              }
+              tabsRouter.setActiveIndex(_discoverTabIndex);
             },
             child: Scaffold(
               body: child,

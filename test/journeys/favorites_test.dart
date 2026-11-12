@@ -42,4 +42,29 @@ void main() {
     await pumpFrames(tester, 10);
     expect(_tile('alpha'), findsOneWidget);
   });
+
+  appTest('a short favorites list shows no end-of-feed marker', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, _tile('alpha'), reason: 'discover tile alpha');
+    await app.persistTap(tester, _favoriteButton('alpha'));
+    await app.persistTap(tester, _favoriteButton('beta'));
+
+    await app.tap(tester, find.text('Favorites').first);
+    await pumpFrames(tester, 10);
+    expect(_tile('alpha'), findsOneWidget);
+    expect(_tile('beta'), findsOneWidget);
+
+    // Favorites is a finite local list; it never reports an "end of feed".
+    expect(find.text("You've reached the end"), findsNothing);
+
+    // Unfavoriting down to the empty state keeps the plain empty view.
+    await app.persistTap(tester, _unfavoriteButton('alpha'));
+    await app.persistTap(tester, _unfavoriteButton('beta'));
+    await pumpFrames(tester, 6);
+    expect(find.text('No favorites yet'), findsOneWidget);
+    expect(find.text("You've reached the end"), findsNothing);
+  });
 }

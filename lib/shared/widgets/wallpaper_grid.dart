@@ -48,6 +48,13 @@ final class WallpaperGrid extends StatelessWidget {
   final EdgeInsets padding;
   final double loadMoreThreshold;
 
+  /// Whether an exhausted feed ends with the static "end of feed" marker.
+  ///
+  /// Favorites turn it off: the list is a finite local set, where the marker
+  /// tells the user nothing — least of all when they only have one or two
+  /// favorites. Paginated feeds keep it.
+  final bool showEndOfFeed;
+
   /// Namespace for tile Hero tags so two lists showing the same wallpaper
   /// never collide. Must match the detail screen's [heroScope].
   final String heroScope;
@@ -71,6 +78,7 @@ final class WallpaperGrid extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
     this.loadMoreThreshold = 600,
     this.heroScope = '',
+    this.showEndOfFeed = true,
   });
 
   /// Fires [onLoadMore] when the notification reports the viewport is
@@ -166,6 +174,7 @@ final class WallpaperGrid extends StatelessWidget {
           isLoadingMore: isLoadingMore,
           paginationError: paginationError,
           exhausted: exhausted,
+          showEndOfFeed: showEndOfFeed,
           onRetryPagination: onRetryPagination,
         ),
       ),
@@ -186,12 +195,14 @@ final class _GridFooter extends StatelessWidget {
   final bool isLoadingMore;
   final String? paginationError;
   final bool exhausted;
+  final bool showEndOfFeed;
   final VoidCallback? onRetryPagination;
 
   const _GridFooter({
     required this.isLoadingMore,
     required this.paginationError,
     required this.exhausted,
+    required this.showEndOfFeed,
     required this.onRetryPagination,
   });
 
@@ -222,6 +233,7 @@ final class _GridFooter extends StatelessWidget {
       );
     }
     if (exhausted) {
+      if (!showEndOfFeed) return const SizedBox.shrink();
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(

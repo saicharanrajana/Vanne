@@ -64,6 +64,8 @@ final class FavoritesScreen extends StatelessWidget {
           final grid = WallpaperGrid(
             items: controller.wallpapers.value,
             hasMore: false,
+            // A finite local list: an "end of feed" marker adds nothing.
+            showEndOfFeed: false,
             favoriteIds: controller.favoriteIds,
             onToggleFavorite: controller.toggle,
             heroScope: 'favorites-',

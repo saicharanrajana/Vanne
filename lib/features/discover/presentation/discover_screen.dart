@@ -6,6 +6,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
 import '../../../app/router/tab_scroll_coordinator.dart';
+import '../../../shared/widgets/app_search_bar_spec.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
 import '../application/discover_controller.dart';
@@ -15,7 +16,7 @@ const _searchHeroTag = 'search-bar-hero';
 
 /// The primary screen: large heading, prominent (tappable) search bar,
 /// feed-filter trigger and the infinite staggered wallpaper feed — all as
-/// proper slivers. Header lives inside SliverAppBar so floating/snap and
+/// proper slivers. Header lives inside SliverAppBar so floating reveal and
 /// Material LookupBoundary are handled by the framework.
 final class DiscoverScreen extends StatefulWidget {
   final VoidCallback onOpenSearch;
@@ -47,7 +48,12 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
 
     final headerSliver = SliverAppBar(
       floating: true,
-      snap: true,
+      // Deliberately not snapping. `snap: true` slides the whole 188dp header
+      // in as soon as a scroll ends in the revealing direction, so stopping a
+      // scroll could drop the header back over the feed. Floating without
+      // snapping still reveals it as the user scrolls up, but never expands
+      // it on release and never force-expands it for showOnScreen.
+      snap: false,
       pinned: false,
       automaticallyImplyLeading: false,
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -88,25 +94,13 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
                       },
                   placeholderBuilder: (context, size, child) =>
                       SizedBox.fromSize(size: size, child: child),
-                  child: M3ESearchBar(
+                  child: AppSearchBarSpec.buildBar(
                     hintText: 'Search wallpapers',
-                    // Zero the resting expand inset: the bar otherwise pads
-                    // itself 8px horizontally while idle, misaligning its
-                    // left edge from the heading and filter chip.
-                    expandRestPadding: 0,
-                    padding: const WidgetStatePropertyAll(
-                      EdgeInsetsDirectional.symmetric(horizontal: 16),
-                    ),
+                    glyph: PhosphorIconsBold.magnifyingGlass,
+                    tooltip: 'Search',
+                    onLeadingPressed: widget.onOpenSearch,
                     readOnly: true,
                     onTap: widget.onOpenSearch,
-                    leading: Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 4),
-                      child: Icon(
-                        PhosphorIconsBold.magnifyingGlass,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 8),

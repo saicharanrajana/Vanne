@@ -81,11 +81,9 @@ final class _CollectionExploreScreenState
                   size: M3EIconButtonSize.xs,
                   onPressed: () => context.router.root.maybePop(),
                   tooltip: 'Back',
-                  icon: Icon(
-                    PhosphorIconsBold.arrowLeft,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  // The tonal container owns both halves of its colour pair;
+                  // pinning onSurfaceVariant fought onSecondaryContainer.
+                  icon: const Icon(PhosphorIconsBold.arrowLeft, size: 18),
                 ),
               ),
               title: const Text('Not found'),
@@ -150,11 +148,10 @@ final class _CollectionExploreScreenState
                       size: M3EIconButtonSize.xs,
                       onPressed: () => context.router.root.maybePop(),
                       tooltip: 'Back',
-                      icon: Icon(
-                        PhosphorIconsBold.arrowLeft,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      // The tonal container owns both halves of its colour
+                      // pair; pinning onSurfaceVariant fought
+                      // onSecondaryContainer.
+                      icon: const Icon(PhosphorIconsBold.arrowLeft, size: 18),
                     ),
                   ),
                   title: Text(entry.displayName),

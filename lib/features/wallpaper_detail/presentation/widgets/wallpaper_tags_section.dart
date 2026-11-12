@@ -102,16 +102,23 @@ final class _Chevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return M3EIconButton(
-      onPressed: onTap,
-      tooltip: expanded ? 'Show fewer tags' : 'Show all tags',
-      icon: AnimatedRotation(
-        turns: expanded ? 0.5 : 0,
-        duration: AppMotion.transition,
-        child: Icon(
-          PhosphorIconsBold.caretDown,
-          size: 20,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+    // Own semantics container: the M3E card wraps its content in one big
+    // semantics node, which would otherwise swallow the chevron's label,
+    // button flag and tap action (and misdirect taps to the card's center).
+    return Semantics(
+      container: true,
+      child: M3EIconButton(
+        onPressed: onTap,
+        tooltip: expanded ? 'Show fewer tags' : 'Show all tags',
+        // Explicit standard variant: 1.1.3 changed the default to `filled`,
+        // which painted a primary disc behind a foreground meant for the
+        // sheet surface. The glyph inherits the component's own foreground
+        // instead of pinning onSurfaceVariant against a mismatched container.
+        variant: M3EIconButtonVariant.standard,
+        icon: AnimatedRotation(
+          turns: expanded ? 0.5 : 0,
+          duration: AppMotion.transition,
+          child: const Icon(PhosphorIconsBold.caretDown, size: 20),
         ),
       ),
     );

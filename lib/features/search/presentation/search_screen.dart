@@ -11,6 +11,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../app/dependencies.dart';
 import '../../../app/theme/app_motion.dart';
 import '../../../core/domain/feed_filter.dart';
+import '../../../shared/widgets/app_search_bar_spec.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/horizontal_edge_fade.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
@@ -23,6 +24,10 @@ const _searchHeroTag = 'search-bar-hero';
 /// inside a collapsing [SliverAppBar] (like Discover) so they scroll away,
 /// leaving the staggered grid full-screen. The search bar itself lives in
 /// the app-bar with a back-prefix, not a separate Scaffold AppBar.
+///
+/// The header floats but never snaps: snapping re-expands the whole 280/310dp
+/// block whenever a scroll ends in the revealing direction, and force-expands
+/// it for `showOnScreen` when the field gains focus.
 final class SearchScreen extends StatefulWidget {
   final String? initialQuery;
   final ValueChanged<Wallpaper> onOpenWallpaper;
@@ -85,7 +90,7 @@ final class _SearchScreenState extends State<SearchScreen> {
 
     final headerSliver = SliverAppBar(
       floating: true,
-      snap: true,
+      snap: false,
       pinned: false,
       automaticallyImplyLeading: false,
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -94,7 +99,7 @@ final class _SearchScreenState extends State<SearchScreen> {
       scrolledUnderElevation: 0,
       toolbarHeight: 0,
       collapsedHeight: 0,
-      expandedHeight: 288,
+      expandedHeight: 280,
       flexibleSpace: FlexibleSpaceBar(
         background: SafeArea(
           bottom: false,
@@ -124,19 +129,13 @@ final class _SearchScreenState extends State<SearchScreen> {
                       },
                   placeholderBuilder: (context, size, child) =>
                       SizedBox.fromSize(size: size, child: child),
-                  child: M3ESearchBar(
+                  child: AppSearchBarSpec.buildBar(
                     controller: _textEditing,
                     focusNode: _focusNode,
                     hintText: 'Search wallpapers',
-                    padding: const WidgetStatePropertyAll(
-                      EdgeInsetsDirectional.symmetric(horizontal: 16),
-                    ),
-                    leading: M3EIconButton(
-                      icon: const Icon(PhosphorIconsBold.arrowLeft, size: 20),
-                      tooltip: 'Back',
-                      onPressed: () => context.router.root.maybePop(),
-                    ),
-                    textInputAction: TextInputAction.search,
+                    glyph: PhosphorIconsBold.arrowLeft,
+                    tooltip: 'Back',
+                    onLeadingPressed: () => context.router.root.maybePop(),
                     onSubmitted: (_) => controller.submit(),
                   ),
                 ),
@@ -255,12 +254,12 @@ final class _SearchScreenState extends State<SearchScreen> {
               onOpen: widget.onOpenWallpaper,
             );
 
-            // Search header with sort/filter chip embedded so floating/snap
-            // brings bar + chip back together. Expanded height grows to fit
-            // the extra chip row (288 -> 318).
+            // Search header with sort/filter chip embedded so a floating
+            // reveal brings bar + chip back together. Expanded height grows to
+            // fit the extra chip row (280 -> 310).
             final headerSliverWithFilter = SliverAppBar(
               floating: true,
-              snap: true,
+              snap: false,
               pinned: false,
               automaticallyImplyLeading: false,
               backgroundColor: theme.scaffoldBackgroundColor,
@@ -269,7 +268,7 @@ final class _SearchScreenState extends State<SearchScreen> {
               scrolledUnderElevation: 0,
               toolbarHeight: 0,
               collapsedHeight: 0,
-              expandedHeight: 318,
+              expandedHeight: 310,
               flexibleSpace: FlexibleSpaceBar(
                 background: SafeArea(
                   bottom: false,
@@ -300,22 +299,14 @@ final class _SearchScreenState extends State<SearchScreen> {
                               },
                           placeholderBuilder: (context, size, child) =>
                               SizedBox.fromSize(size: size, child: child),
-                          child: M3ESearchBar(
+                          child: AppSearchBarSpec.buildBar(
                             controller: _textEditing,
                             focusNode: _focusNode,
                             hintText: 'Search wallpapers',
-                            padding: const WidgetStatePropertyAll(
-                              EdgeInsetsDirectional.symmetric(horizontal: 16),
-                            ),
-                            leading: M3EIconButton(
-                              icon: const Icon(
-                                PhosphorIconsBold.arrowLeft,
-                                size: 20,
-                              ),
-                              tooltip: 'Back',
-                              onPressed: () => context.router.root.maybePop(),
-                            ),
-                            textInputAction: TextInputAction.search,
+                            glyph: PhosphorIconsBold.arrowLeft,
+                            tooltip: 'Back',
+                            onLeadingPressed: () =>
+                                context.router.root.maybePop(),
                             onSubmitted: (_) => controller.submit(),
                           ),
                         ),

@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:collection/collection.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/navigation_bar/models/m3e_navigation_bar_destination.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
@@ -205,6 +204,11 @@ final class MainShellPage extends StatelessWidget {
               bottomNavigationBar: M3ENavigationBar(
                 selectedIndex: tabsRouter.activeIndex,
                 backgroundColor: Theme.of(context).colorScheme.surface,
+                // Pin the wide-layout chip width to the M3E spec default
+                // (128dp). Without it the package measures the widest label,
+                // and its wide band has no overflow guard when the slots
+                // don't fit the available width.
+                wideDestinationWidth: 128,
                 onDestinationSelected: (index) {
                   M3EHaptics.trigger(M3EHapticFeedback.light);
                   if (index == tabsRouter.activeIndex) {
@@ -250,8 +254,17 @@ final class DiscoverTabPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The M3E search bar can report a tap twice (upstream double onTap), so
+    // guard against stacking duplicate search pages.
+    void openSearch() {
+      if (context.router.root.stack.any((route) => route.name == SearchRoute.name)) {
+        return;
+      }
+      context.router.root.push(SearchRoute());
+    }
+
     return DiscoverScreen(
-      onOpenSearch: () => context.router.root.push(SearchRoute()),
+      onOpenSearch: openSearch,
       onOpenWallpaper: (wallpaper) => context.router.root.push(
         WallpaperDetailRoute(
           wallpaperId: wallpaper.id,

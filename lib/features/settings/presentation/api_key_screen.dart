@@ -1,6 +1,5 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -134,11 +133,9 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                 tooltip: 'Back',
                 size: M3EIconButtonSize.xs,
                 variant: M3EIconButtonVariant.tonal,
-                icon: Icon(
-                  PhosphorIconsBold.arrowLeft,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                // The tonal container owns both halves of its colour pair;
+                // pinning onSurfaceVariant here fought onSecondaryContainer.
+                icon: const Icon(PhosphorIconsBold.arrowLeft, size: 18),
               ),
             ),
             title: const Text('Wallhaven API key'),
@@ -221,8 +218,11 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                               size: M3EButtonSize.md,
                               onPressed: _busy ? null : _remove,
                               icon: _removing
-                                  ? const M3EProgressIndicator.circularWavy(
-                                      size: 16,
+                                  ? const M3ELoadingIndicator(
+                                      containerWidth: 24,
+                                      containerHeight: 24,
+                                      indicatorSize: 18,
+                                      semanticLabel: 'Removing API key',
                                     )
                                   : const Icon(
                                       PhosphorIconsFill.trash,
@@ -240,9 +240,12 @@ final class _ApiKeyScreenState extends State<ApiKeyScreen> {
                                   ? null
                                   : _save,
                               icon: _saving
-                                  ? M3EProgressIndicator.circularWavy(
-                                      size: 16,
+                                  ? M3ELoadingIndicator(
+                                      containerWidth: 24,
+                                      containerHeight: 24,
+                                      indicatorSize: 18,
                                       color: theme.colorScheme.onPrimary,
+                                      semanticLabel: 'Saving API key',
                                     )
                                   : const Icon(
                                       PhosphorIconsBold.check,

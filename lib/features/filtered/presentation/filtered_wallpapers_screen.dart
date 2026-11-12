@@ -151,11 +151,10 @@ final class _FilteredWallpapersScreenState
                       size: M3EIconButtonSize.xs,
                       onPressed: widget.onBack,
                       tooltip: 'Back',
-                      icon: Icon(
-                        PhosphorIconsBold.arrowLeft,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      // The tonal container owns both halves of its colour
+                      // pair; pinning onSurfaceVariant fought
+                      // onSecondaryContainer.
+                      icon: const Icon(PhosphorIconsBold.arrowLeft, size: 18),
                     ),
                   ),
                   title: Text(_displayTitle),

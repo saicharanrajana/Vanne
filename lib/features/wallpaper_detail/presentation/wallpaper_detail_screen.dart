@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
@@ -11,6 +12,7 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../shared/extensions/gap_extensions.dart';
 import '../../../shared/widgets/bottom_padding.dart';
 import '../../../shared/widgets/favorite_toggle_button.dart';
+import '../../../shared/widgets/image_overlay_control.dart';
 import '../../../shared/widgets/smart_network_image.dart';
 import '../../../shared/utils/hex_color.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -53,6 +55,14 @@ final class WallpaperDetailScreen extends StatefulWidget {
   @override
   State<WallpaperDetailScreen> createState() => _WallpaperDetailScreenState();
 }
+
+/// Square face for the controls drawn on the wallpaper.
+///
+/// The button targets stay 48 dp; only the visible circle grows, so the
+/// controls read as primary actions instead of incidental chips without
+/// changing the touch contract.
+const Size _overlayControlFace = Size.square(48);
+const double _overlayControlGlyph = 26;
 
 final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
   /// Memoized wallpaper-derived scheme; scheme generation is too
@@ -143,8 +153,8 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                 // Stack's default non-positioned layout which can center.
                 Positioned(
                   top: 0,
-                  left: 0,
-                  right: 0,
+                  left: 4,
+                  right: 4,
                   child: SafeArea(
                     bottom: false,
                     child: Padding(
@@ -155,12 +165,15 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                           M3EIconButton(
                             onPressed: widget.onBack,
                             tooltip: 'Back',
-                            variant: M3EIconButtonVariant.tonal,
-                            icon: Icon(
+                            // Sits on the full-bleed wallpaper, not on a
+                            // surface: a translucent scrim keeps contrast
+                            // without a bright chip over the photo.
+                            variant: M3EIconButtonVariant.standard,
+                            decoration: imageOverlayIconButtonDecoration,
+                            visualSize: _overlayControlFace,
+                            icon: const Icon(
                               PhosphorIconsBold.arrowLeft,
-                              size: 22,
-                              color:
-                                  wallpaperTheme.colorScheme.onSurfaceVariant,
+                              size: _overlayControlGlyph,
                             ),
                           ),
                           SignalBuilder(
@@ -169,6 +182,8 @@ final class _WallpaperDetailScreenState extends State<WallpaperDetailScreen> {
                                 wallpaper.id,
                               ),
                               onPressed: () => favorites.toggle(wallpaper),
+                              visualSize: _overlayControlFace,
+                              iconSize: _overlayControlGlyph,
                             ),
                           ),
                         ],

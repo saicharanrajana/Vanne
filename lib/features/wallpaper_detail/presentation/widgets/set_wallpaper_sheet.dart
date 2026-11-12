@@ -1,6 +1,5 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
@@ -228,8 +227,18 @@ final class _SetWallpaperDialogState extends State<SetWallpaperDialog> {
 
 /// One destination choice rendered as a full-width expressive tonal button.
 /// The M3E button owns press motion, disabled de-emphasis, and hit target;
-/// only the inline busy indicator is custom.
+/// while that destination is applying, the whole content row (icon + label) is
+/// replaced by a centred wavy indicator of the same button.
 final class _ChoiceButton extends StatelessWidget {
+  /// Explicit row height, so the busy indicator can be sized from the real
+  /// button height instead of a hard-coded diameter.
+  static const double height = 58;
+
+  /// Fixed wavy-loader size for the pending state. Deliberately not derived
+  /// from [height]: the set actions read better with a slightly smaller ring
+  /// than 60% (58 → 34.8dp) would give.
+  static const double loaderDiameter = 32;
+
   final IconData icon;
   final String label;
   final bool enabled;
@@ -249,28 +258,45 @@ final class _ChoiceButton extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return M3EButton.tonal(
-      size: M3EButtonSize.custom(height: 58),
+      size: M3EButtonSize.custom(height: height),
       decoration: M3EButtonDecoration(
         backgroundColor: WidgetStatePropertyAll(scheme.primary),
       ),
+      // The label is part of the replaced content row while busy, so the
+      // button itself carries the accessible name during the pending state.
+      semanticLabel: busy ? '$label in progress' : null,
       onPressed: enabled ? onTap : null,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (busy)
-            M3EProgressIndicator.circularWavy(size: 22, color: scheme.onPrimary)
-          else
-            Icon(icon, size: 22, color: scheme.onPrimary),
-          const SizedBox(width: AppSpacing.md),
-          Text(
-            label,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: scheme.onPrimary,
-              fontWeight: FontWeight.w600,
+      child: busy
+          ? Center(
+              child: ExcludeSemantics(
+                // Indeterminate: no `value`, so no false "0%" announcement.
+                child: M3EProgressIndicator.circularWavy(
+                  size: loaderDiameter,
+                  color: scheme.onPrimary,
+                ),
+              ),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 22, color: scheme.onPrimary),
+                const SizedBox(width: AppSpacing.md),
+                // The longest label ("Home & Lock Screen") is wider than the
+                // dialog's button at phone widths; letting it flex keeps the
+                // glyph+gap centred instead of overflowing the row.
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: scheme.onPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

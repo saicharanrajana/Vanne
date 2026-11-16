@@ -109,9 +109,10 @@ Future<void> bootstrap() async {
         entry,
         repository,
         // A missing cover is filled from the first wallpaper this actual grid
-        // visit fetches — no cover-only searches from the overview.
-        onCoverAvailable: (url) =>
-            locator<CollectionsController>().ensureCover(entry.id, url),
+        // visit fetches — no cover-only searches from the overview. The same
+        // wallpaper's palette travels with it.
+        onCoverAvailable: (url, colors) => locator<CollectionsController>()
+            .ensureCover(entry.id, coverUrl: url, coverColors: colors),
       ),
     )
     // Detail controllers are per-screen instances; [initial] carries the

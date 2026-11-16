@@ -3,7 +3,38 @@ import 'dart:convert';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../domain/feed_filter.dart';
+import '../../shared/utils/color_display.dart';
 import '../../shared/utils/display_title.dart';
+
+/// Where a saved collection came from.
+///
+/// Bookmarking a tag grid and bookmarking a colour grid both produce a
+/// collection whose shape alone cannot be told apart reliably: an old manual
+/// collection could also be a query with no colours. The origin is therefore
+/// recorded at creation time instead of inferred.
+///
+/// [unknown] is the backward-compatible default for rows written before this
+/// field existed. Those entries are preserved like any other collection but
+/// never treated as tags, because their query may be an arbitrary Wallhaven
+/// search expression (`like:abc123`) rather than a tag.
+enum CollectionOrigin {
+  /// Saved from a tag grid: [CollectionEntry.query] is the tag term.
+  tag,
+
+  /// Saved from a colour grid: [CollectionEntry.colors] holds the hex codes.
+  color,
+
+  /// Legacy row with no recorded origin. Never offered as a tag filter.
+  unknown;
+
+  /// Decodes [raw], falling back to [unknown] for absent or unknown values.
+  static CollectionOrigin fromName(Object? raw) {
+    for (final origin in values) {
+      if (origin.name == raw) return origin;
+    }
+    return unknown;
+  }
+}
 
 /// Locally-persisted collection — a named shortcut to a Wallhaven search.
 ///
@@ -25,6 +56,19 @@ final class CollectionEntry {
   /// [coverUrl] instead.
   final String? coverAsset;
 
+  /// Palette of the wallpaper that supplied [coverUrl], most common colour
+  /// first, as normalized `#RRGGBB` values.
+  ///
+  /// Presentation only: it tints the cover's selection stroke and must never
+  /// be confused with [colors], which is part of the saved search. Empty for
+  /// rows saved before the field existed and for covers that could not be
+  /// sampled.
+  final List<String> coverColors;
+
+  /// Where this collection was saved from. Legacy rows decode as
+  /// [CollectionOrigin.unknown].
+  final CollectionOrigin origin;
+
   final DateTime createdAt;
 
   const CollectionEntry({
@@ -36,23 +80,39 @@ final class CollectionEntry {
     this.colors = const [],
     this.coverUrl,
     this.coverAsset,
+    this.coverColors = const [],
+    this.origin = CollectionOrigin.unknown,
     required this.createdAt,
   });
 
-  /// Returns a copy with cover metadata replaced. A null argument keeps the
-  /// current value; cover updates never clear an existing cover.
-  CollectionEntry copyWith({String? coverUrl, String? coverAsset}) =>
-      CollectionEntry(
-        id: id,
-        name: name,
-        query: query,
-        kinds: kinds,
-        filter: filter,
-        colors: colors,
-        coverUrl: coverUrl ?? this.coverUrl,
-        coverAsset: coverAsset ?? this.coverAsset,
-        createdAt: createdAt,
-      );
+  /// Whether this collection may contribute its [query] as a tag filter.
+  ///
+  /// Only positively classified tag collections qualify. A colour collection
+  /// has no tag term, and a legacy [CollectionOrigin.unknown] row may hold an
+  /// arbitrary search expression, so neither is offered as a tag.
+  bool get isTagCollection =>
+      origin == CollectionOrigin.tag && query.trim().isNotEmpty;
+
+  /// Returns a copy with cover metadata or origin replaced. A null argument
+  /// keeps the current value; cover updates never clear an existing cover.
+  CollectionEntry copyWith({
+    String? coverUrl,
+    String? coverAsset,
+    List<String>? coverColors,
+    CollectionOrigin? origin,
+  }) => CollectionEntry(
+    id: id,
+    name: name,
+    query: query,
+    kinds: kinds,
+    filter: filter,
+    colors: colors,
+    coverUrl: coverUrl ?? this.coverUrl,
+    coverAsset: coverAsset ?? this.coverAsset,
+    coverColors: coverColors ?? this.coverColors,
+    origin: origin ?? this.origin,
+    createdAt: createdAt,
+  );
 
   /// Display name in Pascal casing per word, e.g. `dark minimal` →
   /// `Dark Minimal`. Storage keeps the raw input; only presentation cases.
@@ -73,6 +133,8 @@ final class CollectionEntry {
     'colors': colors,
     if (coverUrl != null) 'coverUrl': coverUrl,
     if (coverAsset != null) 'coverAsset': coverAsset,
+    if (coverColors.isNotEmpty) 'coverColors': coverColors,
+    'origin': origin.name,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -110,6 +172,10 @@ final class CollectionEntry {
     ];
     final coverUrl = json['coverUrl'];
     final coverAsset = json['coverAsset'];
+    final coverColorsRaw = json['coverColors'];
+    final coverColors = ColorDisplay.normalizedPalette(
+      coverColorsRaw is List ? coverColorsRaw.whereType<String>() : const [],
+    );
 
     return CollectionEntry(
       id: json['id'] as String,
@@ -126,6 +192,8 @@ final class CollectionEntry {
       coverAsset: coverAsset is String && coverAsset.isNotEmpty
           ? coverAsset
           : null,
+      coverColors: coverColors,
+      origin: CollectionOrigin.fromName(json['origin']),
       createdAt: json['createdAt'] == null
           ? DateTime.now()
           : DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now(),
@@ -136,9 +204,7 @@ final class CollectionEntry {
 
   static CollectionEntry? decode(String raw) {
     try {
-      return CollectionEntry.fromJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
+      return CollectionEntry.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } on FormatException {
       return null;
     }

@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
+import '../../../core/collections/collection_entry.dart';
 import '../../../core/domain/feed_filter.dart';
 import '../../../core/wallpaper/feed_controller.dart';
 
-/// Owns the dedicated Search experience: typed query + color and genre
-/// chips, submitted explicitly (never per keystroke).
+/// Owns the dedicated Search experience: typed query plus colour and saved-tag
+/// collection filters, submitted explicitly (never per keystroke).
 ///
 /// Reload triggers (submit key, chip taps) pass through one trailing
 /// [Timer]-based debounce so rapid inputs collapse into a single network
@@ -24,8 +25,12 @@ final class SearchController extends FeedController {
   /// Selected dominant-color filters.
   final selectedColors = signal(const <FeedColor>{});
 
-  /// Selected genre chips.
-  final selectedGenres = signal(const <FeedGenre>{});
+  /// Currently applied tag collection, or `null` for none.
+  ///
+  /// Single-select like the colour row. The whole entry is kept so the row can
+  /// match the selected card; [pruneSelectedTag] drops it as soon as its saved
+  /// collection disappears.
+  final selectedTag = signal<CollectionEntry?>(null);
 
   /// Trailing-edge debounce timer; null when no request is pending.
   Timer? _debounce;
@@ -36,7 +41,7 @@ final class SearchController extends FeedController {
     () =>
         _committedQuery.value.isNotEmpty ||
         selectedColors.value.isNotEmpty ||
-        selectedGenres.value.isNotEmpty,
+        selectedTag.value != null,
   );
 
   /// Sort/filter for search results (session-only).
@@ -56,15 +61,15 @@ final class SearchController extends FeedController {
 
   @override
   SearchRequestSpec buildSpec() {
-    // Genre chips append fuzzy terms to the typed query, mirroring how
-    // power users compose Wallhaven searches (`nature minimalist`).
-    final genreTerms = selectedGenres.value
-        .map((genre) => genre.searchTerm)
-        .where((term) => term.isNotEmpty)
-        .join(' ');
+    // A saved tag collection contributes the tag it stands for, composed with
+    // the typed query the same way genre terms used to be.
+    final applied = selectedTag.value;
+    final tagQuery = applied != null && applied.isTagCollection
+        ? applied.query.trim()
+        : '';
     final query = [
       _committedQuery.value,
-      if (genreTerms.isNotEmpty) genreTerms,
+      if (tagQuery.isNotEmpty) tagQuery,
     ].where((part) => part.isNotEmpty).join(' ');
 
     return SearchRequestSpec(
@@ -96,24 +101,43 @@ final class SearchController extends FeedController {
     _debouncedReload();
   }
 
-  /// Toggles a genre chip; single-select: same semantics as [toggleColor].
-  void toggleGenre(FeedGenre genre) {
-    final current = selectedGenres.peek();
-    if (current.contains(genre)) {
-      selectedGenres.set(const {});
+  /// Toggles a tag collection; single-select: tapping a different card
+  /// replaces the applied tag, tapping the selected card clears it.
+  /// Filter changes re-run the search (debounced).
+  void toggleTag(CollectionEntry entry) {
+    final current = selectedTag.peek();
+    if (current?.id == entry.id) {
+      selectedTag.set(null);
     } else {
-      selectedGenres.set({genre});
+      selectedTag.set(entry);
     }
     _debouncedReload();
   }
 
+  /// Drops an applied tag whose collection no longer exists.
+  ///
+  /// Called with the ids currently saved, so a filter can never outlive its
+  /// card: leaving it set would keep changing the results while the By tag row
+  /// has nothing to show or clear. The refresh is immediate rather than
+  /// debounced because losing a collection is a single event, not a burst of
+  /// input. Results reload only while another input (typed query or colour)
+  /// still makes the search non-empty; otherwise the screen returns to its
+  /// pristine state without fetching the generic feed.
+  void pruneSelectedTag(Iterable<String> savedIds) {
+    final current = selectedTag.peek();
+    if (current == null || savedIds.contains(current.id)) return;
+    selectedTag.set(null);
+    if (_committedQuery.peek().isNotEmpty || selectedColors.peek().isNotEmpty) {
+      unawaited(reload());
+    }
+  }
 
   /// Clears every input back to a pristine search state (debounced).
   void clearAll() {
     queryText.set('');
     _committedQuery.set('');
     selectedColors.set(const {});
-    selectedGenres.set(const {});
+    selectedTag.set(null);
     _debouncedReload();
   }
 
@@ -121,9 +145,7 @@ final class SearchController extends FeedController {
   /// trigger cancels the pending timer and restarts the window; only the
   /// trailing edge fetches. Returns immediately; no value is exposed —
   /// callers observe progress via the feed [state].
-  void _debouncedReload([
-    Duration delay = const Duration(milliseconds: 350),
-  ]) {
+  void _debouncedReload([Duration delay = const Duration(milliseconds: 350)]) {
     _debounce?.cancel();
     _debounce = Timer(delay, reload);
   }
@@ -134,7 +156,7 @@ final class SearchController extends FeedController {
     queryText.dispose();
     _committedQuery.dispose();
     selectedColors.dispose();
-    selectedGenres.dispose();
+    selectedTag.dispose();
     hasCommittedInput.dispose();
     filter.dispose();
     super.dispose();

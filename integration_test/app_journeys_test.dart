@@ -82,6 +82,39 @@ void main() {
     expect(find.byType(SearchPage), findsOneWidget);
   });
 
+  appTest('search filter carousels apply a color and a saved tag', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
+    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+
+    // Carousel cards paint inside an IgnorePointer picture layer, so tap the
+    // card's rect the way a finger would.
+    Future<void> tapCard(String key) =>
+        app.tapAt(tester, tester.getRect(find.byKey(ValueKey(key))).center);
+
+    await tapCard('search-color-black');
+    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
+    await pumpUntil(tester, tile('alpha'), reason: 'color results');
+    expect(app.network.searches.last.color, '000000');
+
+    expect(find.text('By tag'), findsOneWidget);
+    await tapCard('search-tag-seed-art');
+    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
+    expect(app.network.searches.last.query, 'art');
+    expect(app.network.searches.last.color, '000000');
+
+    // Tapping the selected tag card again drops the tag, keeping the colour.
+    await tapCard('search-tag-seed-art');
+    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
+    expect(app.network.searches.last.query, isEmpty);
+    expect(app.network.searches.last.color, '000000');
+  });
+
   appTest('save download and open-source reach the platform fakes', (
     tester,
     app,

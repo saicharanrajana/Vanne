@@ -40,6 +40,46 @@ void main() {
     expect(find.byKey(const ValueKey('wallpaper-tile-alpha')), findsOneWidget);
   });
 
+  appTest('the search filter carousels fit a narrow phone at large text', (
+    tester,
+    app,
+  ) async {
+    // The header height is computed from the text scale, so this guards the
+    // arithmetic that keeps both carousel rows inside the sliver.
+    tester.view.physicalSize = const Size(320, 700);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await app.launch(tester);
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('wallpaper-tile-alpha')),
+      reason: 'discover feed',
+    );
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
+    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+    await pumpFrames(tester, 6);
+
+    expect(find.text('By color'), findsOneWidget);
+    expect(find.text('By tag'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no layout overflow');
+
+    // A committed search shows the sort/filter chip too; the tallest header
+    // variant must still fit. Black is the leading card, so it is on screen
+    // without scrolling the row first.
+    await app.tapAt(
+      tester,
+      tester.getRect(find.byKey(const ValueKey('search-color-black'))).center,
+    );
+    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('wallpaper-tile-alpha')),
+      reason: 'color results',
+    );
+    expect(tester.takeException(), isNull, reason: 'no layout overflow');
+  });
+
   appTest('every bottom destination is reachable and labelled', (
     tester,
     app,

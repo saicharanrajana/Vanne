@@ -37,8 +37,22 @@ final class CollectionsController {
 
   Future<void> restore() async {
     final list = await _repo.getAll();
-    final map = <String, CollectionEntry>{for (final e in list) e.id: e};
+    final map = <String, CollectionEntry>{
+      for (final entry in list) entry.id: _classifyCuratedSeed(entry),
+    };
     _entries.value = map;
+  }
+
+  /// Recognises curated seeds persisted before [CollectionOrigin] existed.
+  ///
+  /// Only [curatedSeedIds] qualify, and their queries are tags by
+  /// definition, so this cannot promote an arbitrary legacy saved search. The
+  /// promotion is in-memory: stored rows stay untouched until something else
+  /// rewrites them.
+  static CollectionEntry _classifyCuratedSeed(CollectionEntry entry) {
+    if (entry.origin != CollectionOrigin.unknown) return entry;
+    if (!curatedSeedIds.contains(entry.id)) return entry;
+    return entry.copyWith(origin: CollectionOrigin.tag);
   }
 
   Future<String?> create({
@@ -48,6 +62,8 @@ final class CollectionsController {
     FeedFilter filter = const FeedFilter(),
     List<String> colors = const [],
     String? coverUrl,
+    List<String> coverColors = const [],
+    CollectionOrigin origin = CollectionOrigin.unknown,
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return 'Name required';
@@ -65,6 +81,8 @@ final class CollectionsController {
       filter: filter,
       colors: List.unmodifiable(colors),
       coverUrl: coverUrl,
+      coverColors: List.unmodifiable(coverColors),
+      origin: origin,
       createdAt: now,
     );
     _entries.value = {..._entries.peek(), id: entry};
@@ -81,29 +99,43 @@ final class CollectionsController {
     return 'Failed to save';
   }
 
-  /// Fills a missing cover with the first wallpaper seen for this collection.
+  /// Fills missing cover metadata for [id] from a grid visit.
   ///
-  /// Never replaces an existing cover, and curated seeds keep their bundled
-  /// asset. The update is optimistic and rolled back only when persistence
-  /// fails, so the grid still opens even if storage is unavailable.
-  Future<void> ensureCover(String id, String coverUrl) async {
+  /// The cover itself is only taken when the collection has none, so a
+  /// snapshot never changes underneath the user. A collection that already has
+  /// a cover (including a legacy row saved before palettes existed) still gains
+  /// its missing palette when the visit sees that same cover. Curated seeds keep
+  /// their bundled asset and sampled palette.
+  ///
+  /// Optimistic, rolled back only on persistence failure, so the grid still
+  /// opens when storage is unavailable.
+  Future<void> ensureCover(
+    String id, {
+    required String coverUrl,
+    List<String> coverColors = const [],
+  }) async {
     if (coverUrl.isEmpty) return;
     final current = _entries.peek();
     final entry = current[id];
-    if (entry == null ||
-        entry.coverUrl != null ||
-        entry.coverAsset != null ||
-        seedCoverAssets.containsKey(id)) {
-      return;
-    }
+    if (entry == null || seedCoverAssets.containsKey(id)) return;
 
-    final updated = entry.copyWith(coverUrl: coverUrl);
+    final takesCover = entry.coverUrl == null && entry.coverAsset == null;
+    final takesPalette =
+        entry.coverColors.isEmpty &&
+        coverColors.isNotEmpty &&
+        (takesCover || entry.coverUrl == coverUrl);
+    if (!takesCover && !takesPalette) return;
+
+    final updated = entry.copyWith(
+      coverUrl: takesCover ? coverUrl : null,
+      coverColors: takesPalette ? List.unmodifiable(coverColors) : null,
+    );
     _entries.value = {...current, id: updated};
     var stored = false;
     try {
       stored = await _repo.update(updated);
     } catch (_) {
-      // Storage refused the write; the cover is presentation-only, so the
+      // Storage refused the write; cover metadata is presentation-only, so the
       // fallback card is preferable to surfacing an error on a grid visit.
     }
     if (stored) {
@@ -118,9 +150,8 @@ final class CollectionsController {
     }
 
     final live = _entries.peek();
-    final liveEntry = live[id];
-    if (liveEntry == null || liveEntry.coverUrl != coverUrl) return;
-    _entries.value = {...live, id: _withoutCover(liveEntry)};
+    if (live[id]?.coverUrl != updated.coverUrl) return;
+    _entries.value = {...live, id: entry};
   }
 
   /// Deletes [idsToRemove] optimistically; rolls back and returns `false`
@@ -154,18 +185,6 @@ final class CollectionsController {
       return false;
     }
   }
-
-  static CollectionEntry _withoutCover(CollectionEntry entry) =>
-      CollectionEntry(
-        id: entry.id,
-        name: entry.name,
-        query: entry.query,
-        kinds: entry.kinds,
-        filter: entry.filter,
-        colors: entry.colors,
-        coverAsset: entry.coverAsset,
-        createdAt: entry.createdAt,
-      );
 
   /// Removes one optimistic entry, leaving every other entry untouched.
   void _dropEntry(String id) {

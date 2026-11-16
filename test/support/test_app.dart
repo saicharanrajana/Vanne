@@ -168,11 +168,19 @@ final class TestApp {
       ..registerFactory<SearchController>(
         () => SearchController(locator<WallpaperRepository>()),
       )
-      ..registerFactoryParam<CollectionExploreController, CollectionEntry, void>(
+      ..registerFactoryParam<
+        CollectionExploreController,
+        CollectionEntry,
+        void
+      >(
         (entry, _) => CollectionExploreController(
           entry,
           repository,
-          onCoverAvailable: (url) => collections.ensureCover(entry.id, url),
+          onCoverAvailable: (url, colors) => collections.ensureCover(
+            entry.id,
+            coverUrl: url,
+            coverColors: colors,
+          ),
         ),
       )
       ..registerFactoryParam<WallpaperDetailController, String, Wallpaper?>(
@@ -214,6 +222,18 @@ final class TestApp {
     await tester.pump(const Duration(milliseconds: 350));
   }
 
+  /// A tap at a point rather than on a widget.
+  ///
+  /// Carousel items paint their card inside an `IgnorePointer` picture layer,
+  /// so widget-targeted taps miss them while a real finger (and this helper)
+  /// still reaches the carousel's ink layer.
+  Future<void> tapAt(WidgetTester tester, Offset position) async {
+    await tester.tapAt(position);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+  }
+
   /// A tap that persists through Hive (favorite, settings, collection, API
   /// key, download destination).
   ///
@@ -241,10 +261,7 @@ final class TestApp {
   }
 
   /// Runs arbitrary app interactions in the real zone. Prefer [tap].
-  Future<void> act(
-    WidgetTester tester,
-    Future<void> Function() action,
-  ) async {
+  Future<void> act(WidgetTester tester, Future<void> Function() action) async {
     await tester.runAsync(() async {
       await action();
       await _drain();
@@ -407,9 +424,7 @@ String _visibleTexts(WidgetTester tester) => tester
 const _pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
 
 void _installPathProvider(String root) {
-  TestDefaultBinaryMessengerBinding
-      .instance
-      .defaultBinaryMessenger
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_pathProviderChannel, (call) async {
         if (call.method == 'getTemporaryDirectory') {
           final dir = Directory('$root/tmp')..createSync(recursive: true);
@@ -426,9 +441,7 @@ void _installPathProvider(String root) {
 }
 
 void _clearPathProvider() {
-  TestDefaultBinaryMessengerBinding
-      .instance
-      .defaultBinaryMessenger
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_pathProviderChannel, null);
 }
 

@@ -158,26 +158,3 @@ enum FeedColor {
   /// Display color derived from the wire hex.
   int get colorValue => 0xFF000000 | int.parse(hex, radix: 16);
 }
-
-/// Genre chips offered on the Search screen. Each maps to a fuzzy tag
-/// term; tapping combines with the typed query.
-enum FeedGenre {
-  anime('Anime'),
-  nature('Nature'),
-  art('Art'),
-  abstract('Abstract'),
-  minimal('Minimal'),
-  architecture('Architecture'),
-  dark('Dark');
-
-  final String label;
-
-  const FeedGenre(this.label);
-
-  /// Search term appended to the query when selected.
-  String get searchTerm => switch (this) {
-    FeedGenre.abstract => 'abstract',
-    FeedGenre.minimal => 'minimalist',
-    _ => name,
-  };
-}

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vanne/app/router/app_route.dart';
+import 'package:vanne/core/collections/collection_entry.dart';
 import 'package:vanne/shared/utils/color_display.dart';
 import 'package:vanne/shared/widgets/smart_network_image.dart';
 
@@ -95,6 +96,11 @@ void main() {
       'seed-minimal',
     ]) {
       expect(cover(id), findsOneWidget);
+      expect(
+        app.collections.entries.value.firstWhere((e) => e.id == id).coverColors,
+        isNotEmpty,
+        reason: 'seeded covers carry a palette sampled from the asset',
+      );
     }
     // Creation lives in the tag/color grid's bookmark, not this screen.
     expect(find.text('New collection'), findsNothing);
@@ -156,6 +162,16 @@ void main() {
     expect(entry.coverUrl, 'https://thumbs.test/lg/alpha.jpg');
     expect(app.network.searches.length, searchesBefore);
     expect(entry.coverAsset, isNull);
+    expect(
+      entry.coverColors,
+      ['#123456', '#ABCDEF'],
+      reason: 'the palette travels with the wallpaper that supplied the cover',
+    );
+    expect(
+      entry.origin,
+      CollectionOrigin.tag,
+      reason: 'a tag grid bookmark is recorded as a tag collection',
+    );
 
     // Back to the shell, then into Collections.
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
@@ -177,6 +193,10 @@ void main() {
       (e) => e.id == entry.id,
     );
     expect(afterOpen.coverUrl, 'https://thumbs.test/lg/alpha.jpg');
+    expect(afterOpen.coverColors, [
+      '#123456',
+      '#ABCDEF',
+    ], reason: 'the palette snapshot is as stable as the cover');
 
     await app.restart(tester);
     await app.tap(tester, tab('Collections'));
@@ -189,6 +209,8 @@ void main() {
       (e) => e.id == entry.id,
     );
     expect(restored.coverUrl, 'https://thumbs.test/lg/alpha.jpg');
+    expect(restored.coverColors, ['#123456', '#ABCDEF']);
+    expect(restored.origin, CollectionOrigin.tag);
     expect(cover(entry.id), findsOneWidget);
   });
 
@@ -274,12 +296,112 @@ void main() {
       reason: 'cover filled from the visited grid',
     );
 
-    expect(
-      app.collections.entries.value
-          .firstWhere((e) => e.id == entry.id)
-          .coverUrl,
-      'https://thumbs.test/lg/alpha.jpg',
+    final filled = app.collections.entries.value.firstWhere(
+      (e) => e.id == entry.id,
     );
+    expect(filled.coverUrl, 'https://thumbs.test/lg/alpha.jpg');
+    expect(filled.coverColors, [
+      '#123456',
+      '#ABCDEF',
+    ], reason: 'the palette is captured with the cover it describes');
+  });
+
+  appTest('stored cover palettes normalize at the JSON boundary', (
+    tester,
+    app,
+  ) async {
+    final entry = CollectionEntry.fromJson({
+      'id': 'palette-json',
+      'name': 'palette json',
+      'query': 'palette',
+      'coverColors': [
+        '#abc',
+        '#AABBCC',
+        'not-a-hex',
+        '#123456',
+        '#234567',
+        '#345678',
+        '#456789',
+        '#56789A',
+        '#6789AB',
+      ],
+      'createdAt': '2025-01-01T00:00:00.000',
+    });
+
+    expect(entry.coverColors, [
+      '#AABBCC',
+      '#123456',
+      '#234567',
+      '#345678',
+      '#456789',
+    ]);
+
+    final malformed = CollectionEntry.fromJson({
+      'id': 'palette-json-malformed',
+      'name': 'palette json malformed',
+      'query': 'palette',
+      'coverColors': {'unexpected': 'object'},
+      'createdAt': '2025-01-01T00:00:00.000',
+    });
+    expect(malformed.coverColors, isEmpty);
+  });
+
+  appTest('a legacy cover gains the palette of that same wallpaper', (
+    tester,
+    app,
+  ) async {
+    await openCollections(tester, app);
+    // Two rows saved before palettes existed: one whose cover the next grid
+    // visit will show again, and one whose cover it will not.
+    await app.act(tester, () async {
+      await app.collections.create(
+        name: 'seeing alpha',
+        query: 'seeing',
+        origin: CollectionOrigin.tag,
+        coverUrl: 'https://thumbs.test/small/alpha.jpg',
+      );
+      await app.collections.create(
+        name: 'missing zeta',
+        query: 'missing',
+        origin: CollectionOrigin.tag,
+        coverUrl: 'https://thumbs.test/lg/zeta.jpg',
+      );
+    });
+    CollectionEntry entryNamed(String name) =>
+        app.collections.entries.value.firstWhere((e) => e.name == name);
+
+    app.network.searchHandler = (call) async => searchPageJson(['alpha']);
+    await app.tap(tester, collection('Seeing Alpha'));
+    await pumpUntil(tester, tile('alpha'), reason: 'collection grid');
+    await app.settleUntil(
+      tester,
+      () => entryNamed('seeing alpha').coverColors.isNotEmpty,
+      reason: 'palette attached to the already-saved cover',
+    );
+
+    final seen = entryNamed('seeing alpha');
+    expect(
+      seen.coverUrl,
+      'https://thumbs.test/small/alpha.jpg',
+      reason: 'palette backfill must not replace the saved thumbnail URL',
+    );
+    expect(seen.coverColors, ['#123456', '#ABCDEF']);
+
+    // A different cover was never on screen, so it gets no invented palette.
+    expect(entryNamed('missing zeta').coverColors, isEmpty);
+
+    await app.restart(tester);
+    await app.tap(tester, tab('Collections'));
+    await pumpUntil(
+      tester,
+      collection('Seeing Alpha'),
+      reason: 'restored legacy cover',
+    );
+    final restored = app.collections.entries.value.firstWhere(
+      (e) => e.name == 'seeing alpha',
+    );
+    expect(restored.coverUrl, 'https://thumbs.test/small/alpha.jpg');
+    expect(restored.coverColors, ['#123456', '#ABCDEF']);
   });
 
   appTest('color collections show a readable name, exact hex and contrast', (
@@ -369,6 +491,11 @@ void main() {
       (e) => e.name == '#123456',
     );
     expect(entry.colors, ['#123456']);
+    expect(
+      entry.origin,
+      CollectionOrigin.color,
+      reason: 'a colour grid bookmark is recorded as a colour collection',
+    );
     expect(find.byIcon(PhosphorIconsFill.bookmarkSimple), findsOneWidget);
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
@@ -399,6 +526,7 @@ void main() {
     );
     expect(restored.name, '#123456');
     expect(restored.colors, ['#123456']);
+    expect(restored.origin, CollectionOrigin.color);
     expect(find.text('#123456'), findsOneWidget);
   });
 

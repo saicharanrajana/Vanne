@@ -7,6 +7,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../app/dependencies.dart';
 import '../../../core/collections/collection_entry.dart';
 import '../../../core/wallpaper/wallpaper_repository.dart';
+import '../../../shared/utils/color_display.dart';
 import '../../../shared/utils/display_title.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
@@ -84,12 +85,21 @@ final class _FilteredWallpapersScreenState
   /// The collection cover is the first wallpaper already fetched for this
   /// query. Saving before the first page arrives (or for an empty query)
   /// leaves the cover empty and falls back to a theme card.
-  String? get _coverUrl {
+  Wallpaper? get _coverWallpaper {
     final items = _controller.state.value.items;
-    if (items.isEmpty) return null;
-    final thumbnails = items.first.thumbnails;
-    return thumbnails.large ?? thumbnails.original ?? thumbnails.small;
+    return items.isEmpty ? null : items.first;
   }
+
+  String? get _coverUrl {
+    final thumbnails = _coverWallpaper?.thumbnails;
+    return thumbnails?.large ?? thumbnails?.original ?? thumbnails?.small;
+  }
+
+  /// The cover's palette, taken from the listing entry that supplied the
+  /// cover, so nothing extra is fetched and the two always describe the same
+  /// wallpaper.
+  List<String> get _coverColors =>
+      ColorDisplay.normalizedPalette(_coverWallpaper?.colors ?? const []);
 
   /// Saves or removes this query's collection — a real toggle, not a one-way
   /// promotion. Persistence goes through the repository behind
@@ -124,6 +134,12 @@ final class _FilteredWallpapersScreenState
         colors: widget.colorHexes,
         filter: _controller.filter.value,
         coverUrl: _coverUrl,
+        coverColors: _coverColors,
+        // The origin is recorded here, where we still know which grid the
+        // user bookmarked. Backfills of old rows cannot recover this.
+        origin: widget.colorHexes.isNotEmpty
+            ? CollectionOrigin.color
+            : CollectionOrigin.tag,
       );
       if (!mounted) return;
       if (error != null) {

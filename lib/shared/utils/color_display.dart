@@ -14,12 +14,36 @@ abstract final class ColorDisplay {
   /// Minimum WCAG contrast for both a color card's title and its hex.
   static const double minimumContrast = 4.5;
 
+  /// Minimum contrast for a selection stroke against the card it outlines.
+  ///
+  /// Deliberately well below [minimumContrast]: a stroke only has to be
+  /// noticed against its card, and a text-grade tone turns into glare on dark
+  /// cards and a near-black band on pale ones. This is the usual threshold for
+  /// a non-text boundary, and it is only a floor — the tone targets below
+  /// decide how the stroke actually looks.
+  static const double minimumSelectionContrast = 3.0;
+
   /// Converts Wallhaven's `#rgb` / `#rrggbb` into normalized `#RRGGBB`.
   static String? normalizedHex(String raw) {
     final color = parseHexColor(raw);
     if (color == null) return null;
     final rgb = color.toARGB32() & 0xFFFFFF;
     return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
+
+  /// Normalizes a wallpaper palette into a small list of `#RRGGBB` values.
+  ///
+  /// Unparseable entries are dropped, duplicates collapsed, and the list is
+  /// capped so a cover's palette stays a summary rather than a copy of every
+  /// colour the API returned.
+  static List<String> normalizedPalette(Iterable<String> raw, {int limit = 5}) {
+    final seen = <String>{};
+    for (final value in raw) {
+      final hex = normalizedHex(value);
+      if (hex == null || !seen.add(hex)) continue;
+      if (seen.length == limit) break;
+    }
+    return List.unmodifiable(seen);
   }
 
   /// A friendly name for an arbitrary hex color, or `null` when unparseable.
@@ -79,6 +103,47 @@ abstract final class ColorDisplay {
     return contrastRatio(white, opaque) >= contrastRatio(black, opaque)
         ? white
         : black;
+  }
+
+  /// A selection stroke for a card painted in [background].
+  ///
+  /// The stroke keeps the swatch's own hue, lightly desaturated, so it reads
+  /// as belonging to the card rather than as a foreign accent. Its direction
+  /// follows the card — a pale stroke on dark cards, a deep one on light cards
+  /// — because a stroke can only separate from the fill it sits on.
+  ///
+  /// [brightness] then decides how far the stroke travels, which is what keeps
+  /// the two themes looking alike: light mode wants a brighter pale and a
+  /// softer deep (a fixed deep target turned yellow and green into near-black
+  /// bands), while dark mode wants a deeper deep and needs no change to its
+  /// pale stroke. [minimumSelectionContrast] is only a floor that pushes a
+  /// too-subtle stroke further out; it never pulls one back.
+  ///
+  /// The stroke flips from pale to deep somewhere near the middle of the tone
+  /// range. That cliff is intentional: between a lighter and a darker stroke
+  /// there is nothing to see, so a mid-tone card can only be outlined by
+  /// committing to one side.
+  static Color selectionColorFor(
+    Color background, {
+    Brightness brightness = Brightness.light,
+  }) {
+    final opaque = Color(0xFF000000 | (background.toARGB32() & 0xFFFFFF));
+    final hct = Hct.fromInt(opaque.toARGB32());
+    final paleStroke = hct.tone <= 60;
+    final chroma = math.min(hct.chroma * 0.6, 48.0);
+    final dark = brightness == Brightness.dark;
+    var tone = paleStroke ? (dark ? 74.0 : 90.0) : (dark ? 17.0 : 42.0);
+    var candidate = Hct.from(hct.hue, chroma, tone).toInt();
+
+    while (contrastRatio(Color(candidate), opaque) < minimumSelectionContrast) {
+      final next = paleStroke
+          ? math.min(tone + 2, 100.0)
+          : math.max(tone - 2, 0.0);
+      if (next == tone) break;
+      tone = next;
+      candidate = Hct.from(hct.hue, chroma, tone).toInt();
+    }
+    return Color(candidate);
   }
 
   /// WCAG 2.1 relative-luminance contrast ratio.

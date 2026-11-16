@@ -37,8 +37,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  material_3_expressive: ^1.1.0
-  material_ui: ^1.1.0
+  material_3_expressive: ^1.2.1
+  material_ui: ^1.11.0
   collection: ^1.19.1
   # Motion tokens are also transitive through material_3_expressive; keep a
   # direct dependency because app/theme/app_motion.dart imports them.

@@ -58,7 +58,8 @@ Outfit is a bundled variable font (`assets/fonts/`), so no text waits on a
 network font fetch and `google_fonts` is not used at runtime.
 
 `bootstrap()` initializes Hive, opens the settings/favorites/collections
-stores, seeds the built-in collections on first install, constructs the
+stores, reconciles the curated collections against storage on every launch
+(see [Local persistence](#local-persistence)), constructs the
 `WallpaperRepository`, and restores the API key before registering services.
 `get_it` is the application service locator.
 
@@ -87,18 +88,49 @@ The root stack contains:
   tab routes.
 - Full-screen Search, collection exploration, wallpaper detail, filtered
   wallpapers, API-key settings, and blocked-tags routes.
-- Page-backed modal routes for remove collections, remove API key, set
-  wallpaper, and the feed-filter sheet.
+- Page-backed modal routes for remove API key, set wallpaper, and the
+  feed-filter sheet.
 
 The shell keeps the four tab destinations alive, preserving their widget and
 scroll state. The app-level `TabScrollCoordinator` owns one scroll controller
 per tab; reselecting the active navigation destination scrolls that tab to the
-top. Back from a non-Discover tab first switches to Discover instead of
-leaving the app — except on Collections, where a multi-select is active: back
-clears that transient selection and stays put, and only the next back follows
-the tab policy. That policy lives in one place, the shell's `PopScope`, so the
-tab router deliberately has no `homeIndex` (an owning tab router would jump to
-its home tab before the shell could cancel the selection).
+top. Back from a non-Discover tab switches to Discover instead of leaving the
+app. That policy lives in one place, the shell's `PopScope`, so the tab router
+deliberately has no `homeIndex` (an owning tab router would jump to its home tab
+before the shell could apply it).
+
+Navigation itself is a bottom-centred floating `M3EToolbar`
+(`lib/app/router/shell_navigation.dart`) hosting four destinations. The toolbar
+container comes from the design system; the contents are app-owned because M3E
+animates each action's own selected state and has no single indicator that can
+travel between actions. One shared indicator is the selected slot's rectangle:
+slot widths, the indicator's bounds and the selected label's fade all derive
+from one controller, so the pill can never drift off the destination it marks
+and each destination paints exactly one glyph. The selected slot widens to show
+its destination's label; the others stay icon-only. Switching is tap-only:
+there is no horizontal swipe recognizer, so page motion never competes with a
+screen's own gestures.
+
+The bar floats over a full-height body. `ShellNavigationToolbar.screenOffset`
+is passed to `M3EToolbar.screenOffset`, so the gap below it is one system inset
+plus one deliberate margin, counted once. The shell's Scaffold reserves an
+invisible `bottomNavigationBar` of `ShellNavigationToolbar.scrollClearance`
+with `extendBody: true`: the body still runs behind the bar, while floating
+snackbars are placed above the navigation instead of covering it, and
+`BottomPaddingScope` gives scrollable destinations the same clearance at the end
+of their lists.
+
+Destination changes pan like a page view (`ShellTabTransition`) driven by
+`AppMotion.tabTransition` and `AppMotion.tabTransitionCurve`: both pages travel
+a full viewport width, tile the screen along one shared edge and stay opaque,
+so a jump such as Discover → Settings never paints the destinations in between
+or loads their feeds. To make that possible
+the shell builds on `AutoTabsRouter.builder` and owns the destination stack
+itself: a destination is built on first view, then stays in the tree behind
+`Offstage` so its controllers, scroll positions and filters survive. The
+wrapper chain around each destination never changes shape, so starting or
+ending a transition cannot remount a page. Reduced-motion settings collapse the
+transition to an instant switch.
 
 Route arguments are typed. Wallpaper detail accepts an optional listing
 wallpaper so a tile can transition immediately through a Hero; a cold deep
@@ -120,12 +152,24 @@ that route is removed:
 - Wallpaper detail creates its controller in route `initState` and disposes it
   in route `dispose`.
 
-Collections are saved only from the bookmark in a filtered tag/color grid;
-the Collections tab has no manual create action. When the bookmark is
-tapped after results arrive, the first already-fetched thumbnail is persisted
-as a stable cover. Reopening a collection, changing its sort, or retrying does
-not replace that snapshot. Legacy entries without a cover may be filled once
-from a successful grid visit, while curated seeds keep their bundled asset.
+Collections are created and removed from the browsing screen they belong to:
+the app bar of a filtered tag/color grid (and of a saved collection) carries a
+single `+ Add` / `✓ Added` control. Both states share one footprint, so the
+verb changes without moving anything around it. Tapping `Added` removes that
+exact saved search and leaves the browsing page — its results and scroll
+position — in place. The Collections tab has no create action and no
+multi-select: a card tap opens the collection, and a long-press drag (or the
+card's corner menu) reorders the grid.
+
+The four curated collections (Art, Nature, Abstract, Minimal) are permanent.
+They are not shown with a disabled toggle; their screens simply have none.
+Permanence is enforced where rows are written, not only by hiding the control.
+They are ordinary rows otherwise, so they can be reordered anywhere in the
+grid. When `Added` is tapped after results arrive, the first already-fetched
+thumbnail is persisted as a stable cover. Reopening a collection, changing its
+sort, or retrying does not replace that snapshot. Legacy entries without a
+cover may be filled once from a successful grid visit, while curated seeds keep
+their bundled asset.
 
 ## State management
 
@@ -151,7 +195,7 @@ uncontained `M3ECarousel`s of 120×104 cards with a 6dp gap: the widget owns the
 edge shrink, the drag-to-snap scrolling, the item labels and the light tap
 haptic, so the rows contain no custom scroll or text-placement code. `By color`
 keeps the ten Wallhaven search colours, and `By tag` lists the saved **tag**
-collections so a bookmark becomes a one-tap filter. Colour and tag are
+collections so a saved tag becomes a one-tap filter. Colour and tag are
 single-select, and a tag contributes its query to the committed query the same
 way a typed term would (the collection's own sort/filter is not applied). A
 selected card draws a 4dp stroke on its own rounded edge and keeps its size,
@@ -166,7 +210,7 @@ stroke outwards. A tag card with no palette falls back to the theme's neutral
 outline.
 
 Which collections count as tags is recorded, not inferred: `CollectionEntry`
-persists a `CollectionOrigin` (`tag`, `color`, or `unknown`). The bookmark flow
+persists a `CollectionOrigin` (`tag`, `color`, or `unknown`). The `+ Add` flow
 sets it from the grid the user saved, curated seeds are `tag`, and rows written
 before the field existed stay `unknown`. An `unknown` row is preserved like any
 other collection but never offered as a tag, because its query may be an
@@ -192,14 +236,15 @@ only. Search, collection exploration, and filtered feeds keep their sort/filter
 Favorites and collections update their signals optimistically, persist the
 change, and roll back on persistence failure. Grid tiles subscribe only to the
 favorite-ID membership signal, so a favorite tap does not rebuild the entire
-grid. Collection cards subscribe only to the relevant selection membership.
+grid. Collection cards read their own row and the persisted order, so a
+reorder rebuilds the grid without touching collection contents.
 
 Collection cards render the exact saved hex as a color background, with a
 hue-related foreground adjusted until both title and hex reach 4.5:1 contrast.
 Image-backed cards use light text over a fixed central scrim instead of
 sampling the wallpaper. Color names are presentation-only: they come from a
 small offline palette by perceptual nearest match, while the stored hex keeps
-bookmark identity unchanged.
+saved-search identity unchanged.
 
 All controllers guard signal writes after disposal. Detail downloads use a
 cancel token tied to the screen lifetime, while feed reload generations prevent
@@ -207,7 +252,7 @@ stale network results from corrupting current state.
 
 ## Local persistence
 
-Hive CE stores non-secret app data in three boxes:
+Hive CE stores non-secret app data in four boxes:
 
 - `app_settings`: dynamic color, pitch-black mode, theme mode, NSFW
   preference, and normalized blocked tags.
@@ -217,15 +262,33 @@ Hive CE stores non-secret app data in three boxes:
   even when Wallhaven removes the wallpaper.
 - `collections`: JSON-encoded `CollectionEntry` values keyed by collection ID.
   An entry stores its display name, query, categories, colors, feed filter,
-  optional wallpaper-cover snapshot, and creation date. Four curated
-  collections (Art, Nature, Abstract, Minimal) are inserted when the store is
-  empty on first bootstrap; their bundled square covers are declared in
-  `pubspec.yaml` and credited in `docs/collection-covers.md`.
+  optional wallpaper-cover snapshot, and creation date.
+- `collection_order`: the user's display order as one list of collection IDs.
+  Order lives outside the rows so an older build can still read them, and so
+  either side can be repaired from the other after a crash between writes.
+  `CollectionOrder.resolve` is the single repair step and runs on every
+  restore: stored IDs that no longer exist are dropped, duplicates keep their
+  first position, rows the order does not mention are appended in creation
+  order (id breaks a same-microsecond tie), and an install that has never
+  written an order - fresh, or upgraded from the creation-date sort - falls
+  back to creation order. The result always holds every stored row exactly
+  once, so the grid can trust it as authoritative.
+
+Every bootstrap reconciles instead of seeding once: the curated collections
+(Art, Nature, Abstract, Minimal) are identified by stable ID and re-inserted if
+missing — including on an install where they were deleted under the old
+"delete everything" model — while existing rows, covers, and the chosen order
+are preserved. Their bundled square covers are declared in `pubspec.yaml` and
+credited in `docs/collection-covers.md`. New collections append to the end of
+the stored order; the resolution step drops stale IDs and appends rows the
+order does not yet mention.
 
 Favorites and collections use `compute` for JSON work. Restore is batched where
 possible and malformed snapshots are skipped rather than preventing all local
-content from loading. Collection deletion and favorite toggles are optimistic
-and recover from write failures.
+content from loading. Collection add, remove, reorder, and favorite toggles are
+optimistic and recover from write failures; mutations are queued so an
+in-flight cover write cannot resurrect a removed collection, and a stale
+reorder cannot overwrite a newer one.
 
 The API key is deliberately absent from Hive. It is handled only by
 `SecureApiKeyStore` and `ApiKeyManager` below.

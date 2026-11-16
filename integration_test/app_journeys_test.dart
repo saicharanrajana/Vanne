@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:system_wallpaper/system_wallpaper.dart';
 import 'package:vanne/app/router/app_route.dart';
+import 'package:vanne/shared/widgets/collection_membership_button.dart';
 
 import '../test/support/test_app.dart';
 
@@ -21,6 +22,55 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   Finder tile(String id) => find.byKey(ValueKey('wallpaper-tile-$id'));
+
+  /// Shell destination slot in the floating toolbar (harness-owned selector).
+  Finder destination(String slug) => shellDestination(slug);
+
+  /// The Add/Added control in a browsing page's app bar.
+  Finder membershipButton() => find.byType(CollectionMembershipButton);
+
+  /// The *visible* verb of the control. The widget keeps opacity-0 copies of
+  /// both labels to reserve the wider slot, so state is read from the switch
+  /// key rather than from raw text.
+  Finder membershipVerb(String verb) =>
+      find.byKey(ValueKey('collection-membership-label-$verb'));
+
+  /// Taps a destination and lets the page transition and its spring settle.
+  Future<void> goTo(WidgetTester tester, TestApp app, String slug) async {
+    await app.tap(tester, destination(slug));
+    await pumpFrames(tester, 24, const Duration(milliseconds: 16));
+  }
+
+  /// Opens a wallpaper's tag grid, like a user browsing from Discover.
+  Future<void> openTagGrid(WidgetTester tester, TestApp app) async {
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+    await app.tap(tester, tile('alpha'));
+    await pumpUntil(
+      tester,
+      find.byType(WallpaperDetailPage),
+      reason: 'detail page',
+    );
+    await pumpUntil(
+      tester,
+      find.text('fixture-user'),
+      reason: 'detail metadata loaded',
+    );
+    final tag = find.text('landscape').first;
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -300),
+    );
+    await pumpFrames(tester, 8, const Duration(milliseconds: 100));
+    await tester.ensureVisible(tag);
+    await pumpFrames(tester, 4);
+    await app.tap(tester, tag);
+    await pumpUntil(
+      tester,
+      find.byType(FilteredWallpapersPage),
+      reason: 'tag grid',
+    );
+    await pumpUntil(tester, tile('alpha'), reason: 'tag results');
+  }
 
   appTest('discover → detail → favorite → favorites → unfavorite', (
     tester,
@@ -44,7 +94,7 @@ void main() {
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
     await pumpFrames(tester, 8);
-    await app.tap(tester, find.text('Favorites').first);
+    await goTo(tester, app, 'favorites');
     await pumpUntil(tester, tile('alpha'), reason: 'favorite in Favorites tab');
 
     await app.persistTap(
@@ -64,7 +114,6 @@ void main() {
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
-
     await app.enterText(tester, find.byType(EditableText), 'nature');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await pumpFrames(tester, 12, const Duration(milliseconds: 50));
@@ -91,6 +140,11 @@ void main() {
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('search-color-black')),
+      reason: 'search color carousel is laid out',
+    );
 
     // Carousel cards paint inside an IgnorePointer picture layer, so tap the
     // card's rect the way a finger would.
@@ -170,14 +224,14 @@ void main() {
     );
   });
 
-  appTest('collections show bundled covers and bookmark a tag grid', (
+  appTest('shipped collections render and a tag grid can be added and removed', (
     tester,
     app,
   ) async {
     await app.launch(tester);
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
-    await app.tap(tester, find.text('Collections').first);
+    await goTo(tester, app, 'collections');
     await pumpUntil(tester, find.text('Art'), reason: 'seeded collections');
     expect(find.text('Nature'), findsOneWidget);
     expect(find.text('Abstract'), findsOneWidget);
@@ -187,85 +241,78 @@ void main() {
       findsOneWidget,
     );
 
-    // Open a wallpaper detail, then a tag grid, like a user browsing.
-    await app.tap(tester, find.text('Discover').first);
-    await pumpUntil(tester, tile('alpha'), reason: 'back on discover');
-    await app.tap(tester, tile('alpha'));
-    await pumpUntil(
-      tester,
-      find.byType(WallpaperDetailPage),
-      reason: 'detail page',
-    );
-    await pumpUntil(
-      tester,
-      find.text('fixture-user'),
-      reason: 'detail metadata loaded',
-    );
-    final tag = find.text('landscape').first;
-    await tester.drag(
-      find.byType(CustomScrollView).last,
-      const Offset(0, -300),
-    );
-    await pumpFrames(tester, 8, const Duration(milliseconds: 100));
-    await tester.ensureVisible(tag);
-    await pumpFrames(tester, 4);
-    await app.tap(tester, tag);
-    await pumpUntil(
-      tester,
-      find.byType(FilteredWallpapersPage),
-      reason: 'tag grid',
-    );
-    await pumpUntil(tester, tile('alpha'), reason: 'tag results');
+    // A shipped collection is permanent: its browsing page offers no
+    // add/remove control at all.
+    await app.tap(tester, find.text('Art'));
+    await pumpUntil(tester, tile('alpha'), reason: 'shipped collection feed');
+    expect(membershipButton(), findsNothing);
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
+    await pumpFrames(tester, 10);
 
-    await app.persistTap(
-      tester,
-      find.byIcon(PhosphorIconsBold.bookmarkSimple).first,
-    );
+    // Open a wallpaper detail, then a tag grid, like a user browsing.
+    await goTo(tester, app, 'discover');
+    await openTagGrid(tester, app);
+    expect(membershipButton(), findsOneWidget);
+    expect(membershipVerb('Add'), findsOneWidget);
+    expect(membershipVerb('Added'), findsNothing);
+
+    // Add: the control fills in, and the grid stays where it is.
+    await app.persistTap(tester, membershipButton());
     await app.settleUntil(
       tester,
       () => app.collections.entries.value.any((e) => e.name == 'Landscape'),
-      reason: 'bookmarked collection persisted',
+      reason: 'collection persisted',
     );
+    await pumpFrames(tester, 8);
+    expect(find.byType(FilteredWallpapersPage), findsOneWidget);
+    expect(tile('alpha'), findsOneWidget);
+    expect(membershipVerb('Added'), findsOneWidget);
+    expect(membershipVerb('Add'), findsNothing);
+
     final entry = app.collections.entries.value.firstWhere(
       (e) => e.name == 'Landscape',
     );
     expect(entry.coverUrl, isNotNull);
 
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
-    await app.tap(tester, find.text('Collections').first);
-    await pumpUntil(tester, find.text('Landscape'), reason: 'saved card');
-    expect(
-      find.byKey(ValueKey('collection-cover-${entry.id}')),
-      findsOneWidget,
+    // Remove: same page, back to the outlined starting point.
+    await app.persistTap(tester, membershipButton());
+    await app.settleUntil(
+      tester,
+      () => !app.collections.entries.value.any(
+        (e) => e.id == entry.id,
+      ),
+      reason: 'collection removed',
     );
+    await pumpFrames(tester, 8);
+    expect(find.byType(FilteredWallpapersPage), findsOneWidget);
+    expect(tile('alpha'), findsOneWidget);
+    expect(membershipVerb('Add'), findsOneWidget);
+    expect(membershipVerb('Added'), findsNothing);
+
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
+    await pumpFrames(tester, 8);
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
+    await pumpFrames(tester, 8);
+    await goTo(tester, app, 'collections');
+    await pumpUntil(tester, find.text('Art'), reason: 'collections again');
+    expect(find.text('Landscape'), findsNothing);
   });
 
-  appTest('system back cancels a collections selection first', (
+  appTest('system back from a secondary destination returns to Discover', (
     tester,
     app,
   ) async {
     await app.launch(tester);
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
-    await app.tap(tester, find.text('Collections').first);
-    await pumpUntil(tester, find.text('Art'), reason: 'seeded collections');
+    await goTo(tester, app, 'settings');
+    await pumpUntil(tester, find.text('Appearance'), reason: 'settings');
 
-    await tester.longPress(find.text('Nature'));
-    await pumpFrames(tester, 6);
-    expect(find.byIcon(PhosphorIconsFill.trash), findsOneWidget);
-
-    // The platform back route must clear the selection on a real engine.
+    // The platform back route must land on the home destination on a real
+    // engine, not just in the host test binding.
     await app.act(tester, () => tester.binding.handlePopRoute());
-    await pumpFrames(tester, 10);
-    expect(find.byIcon(PhosphorIconsFill.trash), findsNothing);
-    expect(find.text('Nature'), findsOneWidget);
-
-    // Only the next back follows the usual tab policy.
-    await app.act(tester, () => tester.binding.handlePopRoute());
-    await pumpFrames(tester, 10);
+    await pumpFrames(tester, 24, const Duration(milliseconds: 16));
     await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
+    expect(find.text('Appearance'), findsNothing);
   });
 }

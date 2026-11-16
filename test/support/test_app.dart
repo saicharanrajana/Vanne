@@ -109,7 +109,9 @@ final class TestApp {
     await favoritesRepository.open();
     collectionsRepository = CollectionsRepository();
     await collectionsRepository.open();
-    await seedCollectionsOnce(settingsStore, collectionsRepository);
+    // Startup repairs curated collections and their order before any screen
+    // reads them, exactly like `bootstrap()`.
+    await reconcileCollections(collectionsRepository);
 
     repository = WallpaperRepository(
       client: WallhavenClient(
@@ -454,6 +456,13 @@ Future<void> loadAppFonts() async {
   loader.addFont(rootBundle.load('assets/fonts/Outfit-Variable.ttf'));
   await loader.load();
 }
+
+/// Finder for one destination slot in the shell's floating navigation toolbar.
+///
+/// The toolbar is icon-first, so a destination is located by its stable slot
+/// key instead of a visible label: `shellDestination('favorites')`. The same
+/// slot carries the destination's tooltip and screen-reader name.
+Finder shellDestination(String slug) => find.byKey(ValueKey('nav-$slug'));
 
 /// Registers a [TestApp] for a widget test and guarantees teardown.
 ///

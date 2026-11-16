@@ -15,16 +15,15 @@ import '../support/test_app.dart';
 /// a choice survives a restart, and a security-relevant choice cannot be
 /// silently lost or half-applied.
 void main() {
-  Finder tabLabel(String label) => find.descendant(
-    of: find.byType(M3ENavigationBar),
-    matching: find.text(label),
-  );
+  /// The shell's floating toolbar is icon-first: destinations are located by
+  /// their stable slot keys, not by a visible word.
+  Finder tabLabel(String slug) => shellDestination(slug);
 
   Finder backButton() => find.byIcon(PhosphorIconsBold.arrowLeft);
 
   /// Opens the Settings destination and waits for its first section.
   Future<void> openSettings(WidgetTester tester) async {
-    await tester.tap(tabLabel('Settings'));
+    await tester.tap(tabLabel('settings'));
     await pumpFrames(tester, 6);
     await pumpUntil(tester, find.text('Appearance'), reason: 'settings screen');
   }
@@ -230,15 +229,15 @@ void main() {
     // Exclusions apply to the next request, not only after a restart.
     await app.tap(tester, backButton());
     await pumpFrames(tester, 8);
-    await app.tap(tester, tabLabel('Discover'));
+    await app.tap(tester, tabLabel('discover'));
     await pumpFrames(tester, 8);
+    final semantics = tester.ensureSemantics();
     expect(
-      tester
-          .widget<M3ENavigationBar>(find.byType(M3ENavigationBar))
-          .selectedIndex,
-      0,
-      reason: 'Discover becomes the active tab',
+      tester.getSemantics(tabLabel('discover')),
+      isSemantics(isSelected: true),
+      reason: 'Discover becomes the active destination',
     );
+    semantics.dispose();
     await app.tap(tester, find.byType(M3ESearchBar).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'Search page');
     // The expressive search bar edits through EditableText, not TextField.

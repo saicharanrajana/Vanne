@@ -59,4 +59,19 @@ abstract final class AppMotion {
   /// Curve paired with [transition] for content that should arrive
   /// decisively (emphasized decelerate).
   static const Curve arrivalCurve = Cubic(0.05, 0.7, 0.1, 1.0);
+
+  // --- Primary destination changes ----------------------------------------
+
+  /// Page-view style pan between the four primary destinations.
+  ///
+  /// Long enough to read as a page turn, short enough not to feel like a
+  /// wait; the travelling selection pill uses the same duration so both
+  /// movements resolve together.
+  static const Duration tabTransition = Duration(milliseconds: 320);
+
+  /// Curve for the destination pan and the pill's travel.
+  ///
+  /// Emphasized decelerate: the pages leave and arrive decisively, with the
+  /// long tail that makes a full-width pan read as a page rather than a jolt.
+  static const Curve tabTransitionCurve = Cubic(0.2, 0.0, 0.0, 1.0);
 }

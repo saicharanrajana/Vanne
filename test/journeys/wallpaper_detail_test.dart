@@ -140,7 +140,7 @@ void main() {
 
     await app.tap(tester, back);
     await pumpFrames(tester, 8);
-    await app.tap(tester, find.text('Favorites').first);
+    await app.tap(tester, shellDestination('favorites'));
     await pumpUntil(tester, tile('alpha'), reason: 'favorite in Favorites tab');
   });
 

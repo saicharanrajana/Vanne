@@ -115,54 +115,6 @@ class CollectionsTabRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [DeleteCollectionsDialogPage]
-class DeleteCollectionsDialogRoute
-    extends PageRouteInfo<DeleteCollectionsDialogRouteArgs> {
-  DeleteCollectionsDialogRoute({
-    required int count,
-    Key? key,
-    List<PageRouteInfo>? children,
-  }) : super(
-         DeleteCollectionsDialogRoute.name,
-         args: DeleteCollectionsDialogRouteArgs(count: count, key: key),
-         initialChildren: children,
-       );
-
-  static const String name = 'DeleteCollectionsDialogRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<DeleteCollectionsDialogRouteArgs>();
-      return DeleteCollectionsDialogPage(count: args.count, key: args.key);
-    },
-  );
-}
-
-class DeleteCollectionsDialogRouteArgs {
-  const DeleteCollectionsDialogRouteArgs({required this.count, this.key});
-
-  final int count;
-
-  final Key? key;
-
-  @override
-  String toString() {
-    return 'DeleteCollectionsDialogRouteArgs{count: $count, key: $key}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! DeleteCollectionsDialogRouteArgs) return false;
-    return count == other.count && key == other.key;
-  }
-
-  @override
-  int get hashCode => count.hashCode ^ key.hashCode;
-}
-
-/// generated route for
 /// [DiscoverTabPage]
 class DiscoverTabRoute extends PageRouteInfo<void> {
   const DiscoverTabRoute({List<PageRouteInfo>? children})

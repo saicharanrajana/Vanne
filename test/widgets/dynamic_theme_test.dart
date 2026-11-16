@@ -103,7 +103,7 @@ void main() {
       reason: 'discover feed',
     );
 
-    await app.tap(tester, find.text('Settings').first);
+    await app.tap(tester, shellDestination('settings'));
     await pumpFrames(tester, 8);
     await app.persistTap(tester, find.text('Dark'));
     await pumpFrames(tester, 8);
@@ -130,7 +130,7 @@ void main() {
       find.byKey(const ValueKey('wallpaper-tile-alpha')),
       reason: 'discover feed',
     );
-    await app.tap(tester, find.text('Settings').first);
+    await app.tap(tester, shellDestination('settings'));
     await pumpFrames(tester, 8);
 
     await app.persistTap(tester, find.text('Pitch black mode'));
@@ -147,7 +147,7 @@ void main() {
       find.byKey(const ValueKey('wallpaper-tile-alpha')),
       reason: 'discover after restart',
     );
-    await app.tap(tester, find.text('Settings').first);
+    await app.tap(tester, shellDestination('settings'));
     await pumpFrames(tester, 8);
 
     expect(app.settings.pitchBlack.value, isTrue);
@@ -173,7 +173,7 @@ void main() {
 
     // Open Settings and scroll it so navigation + scroll state can be
     // checked after the palette changes.
-    await app.tap(tester, find.text('Settings').first);
+    await app.tap(tester, shellDestination('settings'));
     await pumpFrames(tester, 8);
     expect(find.text('Appearance'), findsOneWidget);
     app.tabs.settings.jumpTo(60);
@@ -274,7 +274,7 @@ void main() {
       find.byKey(const ValueKey('wallpaper-tile-alpha')),
       reason: 'discover feed',
     );
-    await app.tap(tester, find.text('Settings').first);
+    await app.tap(tester, shellDestination('settings'));
     await pumpFrames(tester, 8);
     await app.persistTap(tester, find.text('Use dynamic color'));
     expect(app.settings.dynamicColor.value, isFalse);

@@ -2,11 +2,9 @@ import 'package:auto_route/auto_route.dart';
 import 'package:collection/collection.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../dependencies.dart';
-import '../../features/collections/application/collections_controller.dart';
 import '../../features/collections/presentation/collection_explore_screen.dart';
 import '../../features/collections/presentation/collections_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
@@ -20,8 +18,10 @@ import '../../features/wallpaper_detail/application/wallpaper_detail_controller.
 import '../../features/wallpaper_detail/presentation/wallpaper_detail_screen.dart';
 import '../../features/wallpaper_detail/presentation/widgets/set_wallpaper_sheet.dart';
 import '../../core/domain/feed_filter.dart';
+import '../../shared/widgets/bottom_padding.dart';
 import '../../shared/widgets/feed_filter_sheet.dart';
 import '../../shared/widgets/spring_sheet.dart';
+import 'shell_navigation.dart';
 import 'tab_scroll_coordinator.dart';
 
 part 'app_route.gr.dart';
@@ -72,13 +72,6 @@ final class AppRouter extends RootStackRouter {
     AutoRoute(page: FilteredWallpapersRoute.page, path: '/filtered'),
     AutoRoute(page: ApiKeySettingsRoute.page, path: '/settings/api-key'),
     AutoRoute(page: BlockedTagsRoute.page, path: '/settings/blocked-tags'),
-    CustomRoute(
-      page: DeleteCollectionsDialogRoute.page,
-      path: '/_modal/delete-collections',
-      opaque: false,
-      barrierDismissible: true,
-      customRouteBuilder: m3eDialogRouteBuilder,
-    ),
     CustomRoute(
       page: RemoveApiKeyDialogRoute.page,
       path: '/_modal/remove-api-key',
@@ -168,7 +161,6 @@ Route<T> springSheetRouteBuilder<T>(
 /// Destinations in [MainShellPage]'s tab router. The shell's back policy and
 /// the route list must agree on these positions.
 const _discoverTabIndex = 0;
-const _collectionsTabIndex = 1;
 
 @RoutePage()
 final class MainShellPage extends StatelessWidget {
@@ -176,81 +168,68 @@ final class MainShellPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AutoTabsRouter(
+    // `AutoTabsRouter.builder` hands over every destination's navigator, which
+    // is what the shared-axis transition needs: only the pair the user moved
+    // between is laid out and animated, and every other destination keeps its
+    // widgets (feeds, filters, scroll offsets) alive but offstage.
+    return AutoTabsRouter.builder(
       // No `homeIndex`: a tab router that owns a home index consumes system
       // back itself (`TabsRouter.maybePop` jumps straight to its home tab)
       // before the shell's PopScope can see it. Leaving back to bubble keeps
-      // the whole policy — cancel a collections selection, then switch to
-      // Discover — in this one place.
+      // the whole policy — switch to Discover — in this one place.
       routes: const [
         DiscoverTabRoute(),
         CollectionsTabRoute(),
         FavoritesTabRoute(),
         SettingsTabRoute(),
       ],
-      builder: (context, child) {
-        final tabsRouter = AutoTabsRouter.of(context);
-        return ListenableBuilder(
-          listenable: tabsRouter,
-          builder: (context, _) => PopScope<void>(
-            // The shell is the root page, so the nested tabs router must
-            // consume back before the system is allowed to leave the app.
-            canPop: tabsRouter.activeIndex == _discoverTabIndex,
-            onPopInvokedWithResult: (didPop, _) {
-              if (didPop || tabsRouter.activeIndex == _discoverTabIndex) {
-                return;
-              }
-              // Transient state outranks destination switching: while
-              // collections are selected, back only cancels that selection
-              // and leaves the user on the Collections tab. A later back then
-              // follows the usual tab policy. The nested tab navigator cannot
-              // own this: its own PopScope never sees the system's back
-              // request, because the shell is the root navigator's top route.
-              if (tabsRouter.activeIndex == _collectionsTabIndex &&
-                  locator<CollectionsController>().hasSelection.value) {
-                locator<CollectionsController>().clearSelection();
-                return;
-              }
-              tabsRouter.setActiveIndex(_discoverTabIndex);
-            },
+      builder: (context, children, tabsRouter) {
+        return PopScope<void>(
+          // The shell is the root page, so the nested tabs router must consume
+          // back before the system is allowed to leave the app.
+          canPop: tabsRouter.activeIndex == _discoverTabIndex,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop || tabsRouter.activeIndex == _discoverTabIndex) {
+              return;
+            }
+            tabsRouter.setActiveIndex(_discoverTabIndex);
+          },
+          child: BottomPaddingScope(
+            bottomInset: ShellNavigationToolbar.scrollClearance,
             child: Scaffold(
-              body: child,
-              bottomNavigationBar: M3ENavigationBar(
-                selectedIndex: tabsRouter.activeIndex,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                // Pin the wide-layout chip width to the M3E spec default
-                // (128dp). Without it the package measures the widest label,
-                // and its wide band has no overflow guard when the slots
-                // don't fit the available width.
-                wideDestinationWidth: 128,
-                onDestinationSelected: (index) {
-                  M3EHaptics.trigger(M3EHapticFeedback.light);
-                  if (index == tabsRouter.activeIndex) {
-                    locator<TabScrollCoordinator>().scrollToTop(index);
-                    return;
-                  }
-                  tabsRouter.setActiveIndex(index);
-                },
-                destinations: const [
-                  M3ENavigationBarDestination(
-                    icon: Icon(PhosphorIconsBold.compass),
-                    selectedIcon: Icon(PhosphorIconsFill.compass),
-                    label: 'Discover',
+              // The body runs under the floating bar; the transparent bottom
+              // sheet only tells the Scaffold where the bar is, so a floating
+              // snackbar is placed above it instead of covering it.
+              extendBody: true,
+              bottomNavigationBar: const SizedBox(
+                height: ShellNavigationToolbar.scrollClearance,
+              ),
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ShellTabTransition(
+                    activeIndex: tabsRouter.activeIndex,
+                    children: children,
                   ),
-                  M3ENavigationBarDestination(
-                    icon: Icon(PhosphorIconsBold.stack),
-                    selectedIcon: Icon(PhosphorIconsFill.stack),
-                    label: 'Collections',
-                  ),
-                  M3ENavigationBarDestination(
-                    icon: Icon(PhosphorIconsBold.heart),
-                    selectedIcon: Icon(PhosphorIconsFill.heart),
-                    label: 'Favorites',
-                  ),
-                  M3ENavigationBarDestination(
-                    icon: Icon(PhosphorIconsBold.gear),
-                    selectedIcon: Icon(PhosphorIconsFill.gear),
-                    label: 'Settings',
+                  PositionedDirectional(
+                    start: 0,
+                    end: 0,
+                    bottom: 0,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      heightFactor: 1,
+                      child: ShellNavigationToolbar(
+                        activeIndex: tabsRouter.activeIndex,
+                        onDestinationSelected: (index) {
+                          M3EHaptics.trigger(M3EHapticFeedback.light);
+                          if (index == tabsRouter.activeIndex) {
+                            locator<TabScrollCoordinator>().scrollToTop(index);
+                            return;
+                          }
+                          tabsRouter.setActiveIndex(index);
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -271,7 +250,9 @@ final class DiscoverTabPage extends StatelessWidget {
     // The M3E search bar can report a tap twice (upstream double onTap), so
     // guard against stacking duplicate search pages.
     void openSearch() {
-      if (context.router.root.stack.any((route) => route.name == SearchRoute.name)) {
+      if (context.router.root.stack.any(
+        (route) => route.name == SearchRoute.name,
+      )) {
         return;
       }
       context.router.root.push(SearchRoute());
@@ -494,39 +475,6 @@ final class BlockedTagsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlockedTagsScreen(onBack: () => context.router.root.pop());
-  }
-}
-
-@RoutePage()
-final class DeleteCollectionsDialogPage extends StatelessWidget {
-  const DeleteCollectionsDialogPage({required this.count, super.key});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return M3EDialog(
-      title: count == 1
-          ? 'Remove collection?'
-          : 'Remove $count collections?',
-      content: const Text('Wallpapers and favorites won’t be affected.'),
-      actions: [
-        M3EButton.text(
-          onPressed: () => context.router.root.pop(false),
-          child: const Text('Cancel'),
-        ),
-        M3EButton.filled(
-          decoration: M3EButtonDecoration(
-            backgroundColor: WidgetStatePropertyAll(scheme.error),
-            foregroundColor: WidgetStatePropertyAll(scheme.onError),
-          ),
-          onPressed: () => context.router.root.pop(true),
-          child: const Text('Remove'),
-        ),
-      ],
-    );
   }
 }
 

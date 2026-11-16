@@ -26,7 +26,7 @@ void main() {
     await app.persistTap(tester, _favoriteButton('alpha'));
     expect(app.favorites.favoriteIds.value, contains('alpha'));
 
-    await app.tap(tester, find.text('Favorites').first);
+    await app.tap(tester, shellDestination('favorites'));
     await pumpFrames(tester, 10);
     expect(_tile('alpha'), findsOneWidget);
     expect(_unfavoriteButton('alpha'), findsOneWidget);
@@ -38,7 +38,7 @@ void main() {
     await app.persistTap(tester, _favoriteButton('alpha'));
     await app.restart(tester);
 
-    await app.tap(tester, find.text('Favorites').first);
+    await app.tap(tester, shellDestination('favorites'));
     await pumpFrames(tester, 10);
     expect(_tile('alpha'), findsOneWidget);
   });
@@ -52,7 +52,7 @@ void main() {
     await app.persistTap(tester, _favoriteButton('alpha'));
     await app.persistTap(tester, _favoriteButton('beta'));
 
-    await app.tap(tester, find.text('Favorites').first);
+    await app.tap(tester, shellDestination('favorites'));
     await pumpFrames(tester, 10);
     expect(_tile('alpha'), findsOneWidget);
     expect(_tile('beta'), findsOneWidget);

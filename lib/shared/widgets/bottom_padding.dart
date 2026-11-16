@@ -1,5 +1,7 @@
 // Prefer material_ui over package:flutter widgets/material imports: the app
 // runs on the material_ui widget tree.
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 /// Breathing room at the bottom of scrollable content.
@@ -14,16 +16,40 @@ import 'package:material_ui/material_ui.dart';
 /// ListView(padding: EdgeInsets.only(bottom: BottomPadding.of(context)));
 /// SliverToBoxAdapter(child: BottomPadding());
 /// ```
+/// Adds a scroll-end inset without shrinking the viewport.
+///
+/// The main shell uses this scope to let scrollable destinations clear its
+/// floating navigation overlay. It is inherited only by shell content, so
+/// standalone/detail routes retain their normal system-bar spacing.
+class BottomPaddingScope extends InheritedWidget {
+  const BottomPaddingScope({
+    required this.bottomInset,
+    required super.child,
+    super.key,
+  });
+
+  final double bottomInset;
+
+  static double maybeBottomInsetOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<BottomPaddingScope>()
+          ?.bottomInset ??
+      0;
+
+  @override
+  bool updateShouldNotify(BottomPaddingScope oldWidget) =>
+      bottomInset != oldWidget.bottomInset;
+}
+
 class BottomPadding extends StatelessWidget {
   const BottomPadding({super.key});
 
-  static double of(
-    BuildContext context, {
-    double minimum = 16,
-  }) {
+  static double of(BuildContext context, {double minimum = 16}) {
     final double viewPadding = MediaQuery.viewPaddingOf(context).bottom;
-    final double height = viewPadding > minimum ? viewPadding : minimum;
-    return height;
+    final double defaultInset = math.max(viewPadding, minimum);
+    final double shellInset =
+        BottomPaddingScope.maybeBottomInsetOf(context) + viewPadding;
+    return math.max(defaultInset, shellInset);
   }
 
   @override

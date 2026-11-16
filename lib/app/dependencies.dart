@@ -46,9 +46,11 @@ Future<void> bootstrap() async {
 
   final collectionsRepository = CollectionsRepository();
   await collectionsRepository.open();
-  // Seeds only on a real first launch; deleting every collection must
-  // survive a restart (see [seedCollectionsOnce]).
-  await seedCollectionsOnce(settingsStore, collectionsRepository);
+  // Curated collections are permanent: anything missing (a fresh install, an
+  // upgrade from a build without them, or an older build that let the user
+  // delete them) is restored here, before the controller publishes state. The
+  // display order is reconciled in the same pass.
+  await reconcileCollections(collectionsRepository);
 
   final repository = WallpaperRepository(
     client: WallhavenClient(apiKeyManager: ApiKeyManager()),

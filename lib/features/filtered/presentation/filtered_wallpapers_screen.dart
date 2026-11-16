@@ -5,11 +5,14 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/theme/app_spacing.dart';
 import '../../../core/collections/collection_entry.dart';
+import '../../../core/collections/collection_identity.dart';
 import '../../../core/wallpaper/wallpaper_repository.dart';
 import '../../../shared/utils/color_display.dart';
 import '../../../shared/utils/display_title.dart';
 import '../../../shared/widgets/app_snack.dart';
+import '../../../shared/widgets/collection_membership_button.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -19,8 +22,11 @@ import '../../collections/application/collections_controller.dart';
 /// Ephemeral wallpapers list opened from a tapped tag or color.
 ///
 /// Looks like collection explore (paginated grid, sort & filter) but offers a
-/// collection toggle in the app bar: tapping saves this query as a collection,
-/// tapping again removes that collection again.
+/// collection toggle in the app bar: an outlined `+ Add` saves this search as
+/// a collection and becomes a filled `✓ Added`, which removes that same
+/// collection again. The browsing page stays exactly where it is either way.
+/// Curated default collections are permanent, so their pages show no toggle at
+/// all rather than a button that cannot be honoured.
 final class FilteredWallpapersScreen extends StatefulWidget {
   final String title;
   final String query;
@@ -63,6 +69,10 @@ final class _FilteredWallpapersScreenState
   /// delete a row that is about to be recreated.
   bool _collectionBusy = false;
 
+  /// Exact id created by this page instance. A session-only filter change must
+  /// not make the just-saved collection disappear from the toggle state.
+  String? _sessionSavedCollectionId;
+
   String get _heroScope {
     if (widget.colorHexes.isNotEmpty) {
       return 'color-${widget.colorHexes.first}-';
@@ -72,14 +82,27 @@ final class _FilteredWallpapersScreenState
 
   String get _displayTitle => formatDisplayTitle(widget.title);
 
-  /// The collection this screen represents, matched on the same display title
-  /// [CollectionsController.create] stores. `null` when the query is not saved.
+  /// The collection this page's search is already saved as.
+  ///
+  /// Other saved collections require an exact effective search definition.
+  /// The one exception is the exact id this page successfully created: its
+  /// filter is session-only and may change after saving, but the user still
+  /// expects this page's Added toggle to remove that same row.
   CollectionEntry? _savedCollection(CollectionsController collections) {
-    final target = _displayTitle.toLowerCase();
-    for (final entry in collections.entries.value) {
-      if (entry.name.toLowerCase() == target) return entry;
+    final sessionId = _sessionSavedCollectionId;
+    if (sessionId != null) {
+      final sessionEntry = collections.entryById(sessionId);
+      if (sessionEntry != null) return sessionEntry;
+      _sessionSavedCollectionId = null;
     }
-    return null;
+
+    return collections.findByDefinition(
+      CollectionSearchDefinition(
+        query: widget.query,
+        colors: widget.colorHexes,
+        filter: _controller.filter.value,
+      ),
+    );
   }
 
   /// The collection cover is the first wallpaper already fetched for this
@@ -95,24 +118,39 @@ final class _FilteredWallpapersScreenState
     return thumbnails?.large ?? thumbnails?.original ?? thumbnails?.small;
   }
 
+  /// Avoid a duplicate display name without treating that collision as proof
+  /// that a different search is already saved. Search identity is independent
+  /// of the generated presentation name.
+  String _uniqueCollectionName(CollectionsController collections) {
+    final used = {
+      for (final entry in collections.entries.value)
+        entry.name.trim().toLowerCase(),
+    };
+    if (!used.contains(_displayTitle.toLowerCase())) return _displayTitle;
+    for (var suffix = 2; ; suffix++) {
+      final candidate = '$_displayTitle ($suffix)';
+      if (!used.contains(candidate.toLowerCase())) return candidate;
+    }
+  }
+
   /// The cover's palette, taken from the listing entry that supplied the
   /// cover, so nothing extra is fetched and the two always describe the same
   /// wallpaper.
   List<String> get _coverColors =>
       ColorDisplay.normalizedPalette(_coverWallpaper?.colors ?? const []);
 
-  /// Saves or removes this query's collection — a real toggle, not a one-way
-  /// promotion. Persistence goes through the repository behind
-  /// [CollectionsController], which rolls back on failure, so the snackbar
-  /// only reports a state that actually stuck.
+  /// Adds this search to Collections, or removes the collection it already has.
+  /// Persistence goes through the repository behind [CollectionsController],
+  /// which rolls back on failure, so the button only keeps a state that
+  /// actually stuck and the snackbar only reports one.
   Future<void> _toggleCollection() async {
     if (_collectionBusy) return;
+    final collections = locator<CollectionsController>();
+    final saved = _savedCollection(collections);
     setState(() => _collectionBusy = true);
     try {
-      final collections = locator<CollectionsController>();
-      final saved = _savedCollection(collections);
       if (saved != null) {
-        final removed = await collections.removeMany({saved.id});
+        final removed = await collections.remove(saved.id);
         if (!mounted) return;
         if (removed) {
           AppSnack.showRoot(
@@ -128,8 +166,9 @@ final class _FilteredWallpapersScreenState
         }
         return;
       }
+      final name = _uniqueCollectionName(collections);
       final error = await collections.create(
-        name: _displayTitle,
+        name: name,
         query: widget.query,
         colors: widget.colorHexes,
         filter: _controller.filter.value,
@@ -145,6 +184,15 @@ final class _FilteredWallpapersScreenState
       if (error != null) {
         AppSnack.show(context, error, type: AppSnackType.error);
       } else {
+        _sessionSavedCollectionId = collections
+            .findByDefinition(
+              CollectionSearchDefinition(
+                query: widget.query,
+                colors: widget.colorHexes,
+                filter: _controller.filter.value,
+              ),
+            )
+            ?.id;
         AppSnack.showRoot('Added to Collections', type: AppSnackType.success);
       }
     } finally {
@@ -218,36 +266,27 @@ final class _FilteredWallpapersScreenState
                   title: Text(_displayTitle),
                   actions: [
                     Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 8),
+                      // Match the visible 32 dp back-button surface's inset.
+                      padding: const EdgeInsetsDirectional.only(
+                        end: AppSpacing.lg,
+                      ),
                       child: SignalBuilder(
                         builder: (context) {
-                          final saved =
-                              _savedCollection(colorsController) != null;
-                          return M3EIconButton(
-                            // A transparent app-bar action, not a primary
-                            // call to action: the 1.1.3 default `filled`
-                            // variant painted a primary disc that also
-                            // changed shape when the action became disabled.
-                            variant: M3EIconButtonVariant.standard,
-                            isSelected: saved,
-                            // Busy only briefly while persisting; disabling
-                            // the control keeps a second tap from racing the
-                            // create/delete.
+                          final saved = _savedCollection(colorsController);
+                          // A curated collection is permanent: it has no
+                          // removal control at all, not a disabled one. Its
+                          // tag page simply shows no toggle.
+                          if (saved != null &&
+                              colorsController.isCuratedDefault(saved.id)) {
+                            return const SizedBox.shrink();
+                          }
+                          return CollectionMembershipButton(
+                            added: saved != null,
+                            pending: _collectionBusy,
+                            subject: _displayTitle,
                             onPressed: _collectionBusy
                                 ? null
                                 : _toggleCollection,
-                            tooltip: saved
-                                ? 'Remove from Collections'
-                                : 'Save to Collections',
-                            semanticLabel: saved
-                                ? 'Remove from Collections'
-                                : 'Save to Collections',
-                            // Outline when absent, filled when saved: the
-                            // glyph carries the state, not colour alone.
-                            icon: const Icon(PhosphorIconsBold.bookmarkSimple),
-                            selectedIcon: const Icon(
-                              PhosphorIconsFill.bookmarkSimple,
-                            ),
                           );
                         },
                       ),

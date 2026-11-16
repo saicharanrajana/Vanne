@@ -7,7 +7,6 @@ import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vanne/app/router/app_route.dart';
 import 'package:vanne/core/collections/collection_entry.dart';
-import 'package:vanne/core/collections/seed_collections.dart';
 
 import '../support/fake_wallhaven.dart';
 import '../support/test_app.dart';
@@ -245,10 +244,7 @@ void main() {
     expect(haptics, isEmpty);
   });
 
-  appTest('the tag row lists tag collections only and hides when none', (
-    tester,
-    app,
-  ) async {
+  appTest('the tag row lists tag collections only', (tester, app) async {
     // A colour-only collection has no tag to apply, so it must not appear.
     await app.launch(tester);
     await pumpUntil(
@@ -256,17 +252,18 @@ void main() {
       find.byKey(const ValueKey('wallpaper-tile-alpha')),
       reason: 'discover feed',
     );
-    await app.act(tester, () async {
-      await app.collections.removeMany(
-        app.collections.entries.value.map((e) => e.id).toSet(),
-      );
-      await app.collections.create(
+    await app.act(
+      tester,
+      () => app.collections.create(
         name: 'Deep Blues',
         query: '',
         colors: const ['#0000ff'],
         origin: CollectionOrigin.color,
-      );
-    });
+      ),
+    );
+    final colorId = app.collections.entries.value
+        .firstWhere((e) => e.name == 'Deep Blues')
+        .id;
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
@@ -274,16 +271,16 @@ void main() {
     expect(find.text('By color'), findsOneWidget);
     expect(
       find.text('By tag'),
+      findsOneWidget,
+      reason: 'the bundled tag collections always offer the row',
+    );
+    expect(
+      find.byKey(ValueKey('search-tag-$colorId')),
       findsNothing,
       reason: 'a colour collection is not a tag collection',
     );
-    expect(
-      find.byKey(const ValueKey('search-tag-carousel')),
-      findsNothing,
-      reason: 'the whole tag section is hidden when empty',
-    );
 
-    // A bookmarkable tag query brings the row back, with only that card.
+    // A bookmarkable tag query appears alongside the bundled cards.
     await app.act(
       tester,
       () => app.collections.create(
@@ -292,18 +289,28 @@ void main() {
         origin: CollectionOrigin.tag,
       ),
     );
-    await pumpFrames(tester, 6);
-
-    expect(find.text('By tag'), findsOneWidget);
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('search-tag-carousel')),
+      reason: 'tag carousel',
+    );
     final tagId = app.collections.entries.value
         .firstWhere((e) => e.name == 'Landscape')
         .id;
+
+    // The new card is last, past the bundled four; scroll it into view rather
+    // than assuming the whole row is built.
+    await tester.drag(
+      find.byKey(const ValueKey('search-tag-carousel')),
+      const Offset(-320, 0),
+    );
+    await pumpFrames(tester, 20, const Duration(milliseconds: 100));
     expect(find.byKey(ValueKey('search-tag-$tagId')), findsOneWidget);
-    for (final entry in app.collections.entries.value.where(
-      (e) => e.name != 'Landscape',
-    )) {
-      expect(find.byKey(ValueKey('search-tag-${entry.id}')), findsNothing);
-    }
+    expect(
+      find.byKey(ValueKey('search-tag-$colorId')),
+      findsNothing,
+      reason: 'saving a tag collection does not leak the colour one in',
+    );
   });
 
   appTest('a tag collection keeps its origin across a restart', (
@@ -317,15 +324,18 @@ void main() {
       reason: 'discover feed',
     );
     await app.act(tester, () async {
-      // Drop the seeds so Landscape is the first card: off-screen carousel
-      // children are not built, so a card past the first screen cannot be
-      // asserted without scrolling.
-      await app.collections.removeMany({...curatedSeedIds});
       await app.collections.create(
         name: 'Landscape',
         query: 'landscape',
         origin: CollectionOrigin.tag,
       );
+      // Off-screen carousel children are not built, so the card under test has
+      // to lead the row. Bundled collections are permanent, so this asks for
+      // the reorder the user has rather than deleting them.
+      final created = app.collections.entries.value.firstWhere(
+        (e) => e.name == 'Landscape',
+      );
+      await app.collections.moveToStart(created.id);
     });
     final tagId = app.collections.entries.value
         .firstWhere((e) => e.name == 'Landscape')
@@ -357,9 +367,6 @@ void main() {
     // A row written before the origin field existed: an arbitrary saved
     // search with no colours, shaped exactly like a tag collection.
     await app.act(tester, () async {
-      await app.collections.removeMany(
-        app.collections.entries.value.map((e) => e.id).toSet(),
-      );
       final box = Hive.box<String>('collections');
       await box.put(
         'legacy-like',
@@ -376,8 +383,9 @@ void main() {
       await app.collections.restore();
     });
 
-    final legacy = app.collections.entries.value.single;
-    expect(legacy.id, 'legacy-like');
+    final legacy = app.collections.entries.value.firstWhere(
+      (entry) => entry.id == 'legacy-like',
+    );
     expect(
       legacy.origin,
       CollectionOrigin.unknown,
@@ -388,21 +396,26 @@ void main() {
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
 
     expect(
-      find.text('By tag'),
+      find.byKey(const ValueKey('search-tag-legacy-like')),
       findsNothing,
       reason: 'an arbitrary saved search is not a tag',
     );
 
     // Unclassified rows are user data: they must survive, just not as tags.
     await app.restart(tester);
-    expect(app.collections.entries.value.single.id, 'legacy-like');
     expect(
-      app.collections.entries.value.single.origin,
+      app.collections.entries.value.map((entry) => entry.id),
+      contains('legacy-like'),
+    );
+    expect(
+      app.collections.entries.value
+          .firstWhere((entry) => entry.id == 'legacy-like')
+          .origin,
       CollectionOrigin.unknown,
     );
   });
 
-  appTest('deleting the applied tag collection clears its filter', (
+  appTest('removing the applied tag collection clears its filter', (
     tester,
     app,
   ) async {
@@ -410,16 +423,30 @@ void main() {
     await _submit(tester, app, 'city');
     await pumpUntil(tester, _tile('alpha'), reason: 'typed results');
 
-    final artCard = find.byKey(const ValueKey('search-tag-seed-art'));
-    await _tapCard(tester, app, artCard);
-    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
-    expect(app.network.searches.last.query, 'city art');
-
-    // Every tag collection disappears while the tag filter is applied.
+    // A user-saved tag collection, which the user is allowed to remove.
     await app.act(
       tester,
-      () => app.collections.removeMany({...curatedSeedIds}),
+      () => app.collections.create(
+        name: 'Cityscape',
+        query: 'cityscape',
+        origin: CollectionOrigin.tag,
+      ),
     );
+    final cityId = app.collections.entries.value
+        .firstWhere((e) => e.name == 'Cityscape')
+        .id;
+    // The bundled tag collections lead the carousel and off-screen cards are
+    // not built, so put the new card first the way a user would.
+    await app.act(tester, () => app.collections.moveToStart(cityId));
+    await pumpFrames(tester, 8);
+
+    final cityCard = find.byKey(ValueKey('search-tag-$cityId'));
+    await _tapCard(tester, app, cityCard);
+    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
+    expect(app.network.searches.last.query, 'city cityscape');
+
+    // The applied collection disappears while its tag filter is live.
+    await app.act(tester, () => app.collections.remove(cityId));
     await app.settle(tester);
     await pumpFrames(tester, 10, const Duration(milliseconds: 50));
 
@@ -429,9 +456,14 @@ void main() {
       reason: 'the filter cannot outlive its card',
     );
     expect(
-      find.text('By tag'),
+      find.byKey(ValueKey('search-tag-$cityId')),
       findsNothing,
-      reason: 'no tag collections remain, so the section hides',
+      reason: 'the removed card is gone',
+    );
+    expect(
+      find.byKey(const ValueKey('search-tag-seed-art')),
+      findsOneWidget,
+      reason: 'the bundled collections are untouched',
     );
   });
 

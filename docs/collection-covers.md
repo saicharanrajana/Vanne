@@ -18,7 +18,7 @@ four, as noted above.
 
 Covers for user-created collections are not bundled. They are a stable
 snapshot of the first wallpaper thumbnail fetched for that query when the
-collection is bookmarked.
+collection is added.
 
 ## Cover palettes
 
@@ -29,7 +29,7 @@ from `colors`, which is part of the saved search.
 
 - **User collections:** the palette of the wallpaper that supplied the cover,
   taken from that listing entry's `colors` field when the collection is
-  bookmarked. No extra request and no image decoding: the snapshot and its
+  added. No extra request and no image decoding: the snapshot and its
   palette always describe the same wallpaper, are capped at five normalized
   `#RRGGBB` values, and are never refreshed by sorting or reopening.
 - **Legacy rows:** a cover saved before the field existed gains its palette on

@@ -6,7 +6,10 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/theme/app_spacing.dart';
 import '../../../core/collections/collection_entry.dart';
+import '../../../shared/widgets/app_snack.dart';
+import '../../../shared/widgets/collection_membership_button.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -18,6 +21,11 @@ import '../application/collections_controller.dart';
 /// Stateful so its [CollectionExploreController] is created exactly once
 /// per navigation — resolving it in `build` would spawn a fresh controller
 /// (and a fresh page-1 request) on every rebuild.
+///
+/// A user collection offers the same `✓ Added` control as the browsing page it
+/// was saved from, and tapping it removes this exact collection: the screen is
+/// addressed by that id, so it leaves with the row instead of staying behind
+/// on a dead route. Curated defaults are permanent and show no control.
 final class CollectionExploreScreen extends StatefulWidget {
   final String collectionId;
   final ValueChanged<Wallpaper> onOpenWallpaper;
@@ -39,6 +47,10 @@ final class _CollectionExploreScreenState
   CollectionExploreController? _controller;
   CollectionEntry? _entry;
 
+  /// Guards the removal against double taps; the row is only gone once the
+  /// write lands, and the screen must not pop twice.
+  bool _removing = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +67,36 @@ final class _CollectionExploreScreenState
   void dispose() {
     _controller?.dispose();
     super.dispose();
+  }
+
+  /// Removes this user collection, then returns to Collections.
+  ///
+  /// The detail content stays mounted while the write is in flight, and a
+  /// failure keeps the user here with its grid intact — the row is restored by
+  /// the controller, so nothing looks deleted that is not.
+  Future<void> _removeCollection(CollectionEntry entry) async {
+    if (_removing) return;
+    setState(() => _removing = true);
+    final removed = await locator<CollectionsController>().remove(entry.id);
+    if (!mounted) return;
+    if (!removed) {
+      setState(() => _removing = false);
+      AppSnack.show(
+        context,
+        'Could not remove the collection',
+        type: AppSnackType.error,
+      );
+      return;
+    }
+    AppSnack.showRoot('Removed from Collections', type: AppSnackType.removal);
+    final router = context.router.root;
+    if (router.canPop()) {
+      router.maybePop();
+      return;
+    }
+    // Opened by a deep link, so there is no Collections screen underneath: land
+    // on the Collections destination instead of staying on a row that is gone.
+    router.replacePath('/collections');
   }
 
   @override
@@ -101,6 +143,7 @@ final class _CollectionExploreScreenState
       );
     }
     final favorites = locator<FavoritesController>();
+    final collections = locator<CollectionsController>();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -155,6 +198,23 @@ final class _CollectionExploreScreenState
                     ),
                   ),
                   title: Text(entry.displayName),
+                  actions: [
+                    if (!collections.isCuratedDefault(entry.id))
+                      Padding(
+                        // Match the visible 32 dp back-button surface's inset.
+                        padding: const EdgeInsetsDirectional.only(
+                          end: AppSpacing.lg,
+                        ),
+                        child: CollectionMembershipButton(
+                          added: true,
+                          pending: _removing,
+                          subject: entry.displayName,
+                          onPressed: _removing
+                              ? null
+                              : () => _removeCollection(entry),
+                        ),
+                      ),
+                  ],
                   bottom: PreferredSize(
                     preferredSize: const Size.fromHeight(48),
                     child: Align(

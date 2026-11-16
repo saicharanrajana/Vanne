@@ -6,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vanne/app/router/app_route.dart';
 import 'package:vanne/core/collections/collection_entry.dart';
+import 'package:vanne/core/domain/feed_filter.dart';
+import 'package:wallhaven_client/wallhaven_client.dart';
 import 'package:vanne/shared/utils/color_display.dart';
+import 'package:vanne/shared/widgets/collection_membership_button.dart';
 import 'package:vanne/shared/widgets/smart_network_image.dart';
 
 import '../support/fake_wallhaven.dart';
@@ -23,9 +26,14 @@ void main() {
   Finder cover(String id) => find.byKey(ValueKey('collection-cover-$id'));
   Finder surface(String id) => find.byKey(ValueKey('collection-surface-$id'));
 
-  /// Bottom navigation label. The screen header can share the same word, so
-  /// navigation taps always target the first (bar) occurrence.
-  Finder tab(String label) => find.text(label).first;
+  /// The `+ Add` / `✓ Added` app-bar control of a tag or color browsing page.
+  /// Exactly one is on screen, so type lookup is unambiguous.
+  final membership = find.byType(CollectionMembershipButton);
+
+  /// Bottom toolbar destination. The screen header can share the same word, so
+  /// navigation taps target the shell's stable slot key rather than text.
+  Finder tab(String label) =>
+      find.byKey(ValueKey('nav-${label.toLowerCase()}'));
 
   Future<void> openCollections(WidgetTester tester, TestApp app) async {
     await app.launch(tester);
@@ -144,10 +152,7 @@ void main() {
     await openTagGrid(tester, app);
     final searchesBefore = app.network.searches.length;
 
-    await app.persistTap(
-      tester,
-      find.byIcon(PhosphorIconsBold.bookmarkSimple).first,
-    );
+    await app.persistTap(tester, membership);
     await app.settleUntil(
       tester,
       () => app.collections.entries.value.any((e) => e.name == 'Landscape'),
@@ -175,9 +180,19 @@ void main() {
 
     // Back to the shell, then into Collections.
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
+    await app.settleUntil(
+      tester,
+      () => find.byType(FilteredWallpapersPage).evaluate().isEmpty,
+      reason: 'tag grid popped',
+    );
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
+    await app.settleUntil(
+      tester,
+      () => find.byType(WallpaperDetailPage).evaluate().isEmpty,
+      reason: 'detail popped',
+    );
+    // Only tap the shell once the popped routes are gone: a route that is
+    // still animating out covers the floating toolbar.
     await app.tap(tester, tab('Collections'));
     await pumpUntil(tester, collection('Landscape'), reason: 'bookmarked card');
 
@@ -226,10 +241,7 @@ void main() {
         : searchPageJson(['alpha', 'beta']);
 
     await openTagGrid(tester, app, waitForResults: false);
-    await app.persistTap(
-      tester,
-      find.byIcon(PhosphorIconsBold.bookmarkSimple).first,
-    );
+    await app.persistTap(tester, membership);
     await app.settleUntil(
       tester,
       () => app.collections.entries.value.any((e) => e.name == 'Landscape'),
@@ -255,9 +267,19 @@ void main() {
     );
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
+    await app.settleUntil(
+      tester,
+      () => find.byType(FilteredWallpapersPage).evaluate().isEmpty,
+      reason: 'tag grid popped',
+    );
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
+    await app.settleUntil(
+      tester,
+      () => find.byType(WallpaperDetailPage).evaluate().isEmpty,
+      reason: 'detail popped',
+    );
+    // Only tap the shell once the popped routes are gone: a route that is
+    // still animating out covers the floating toolbar.
     await app.tap(tester, tab('Collections'));
     await pumpUntil(tester, collection('Landscape'), reason: 'fallback card');
     expect(cover(entry.id), findsNothing);
@@ -478,10 +500,7 @@ void main() {
     );
     await pumpUntil(tester, tile('alpha'), reason: 'color results');
 
-    await app.persistTap(
-      tester,
-      find.byIcon(PhosphorIconsBold.bookmarkSimple).first,
-    );
+    await app.persistTap(tester, membership);
     await app.settleUntil(
       tester,
       () => app.collections.entries.value.any((e) => e.name == '#123456'),
@@ -496,12 +515,25 @@ void main() {
       CollectionOrigin.color,
       reason: 'a colour grid bookmark is recorded as a colour collection',
     );
-    expect(find.byIcon(PhosphorIconsFill.bookmarkSimple), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('collection-membership-label-Added')),
+      findsOneWidget,
+    );
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
+    await app.settleUntil(
+      tester,
+      () => find.byType(FilteredWallpapersPage).evaluate().isEmpty,
+      reason: 'tag grid popped',
+    );
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
+    await app.settleUntil(
+      tester,
+      () => find.byType(WallpaperDetailPage).evaluate().isEmpty,
+      reason: 'detail popped',
+    );
+    // Only tap the shell once the popped routes are gone: a route that is
+    // still animating out covers the floating toolbar.
     await app.tap(tester, tab('Collections'));
     await pumpUntil(
       tester,
@@ -561,95 +593,346 @@ void main() {
     }
   });
 
-  appTest('removing selected collections asks first, then persists', (
+  appTest(
+    'the app bar adds then removes the browsing page collection in place',
+    (tester, app) async {
+      await openTagGrid(tester, app);
+
+      Finder label(String state) =>
+          find.byKey(ValueKey('collection-membership-label-$state'));
+
+      // Not saved yet: an outlined verb, not a bookmark glyph.
+      expect(label('Added'), findsNothing);
+      final addSize = tester.getSize(membership);
+      final backIcon = find.byIcon(PhosphorIconsBold.arrowLeft).first;
+      final backButton = find
+          .ancestor(of: backIcon, matching: find.byType(M3EIconButton))
+          .first;
+      final backButtonTarget = tester.getRect(backButton);
+      final backRect = tester.getRect(backIcon);
+      final titleRect = tester.getRect(find.text('Landscape'));
+      final buttonRect = tester.getRect(membership);
+      final pill = find.descendant(
+        of: membership,
+        matching: find.byKey(const ValueKey('collection-membership-pill')),
+      );
+      expect(
+        buttonRect.right,
+        closeTo(
+          tester.view.physicalSize.width / tester.view.devicePixelRatio -
+              (backButtonTarget.left + (backButtonTarget.width - 32) / 2),
+          1,
+        ),
+        reason: 'the visible right action inset mirrors the back surface inset',
+      );
+      expect(
+        buttonRect.center.dy,
+        closeTo(backRect.center.dy, 1),
+        reason:
+            'membership action and back button share the app-bar centerline',
+      );
+      expect(
+        buttonRect.center.dy,
+        closeTo(titleRect.center.dy, 1),
+        reason: 'membership action and title share the app-bar centerline',
+      );
+      expect(
+        buttonRect.height,
+        48,
+        reason: 'the action retains a 48 dp hit target',
+      );
+      expect(tester.getSize(pill).height, 32);
+
+      // Inspect an in-flight transition, not just the final Added state. The
+      // tap runs in the real async zone for Hive, then fake time advances only
+      // partway through the expressive label transition.
+      await tester.runAsync(() async => tester.tap(membership));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(label('Added'), findsOneWidget);
+      final addedLabelFade = find
+          .ancestor(of: label('Added'), matching: find.byType(FadeTransition))
+          .first;
+      final addedOpacity = tester
+          .widget<FadeTransition>(addedLabelFade)
+          .opacity
+          .value;
+      expect(
+        addedOpacity,
+        inExclusiveRange(0.0, 1.0),
+        reason: 'the Added label visibly fades/slides in instead of snapping',
+      );
+      await app.settleUntil(
+        tester,
+        () =>
+            app.collections.entries.value.any(
+              (e) => e.query == 'landscape' && e.origin == CollectionOrigin.tag,
+            ) &&
+            !tester.widget<CollectionMembershipButton>(membership).pending,
+        reason: 'collection saved from the browsing page',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await pumpUntil(tester, label('Added'), reason: 'Added state');
+      expect(
+        tester.getSize(membership),
+        addSize,
+        reason: 'Add and Added keep the same footprint',
+      );
+
+      // The browsing page is not replaced or reset by saving.
+      expect(find.byType(FilteredWallpapersPage), findsOneWidget);
+      expect(tile('alpha'), findsOneWidget);
+
+      // A second tap removes that exact collection and stays put.
+      await tester.runAsync(() async => tester.tap(membership));
+      await tester.pump();
+      await app.settleUntil(
+        tester,
+        () =>
+            !app.collections.entries.value.any((e) => e.query == 'landscape') &&
+            !tester.widget<CollectionMembershipButton>(membership).pending,
+        reason: 'the collection was removed',
+      );
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(label('Add'), findsOneWidget);
+      final addLabelFade = find
+          .ancestor(of: label('Add'), matching: find.byType(FadeTransition))
+          .first;
+      final addOpacity = tester
+          .widget<FadeTransition>(addLabelFade)
+          .opacity
+          .value;
+      expect(
+        addOpacity,
+        inExclusiveRange(0.0, 1.0),
+        reason: 'the Add label visibly returns during removal',
+      );
+      await pumpUntil(tester, label('Add'), reason: 'back to Add');
+      expect(tester.getSize(membership), addSize);
+      expect(
+        find.byType(FilteredWallpapersPage),
+        findsOneWidget,
+        reason: 'removal keeps the browsing page open',
+      );
+      expect(
+        tile('alpha'),
+        findsOneWidget,
+        reason: 'removal keeps the results the user was looking at',
+      );
+      expect(
+        app.collections.entries.value.where((e) => e.isTagCollection).length,
+        greaterThanOrEqualTo(2),
+        reason: 'curated tag collections are untouched by a user removal',
+      );
+    },
+  );
+
+  appTest(
+    'same-subject filters do not select the wrong collection and session id stays exact',
+    (tester, app) async {
+      await openTagGrid(tester, app);
+
+      // A legacy row can carry an explicit category list that overrides its
+      // filter categories at request time. Its subject/name must not make it
+      // Added for this General-category browsing request.
+      await app.act(
+        tester,
+        () => app.collections.create(
+          name: 'Landscape',
+          query: 'landscape',
+          kinds: [WallhavenCategory.anime],
+          filter: const FeedFilter(),
+          origin: CollectionOrigin.tag,
+        ),
+      );
+      await pumpUntil(tester, membership, reason: 'membership action present');
+      expect(
+        find.byKey(const ValueKey('collection-membership-label-Added')),
+        findsNothing,
+        reason: 'same query and name with different effective categories is not Added',
+      );
+
+      await app.persistTap(tester, membership);
+      await app.settleUntil(
+        tester,
+        () => app.collections.entries.value.any(
+          (e) => e.name == 'Landscape (2)' && e.query == 'landscape',
+        ),
+        reason: 'different filter definition saved under a unique name',
+      );
+      final sessionEntry = app.collections.entries.value.firstWhere(
+        (e) => e.name == 'Landscape (2)',
+      );
+      final otherEntry = app.collections.entries.value.firstWhere(
+        (e) => e.name == 'Landscape',
+      );
+      expect(
+        find.byKey(const ValueKey('collection-membership-label-Added')),
+        findsOneWidget,
+      );
+
+      // Change the browsing filter so exact query identity no longer matches
+      // the session-created row. Its remembered ID still owns this toggle.
+      await app.tap(tester, find.text('Newest'));
+      await pumpUntil(
+        tester,
+        find.text('Sort & Filter'),
+        reason: 'filter sheet',
+      );
+      await app.tap(tester, find.text('Anime'));
+      await app.tap(tester, find.text('Apply'));
+      await pumpFrames(tester, 12);
+      expect(
+        find.byKey(const ValueKey('collection-membership-label-Added')),
+        findsOneWidget,
+        reason: 'session save stays Added after a session-only filter change',
+      );
+
+      await app.persistTap(tester, membership);
+      await app.settleUntil(
+        tester,
+        () => app.collections.entryById(sessionEntry.id) == null,
+        reason: 'removes the exact id created in this browsing session',
+      );
+      expect(app.collections.entryById(otherEntry.id), isNotNull);
+      expect(
+        find.byKey(const ValueKey('collection-membership-label-Add')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  appTest('curated collections are permanent and offer no toggle', (
     tester,
     app,
   ) async {
     await openCollections(tester, app);
+
+    // Permanence is enforced below the UI, not just by hiding a button.
+    late bool removed;
     await app.act(
       tester,
-      () => app.favorites.toggle(placeholderWallpaper('alpha')),
+      () async => removed = await app.collections.remove('seed-art'),
     );
-    expect(app.favorites.favoriteIds.value, contains('alpha'));
-
-    // Long-press enters selection mode; a second tap adds to the selection.
-    // Selection is local UI state (no storage), so a raw gesture is safe.
-    await tester.longPress(collection('Art'));
-    await pumpFrames(tester, 4);
-    expect(find.byIcon(PhosphorIconsFill.trash), findsOneWidget);
-
-    await app.tap(tester, collection('Nature'));
-    await pumpFrames(tester, 4);
-
-    // Cancelling the confirmation must keep both collections.
-    await app.persistTap(tester, find.byIcon(PhosphorIconsFill.trash));
-    await pumpUntil(
-      tester,
-      find.text('Remove 2 collections?'),
-      reason: 'delete confirmation',
-    );
-    await app.tap(tester, find.text('Cancel'));
-    await pumpFrames(tester, 6);
-    expect(collection('Art'), findsOneWidget);
-    expect(collection('Nature'), findsOneWidget);
-
-    // Cancelling keeps the selection, so confirm it as-is.
-    await app.persistTap(tester, find.byIcon(PhosphorIconsFill.trash));
-    await pumpUntil(
-      tester,
-      find.text('Remove 2 collections?'),
-      reason: 'delete confirmation',
-    );
-    await app.persistTap(tester, find.text('Remove'));
-    // The confirmation's continuation runs in the dialog's zone; give the
-    // real Hive delete time to land before asserting feedback.
-    await app.settle(tester, rounds: 20);
-    await app.settleUntil(
-      tester,
-      () => app.collections.entries.value.every(
-        (entry) => entry.name != 'Art' && entry.name != 'Nature',
-      ),
-      reason: 'collections deleted',
-    );
-    await pumpUntil(
-      tester,
-      find.text('Removed 2'),
-      reason: 'delete confirmation snack',
-    );
-    expect(collection('Art'), findsNothing);
-    expect(collection('Nature'), findsNothing);
+    expect(removed, isFalse);
     expect(
-      app.favorites.favoriteIds.value,
-      contains('alpha'),
-      reason: 'removing collections leaves favorites untouched',
+      app.collections.entries.value.any((e) => e.id == 'seed-art'),
+      isTrue,
+      reason: 'a curated collection cannot be deleted',
+    );
+
+    // Inside a curated collection there is no membership control at all.
+    await app.tap(tester, collection('Art'));
+    await pumpUntil(tester, tile('alpha'), reason: 'curated feed');
+    expect(
+      membership,
+      findsNothing,
+      reason: 'permanent collections show no Add/Added control',
     );
   });
 
-  appTest('removing every collection stays empty after restart', (
+  appTest('dragging a collection reorders the grid and survives a restart', (
     tester,
     app,
   ) async {
     await openCollections(tester, app);
 
-    // Delete through the controller so the test focuses on the restart
-    // contract rather than repeating the selection UI journey.
-    await app.act(
-      tester,
-      () => app.collections.removeMany({
-        for (final entry in app.collections.entries.value) entry.id,
-      }),
-    );
-    await pumpFrames(tester, 6);
-    expect(find.text('No collections yet'), findsOneWidget);
+    List<String> order() => [
+      for (final entry in app.collections.entries.value) entry.id,
+    ];
+    expect(order(), [
+      'seed-art',
+      'seed-nature',
+      'seed-abstract',
+      'seed-minimal',
+    ]);
 
-    // A curated seed must not come back on the next launch.
+    // Long-press the first card and drop it on the second: move-by-drag, not
+    // selection. The curated beginning of the list moves like any other row.
+    final start = tester.getCenter(surface('seed-art'));
+    final target = tester.getCenter(surface('seed-nature'));
+    final gesture = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 700));
+    await gesture.moveTo(target);
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.moveTo(target + const Offset(0, 6));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.up();
+    await app.settle(tester, rounds: 20);
+
+    expect(order(), [
+      'seed-nature',
+      'seed-art',
+      'seed-abstract',
+      'seed-minimal',
+    ], reason: 'drag moved the card past its neighbour');
+
     await app.restart(tester);
     await app.tap(tester, tab('Collections'));
-    await pumpUntil(
-      tester,
-      find.text('No collections yet'),
-      reason: 'empty collections after restart',
+    await pumpUntil(tester, collection('Art'), reason: 'restored grid');
+    expect(order(), [
+      'seed-nature',
+      'seed-art',
+      'seed-abstract',
+      'seed-minimal',
+    ], reason: 'the user order is stored, not just remembered in memory');
+  });
+
+  appTest('a new collection is appended after the user order', (
+    tester,
+    app,
+  ) async {
+    await openCollections(tester, app);
+
+    // Move Minimal to the front through the card menu, then save a fresh
+    // search: it belongs at the end, not next to the curated block it was
+    // created from, and the chosen order must not be reshuffled by the add.
+    final minimalMenu = find.descendant(
+      of: surface('seed-minimal'),
+      matching: find.byIcon(PhosphorIconsBold.dotsThree),
     );
-    expect(collection('Art'), findsNothing);
+    await tester.ensureVisible(minimalMenu);
+    await app.persistTap(tester, minimalMenu);
+    await pumpUntil(tester, find.text('Move to start'), reason: 'reorder menu');
+    await app.persistTap(tester, find.text('Move to start'));
+    await app.settleUntil(
+      tester,
+      () => app.collections.entries.value.first.id == 'seed-minimal',
+      reason: 'moved Minimal to the front',
+    );
+
+    await app.act(
+      tester,
+      () => app.collections.create(
+        name: 'Landscape',
+        query: 'landscape',
+        origin: CollectionOrigin.tag,
+      ),
+    );
+    await app.settleUntil(
+      tester,
+      () => app.collections.entries.value.any((e) => e.name == 'Landscape'),
+      reason: 'saved a new collection',
+    );
+
+    expect(
+      app.collections.entries.value.last.name,
+      'Landscape',
+      reason: 'new collections append to the end of the user order',
+    );
+    expect(
+      app.collections.entries.value.first.id,
+      'seed-minimal',
+      reason: 'the chosen order is untouched by adding',
+    );
+
+    await app.restart(tester);
+    await app.tap(tester, tab('Collections'));
+    await pumpUntil(tester, collection('Landscape'), reason: 'restored add');
+    expect(
+      [for (final entry in app.collections.entries.value) entry.name],
+      ['Minimal', 'Art', 'Nature', 'Abstract', 'Landscape'],
+      reason: 'order and append survive a restart',
+    );
   });
 }

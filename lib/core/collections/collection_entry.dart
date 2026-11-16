@@ -129,6 +129,10 @@ final class CollectionEntry {
       'sorting': filter.sorting.name,
       'topRange': filter.topRange?.name,
       'minResolution': filter.minResolution,
+      // Categories are part of what the collection saves, so they must
+      // round-trip: a row whose categories were dropped would decode as the
+      // General-only default and stop matching the page it was saved from.
+      'categories': [for (final c in filter.categories) c.name],
     },
     'colors': colors,
     if (coverUrl != null) 'coverUrl': coverUrl,
@@ -164,6 +168,24 @@ final class CollectionEntry {
       } catch (_) {}
     }
     final minRes = filterRaw['minResolution'] as String?;
+    final categoriesRaw = filterRaw['categories'] as List<dynamic>?;
+    // Absent for rows written before categories were persisted. Those rows
+    // were created by builds whose default was General-only, so the default
+    // [FeedFilter] is the faithful reading rather than a lossy one. An empty
+    // list is kept as-is: an all-off bitfield filters everything out, it does
+    // not mean "all categories".
+    final defaultCategories = const {WallhavenCategory.general};
+    Set<WallhavenCategory> categories = defaultCategories;
+    if (categoriesRaw != null) {
+      final decoded = <WallhavenCategory>{};
+      for (final raw in categoriesRaw) {
+        if (raw is! String) continue;
+        try {
+          decoded.add(WallhavenCategory.values.byName(raw));
+        } catch (_) {}
+      }
+      categories = decoded;
+    }
 
     final colorsRaw = json['colors'] as List<dynamic>? ?? const [];
     final colors = [
@@ -186,6 +208,7 @@ final class CollectionEntry {
         sorting: sorting,
         topRange: topRange,
         minResolution: minRes,
+        categories: categories,
       ),
       colors: colors,
       coverUrl: coverUrl is String && coverUrl.isNotEmpty ? coverUrl : null,

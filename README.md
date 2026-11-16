@@ -17,9 +17,11 @@ API-key storage.
 - **Search** — power-user query syntax plus M3E carousel rows for dominant
   colors and saved tag collections; rapid input is debounced into single
   requests.
-- **Collections** — bookmark a tag or color grid to save it as a square card,
-  with a stable wallpaper cover, readable color names, and multi-select
-  deletion. Four curated cards ship with bundled covers on first install.
+- **Collections** — tap `+ Add` on a tag or color grid to save it as a square
+  card, with a stable wallpaper cover and readable color names; tap `✓ Added`
+  on that same page to remove it again. The grid is ordered by long-press
+  drag, and the order survives restarts. Four curated cards (Art, Nature,
+  Abstract, Minimal) are permanent and always present.
 - **Favorites** — persisted snapshots that render fully offline, even if the
   wallpaper disappears from Wallhaven.
 - **Detail** — full-bleed hero, draggable info sheet with metadata cards,

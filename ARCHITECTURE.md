@@ -145,9 +145,42 @@ exploration, and filtered wallpapers. It owns:
   newer feed.
 
 Search separates live text-field content from committed query state. Submit
-and chip changes use a 350 ms trailing debounce, so rapid edits produce one
-request and typing alone never performs I/O. Color chips are single-select;
-genre chips append their mapped search term to the committed query.
+and filter changes use a 350 ms trailing debounce, so rapid edits produce one
+request and typing alone never performs I/O. Both filter rows are stock
+uncontained `M3ECarousel`s of 120×104 cards with a 6dp gap: the widget owns the
+edge shrink, the drag-to-snap scrolling, the item labels and the light tap
+haptic, so the rows contain no custom scroll or text-placement code. `By color`
+keeps the ten Wallhaven search colours, and `By tag` lists the saved **tag**
+collections so a bookmark becomes a one-tap filter. Colour and tag are
+single-select, and a tag contributes its query to the committed query the same
+way a typed term would (the collection's own sort/filter is not applied). A
+selected card draws a 4dp stroke on its own rounded edge and keeps its size,
+so selection never shifts the row. Both rows tint that stroke from the card's
+own palette — the swatch, or the cover palette described below — at a moderate
+tone rather than a text-grade 4.5:1 tone, which reads as glare on dark cards and
+as a near-black band on pale ones. The tone follows the theme: light mode uses
+paler pale strokes and shallower deep strokes (a fixed deep tone turned yellow
+and green into near-black bands), while dark mode keeps the pale stroke and
+pushes deep strokes further down. A 3:1 contrast floor only pushes a too-subtle
+stroke outwards. A tag card with no palette falls back to the theme's neutral
+outline.
+
+Which collections count as tags is recorded, not inferred: `CollectionEntry`
+persists a `CollectionOrigin` (`tag`, `color`, or `unknown`). The bookmark flow
+sets it from the grid the user saved, curated seeds are `tag`, and rows written
+before the field existed stay `unknown`. An `unknown` row is preserved like any
+other collection but never offered as a tag, because its query may be an
+arbitrary saved expression such as `like:abc123` rather than a tag term. The
+tag section is hidden entirely when no collection qualifies, and an applied tag
+is dropped with its filter as soon as its collection is deleted, so a saved
+filter can never outlive its card.
+
+Each collection can also carry a small `coverColors` palette: the listing
+palette of the wallpaper that supplied its cover, captured with the cover
+snapshot and kept out of the saved search's `colors`. Curated seeds ship
+sampled palettes for their bundled JPEGs. A legacy cover gains its palette on a
+grid visit that returns the same cover; the stored cover itself never changes,
+and a cover that never reappears simply has no palette.
 
 `FeedFilter` is a pure app value object containing sorting, popular-result time
 range, minimum resolution, and category filters. Discover defaults to General

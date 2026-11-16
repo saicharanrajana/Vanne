@@ -19,3 +19,30 @@ four, as noted above.
 Covers for user-created collections are not bundled. They are a stable
 snapshot of the first wallpaper thumbnail fetched for that query when the
 collection is bookmarked.
+
+## Cover palettes
+
+Each collection also stores a small `coverColors` palette so Search's *By
+tag* row can tint a selected cover's stroke with its own artwork instead of a
+fixed theme colour. It is presentation metadata and is deliberately separate
+from `colors`, which is part of the saved search.
+
+- **User collections:** the palette of the wallpaper that supplied the cover,
+  taken from that listing entry's `colors` field when the collection is
+  bookmarked. No extra request and no image decoding: the snapshot and its
+  palette always describe the same wallpaper, are capped at five normalized
+  `#RRGGBB` values, and are never refreshed by sorting or reopening.
+- **Legacy rows:** a cover saved before the field existed gains its palette on
+  a grid visit that returns that same cover — the stored image is never
+  replaced. A cover that never reappears keeps an empty palette, and the card
+  falls back to the theme's neutral outline.
+- **Curated seeds:** measured from the bundled JPEGs above (400×400 decode,
+  histogram on the top four bits per channel, mean RGB of the four fullest
+  buckets), recorded in `seedCoverColors`. Installs that predate the field read
+  those constants instead of being rewritten.
+
+Selection strokes are derived from a palette entry at a moderate tone — pale
+or deep depending on the artwork, and never the text-grade 4.5:1 tone used for
+labels. The stroke is also theme-aware: light mode brightens pale strokes and
+keeps deep strokes closer to the artwork, while dark mode keeps pale strokes as
+they were and deepens deep strokes. A 3:1 contrast floor is only a minimum.

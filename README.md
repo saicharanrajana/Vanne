@@ -14,8 +14,9 @@ API-key storage.
 
 - **Discover** — infinite masonry feed with a collapsible header and filter
   sheet (purity, portrait-only).
-- **Search** — power-user query syntax plus dominant-color chips and genre
-  chips; rapid input is debounced into single requests.
+- **Search** — power-user query syntax plus M3E carousel rows for dominant
+  colors and saved tag collections; rapid input is debounced into single
+  requests.
 - **Collections** — bookmark a tag or color grid to save it as a square card,
   with a stable wallpaper cover, readable color names, and multi-select
   deletion. Four curated cards ship with bundled covers on first install.

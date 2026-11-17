@@ -2,9 +2,10 @@ import 'dart:convert';
 
 import 'package:wallhaven_client/wallhaven_client.dart';
 
-import '../domain/feed_filter.dart';
 import '../../shared/utils/color_display.dart';
 import '../../shared/utils/display_title.dart';
+import '../domain/feed_filter.dart';
+import '../storage/persisted_json.dart';
 
 /// Where a saved collection came from.
 ///
@@ -151,7 +152,9 @@ final class CollectionEntry {
   };
 
   factory CollectionEntry.fromJson(Map<String, dynamic> json) {
-    final kindsRaw = json['kinds'] as List<dynamic>? ?? const [];
+    // Local storage is untrusted: every field except the id is read with a
+    // safe default, so one damaged field cannot delete a saved collection.
+    final kindsRaw = readList(json['kinds']);
     final kinds = <WallhavenCategory>[];
     for (final raw in kindsRaw) {
       if (raw is String) {
@@ -160,9 +163,9 @@ final class CollectionEntry {
         } catch (_) {}
       }
     }
-    final filterRaw = json['filter'] as Map<String, dynamic>? ?? const {};
-    final sortingName = filterRaw['sorting'] as String?;
-    final topRangeName = filterRaw['topRange'] as String?;
+    final filterRaw = readObject(json['filter']);
+    final sortingName = readString(filterRaw['sorting']);
+    final topRangeName = readString(filterRaw['topRange']);
     FeedSorting sorting = FeedSorting.newest;
     if (sortingName != null) {
       try {
@@ -175,8 +178,10 @@ final class CollectionEntry {
         topRange = FeedTopRange.values.byName(topRangeName);
       } catch (_) {}
     }
-    final minRes = filterRaw['minResolution'] as String?;
-    final categoriesRaw = filterRaw['categories'] as List<dynamic>?;
+    final minRes = readString(filterRaw['minResolution']);
+    final categoriesRaw = filterRaw['categories'] is List
+        ? readList(filterRaw['categories'])
+        : null;
     // Absent for rows written before categories were persisted. Those rows
     // were created by builds whose default was General-only, so the default
     // [FeedFilter] is the faithful reading rather than a lossy one. An empty
@@ -195,22 +200,21 @@ final class CollectionEntry {
       categories = decoded;
     }
 
-    final colorsRaw = json['colors'] as List<dynamic>? ?? const [];
+    final colorsRaw = readList(json['colors']);
     final colors = [
       for (final raw in colorsRaw)
         if (raw is String && raw.isNotEmpty) raw,
     ];
-    final coverUrl = json['coverUrl'];
-    final coverAsset = json['coverAsset'];
-    final coverColorsRaw = json['coverColors'];
+    final coverUrl = readString(json['coverUrl']);
+    final coverAsset = readString(json['coverAsset']);
     final coverColors = ColorDisplay.normalizedPalette(
-      coverColorsRaw is List ? coverColorsRaw.whereType<String>() : const [],
+      readList(json['coverColors']).whereType<String>(),
     );
 
     return CollectionEntry(
-      id: json['id'] as String,
-      name: json['name'] as String? ?? '',
-      query: json['query'] as String? ?? '',
+      id: readString(json['id']) ?? '',
+      name: readString(json['name']) ?? '',
+      query: readString(json['query']) ?? '',
       kinds: kinds,
       filter: FeedFilter(
         sorting: sorting,
@@ -219,24 +223,41 @@ final class CollectionEntry {
         categories: categories,
       ),
       colors: colors,
-      coverUrl: coverUrl is String && coverUrl.isNotEmpty ? coverUrl : null,
-      coverAsset: coverAsset is String && coverAsset.isNotEmpty
+      coverUrl: coverUrl != null && coverUrl.isNotEmpty ? coverUrl : null,
+      coverAsset: coverAsset != null && coverAsset.isNotEmpty
           ? coverAsset
           : null,
       coverColors: coverColors,
       origin: CollectionOrigin.fromName(json['origin']),
-      createdAt: json['createdAt'] == null
-          ? DateTime.now()
-          : DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now(),
+      // Rows written before timestamps were stored, or with a damaged one,
+      // fall back to "now": collections sort by creation, and a fabricated
+      // default keeps the rest of the list intact.
+      createdAt:
+          DateTime.tryParse(readString(json['createdAt']) ?? '') ??
+          DateTime.now(),
     );
   }
 
   String encode() => jsonEncode(toJson());
 
+  /// Decodes a stored row, or `null` when [raw] cannot describe one.
+  ///
+  /// A row is only unreadable when it has no identity: not JSON, not an
+  /// object, or no non-empty `id`. Other fields are metadata and are read with
+  /// safe defaults by [CollectionEntry.fromJson]. The [TypeError] catch is an
+  /// outer guard for the same reason — an escaping error would reject the
+  /// whole batch, and startup awaits collection reconciliation before it shows
+  /// any screen.
   static CollectionEntry? decode(String raw) {
     try {
-      return CollectionEntry.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return null;
+      final entry = CollectionEntry.fromJson(decoded);
+      // Rows are keyed by id and every screen routes by it.
+      return entry.id.isEmpty ? null : entry;
     } on FormatException {
+      return null;
+    } on TypeError {
       return null;
     }
   }

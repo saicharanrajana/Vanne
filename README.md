@@ -120,3 +120,35 @@ integration_test/      end-to-end device test
 Stable daily-driver feature set: discover/search/collections/favorites,
 download & apply wallpapers, theming, secure key management. Known
 follow-ups are tracked in the repository issue tracker.
+
+## Releases
+
+Releases are fully automated:
+
+1. Commit messages on `main` follow [Conventional Commits](https://www.conventionalcommits.org/)
+   (`feat:`, `fix:`, `docs:`, `chore:`, ...). A `commit-msg` hook in `githooks/`
+   validates them locally (activate with `git config core.hooksPath githooks`),
+   and CI checks squash-merge PR titles.
+2. On every push to `main`, [release-please](https://github.com/googleapis/release-please)
+   opens a release PR that updates `CHANGELOG.md` and the `version:` line in
+   `pubspec.yaml` (SemVer: `fix` → patch, `feat` → minor).
+3. Merging the release PR tags the version and creates the GitHub Release
+   with user-facing changelog.
+4. The `v*` tag triggers a workflow that builds signed APKs
+   (`arm64-v8a`, `armeabi-v7a` and a universal build with checksums) and
+   attaches them to that release.
+
+## Commit message format
+
+```
+<type>(<optional scope>)!: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Allowed types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`,
+`perf`, `build`, `ci`, `revert`. Keep the header at or under 72 characters,
+with no trailing punctuation. `feat`/`fix` followed by `!` (or a
+`BREAKING CHANGE:` footer) marks a breaking change.

@@ -166,4 +166,49 @@ void main() {
     }
     expect(tester.takeException(), isNull, reason: 'no layout overflow');
   });
+
+  appTest('the Discover filter action fits beside the destinations', (
+    tester,
+    app,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await app.launch(tester);
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('wallpaper-tile-alpha')),
+      reason: 'discover feed at large text',
+    );
+
+    final trigger = find.byKey(const ValueKey('feed-filter-trigger-discover'));
+    expect(trigger, findsOneWidget, reason: 'the action is available');
+    // The trigger springs in; measure it at rest.
+    await pumpFrames(tester, 20);
+
+    // The trigger is the bar's own adjacent FAB, so the target is the FAB
+    // surface rather than the glyph that names it.
+    final target = tester.getRect(
+      find.ancestor(of: trigger, matching: find.byType(M3EFab)),
+    );
+    expect(target.width, greaterThanOrEqualTo(48), reason: 'filter target');
+    expect(target.height, greaterThanOrEqualTo(48), reason: 'filter height');
+
+    // The visible destination band and actionable FAB stay within the narrow
+    // viewport; M3E's full-width positioning wrapper may extend beyond it while
+    // the internally centered controls remain safely inset.
+    final row = tester.getRect(
+      find.byKey(const ValueKey('shell-navigation-row')),
+    );
+    expect(row.left, greaterThanOrEqualTo(0));
+    expect(row.right, lessThanOrEqualTo(320.5), reason: 'nav stays on screen');
+    expect(target.left, greaterThanOrEqualTo(0));
+    expect(
+      target.right,
+      lessThanOrEqualTo(320.5),
+      reason: 'filter FAB stays on screen',
+    );
+    expect(tester.takeException(), isNull, reason: 'no layout overflow');
+  });
 }

@@ -13,6 +13,7 @@ import '../../../shared/utils/color_display.dart';
 import '../../../shared/utils/display_title.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/collection_membership_button.dart';
+import '../../../shared/widgets/feed_filter_fab.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -204,6 +205,19 @@ final class _FilteredWallpapersScreenState
     }
   }
 
+  /// Opens the sort & filter sheet for this tag/colour search.
+  ///
+  /// The trigger is a floating action instead of a chip row, so the results
+  /// grid keeps the full width and the sheet still drives the same request.
+  void _openFilters() {
+    M3EHaptics.trigger(M3EHapticFeedback.light);
+    showFeedFilterSheet(
+      context,
+      initial: _controller.filter.value,
+      onApply: (f) => _controller.applyFilter(f),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -212,6 +226,10 @@ final class _FilteredWallpapersScreenState
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      floatingActionButton: FeedFilterFab(
+        triggerKey: const ValueKey('feed-filter-trigger-filtered'),
+        onPressed: _openFilters,
+      ),
       body: SignalBuilder(
         builder: (context) {
           final state = _controller.state.value;
@@ -223,6 +241,13 @@ final class _FilteredWallpapersScreenState
             error: state.error,
             paginationError: state.paginationError,
             heroScope: _heroScope,
+            // Room for the floating filter trigger at the end of the list.
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              8,
+              16,
+              24 + FeedFilterFab.scrollClearance,
+            ),
             onRetry: _controller.reload,
             onRetryPagination: _controller.retryPagination,
             onLoadMore: _controller.loadMore,
@@ -292,38 +317,6 @@ final class _FilteredWallpapersScreenState
                       ),
                     ),
                   ],
-                  bottom: PreferredSize(
-                    preferredSize: const Size.fromHeight(48),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                        child: SignalBuilder(
-                          builder: (context) {
-                            final filter = _controller.filter.value;
-                            return M3EChip(
-                              label: filter.summary,
-                              type: M3EChipType.filter,
-                              selected: true,
-                              leading: Icon(
-                                PhosphorIconsFill.slidersHorizontal,
-                                size: 16,
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
-                              onPressed: () {
-                                M3EHaptics.trigger(M3EHapticFeedback.light);
-                                showFeedFilterSheet(
-                                  context,
-                                  initial: _controller.filter.value,
-                                  onApply: (f) => _controller.applyFilter(f),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
                 ...grid.buildSlivers(context),
               ],

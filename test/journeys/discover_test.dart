@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:vanne/app/router/app_route.dart';
 
 import '../support/fake_wallhaven.dart';
@@ -9,6 +11,10 @@ import '../support/fixtures.dart';
 import '../support/test_app.dart';
 
 Finder _tile(String id) => find.byKey(ValueKey('wallpaper-tile-$id'));
+
+/// Discover's filter trigger: a toolbar action, not a chip in the header.
+Finder get _filterTrigger =>
+    find.byKey(const ValueKey('feed-filter-trigger-discover'));
 
 /// The feed grid is the vertical scrollable on Discover.
 Finder get _feed => find.byType(Scrollable).first;
@@ -159,8 +165,33 @@ void main() {
     await app.launch(tester);
     await pumpUntil(tester, _tile('alpha'), reason: 'default feed');
 
-    await app.tap(tester, find.text('Newest'));
+    await app.tap(tester, _filterTrigger);
     await pumpUntil(tester, find.text('Sort & Filter'), reason: 'filter sheet');
+
+    final applyButton = find.widgetWithText(M3EButton, 'Apply');
+    final resetButton = find.widgetWithText(M3EButton, 'Reset');
+    expect(applyButton, findsOneWidget);
+    expect(resetButton, findsOneWidget);
+    final applyRect = tester.getRect(applyButton);
+    final resetRect = tester.getRect(resetButton);
+    expect(applyRect.height, 56);
+    expect(resetRect.height, applyRect.height);
+    expect(resetRect.width, applyRect.width);
+    final applyText = tester.widget<Text>(find.text('Apply'));
+    final resetText = tester.widget<Text>(find.text('Reset'));
+    expect(applyText.style?.fontSize, 18);
+    expect(resetText.style?.fontSize, 18);
+    expect(applyText.style?.color, isNull);
+    expect(resetText.style?.color, isNull);
+    final m3eScheme = M3ETheme.of(tester.element(applyButton)).colorScheme;
+    final applyParagraph = tester.renderObject<RenderParagraph>(
+      find.text('Apply'),
+    );
+    final resetParagraph = tester.renderObject<RenderParagraph>(
+      find.text('Reset'),
+    );
+    expect(applyParagraph.text.style?.color, m3eScheme.onPrimary);
+    expect(resetParagraph.text.style?.color, m3eScheme.onSurfaceVariant);
 
     await app.tap(tester, find.text('Most viewed'));
     await app.tap(tester, find.text('Anime'));
@@ -182,7 +213,7 @@ void main() {
     await app.launch(tester);
     await pumpUntil(tester, _tile('alpha'), reason: 'default feed');
 
-    await app.tap(tester, find.text('Newest'));
+    await app.tap(tester, _filterTrigger);
     await pumpUntil(tester, find.text('Sort & Filter'), reason: 'filter sheet');
     await app.tap(tester, find.text('Most viewed'));
     // Closing without Apply discards the draft.
@@ -212,7 +243,7 @@ void main() {
     expect(app.network.searches, hasLength(1));
 
     // Trigger a reload by applying a different filter.
-    await app.tap(tester, find.text('Newest'));
+    await app.tap(tester, _filterTrigger);
     await pumpUntil(tester, find.text('Sort & Filter'), reason: 'filter sheet');
     await app.tap(tester, find.text('Most viewed'));
     await app.tap(tester, find.text('Apply'));
@@ -245,4 +276,64 @@ void main() {
     expect(find.byType(WallpaperDetailPage), findsOneWidget);
     expect(app.network.detailIds, contains('alpha'));
   });
+
+  appTest(
+    'the toolbar hosts the filter action without becoming a destination',
+    (tester, app) async {
+      await app.launch(tester);
+      await pumpUntil(tester, _tile('alpha'), reason: 'default feed');
+
+      // The header no longer carries a shelf of filter text: one glyph says it.
+      expect(
+        find.text('Newest'),
+        findsNothing,
+        reason: 'the dynamic filter summary is gone',
+      );
+      expect(
+        find.descendant(of: find.byType(M3EToolbar), matching: _filterTrigger),
+        findsOneWidget,
+        reason: 'filters are a toolbar action',
+      );
+
+      final pill = find.byKey(const ValueKey('nav-selection-pill'));
+      final pillBefore = tester.getRect(pill);
+
+      await app.tap(tester, _filterTrigger);
+      await pumpUntil(
+        tester,
+        find.text('Sort & Filter'),
+        reason: 'filter sheet',
+      );
+      await app.tap(tester, find.text('Most viewed'));
+      await app.tap(tester, find.text('Apply'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length == 2,
+        reason: 'filtered request sent',
+      );
+      expect(app.network.searches.last.sorting, 'views');
+
+      final pillAfter = tester.getRect(pill);
+      expect(
+        pillAfter.top,
+        pillBefore.top,
+        reason: 'filter actions never move the toolbar vertically',
+      );
+      expect(
+        pillAfter.bottom,
+        pillBefore.bottom,
+        reason: 'filter actions never change the toolbar height',
+      );
+      expect(
+        find.byKey(const ValueKey('nav-selected-label-0')),
+        findsOneWidget,
+        reason: 'Discover remains the selected destination',
+      );
+      expect(
+        find.descendant(of: find.byType(M3EToolbar), matching: _filterTrigger),
+        findsOneWidget,
+        reason: 'still on Discover, still hosting its filter action',
+      );
+    },
+  );
 }

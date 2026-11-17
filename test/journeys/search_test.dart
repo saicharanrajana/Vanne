@@ -9,6 +9,7 @@ import 'package:vanne/app/router/app_route.dart';
 import 'package:vanne/core/collections/collection_entry.dart';
 
 import '../support/fake_wallhaven.dart';
+import '../support/fixtures.dart';
 import '../support/test_app.dart';
 
 Finder _tile(String id) => find.byKey(ValueKey('wallpaper-tile-$id'));
@@ -500,5 +501,68 @@ void main() {
 
     expect(find.byType(SearchPage), findsNothing);
     expect(find.byKey(const ValueKey('wallpaper-tile-alpha')), findsOneWidget);
+  });
+
+  appTest('filters live behind a floating trigger, not a chip row', (
+    tester,
+    app,
+  ) async {
+    await _openSearch(tester, app);
+    await _submit(tester, app, 'nature');
+    await pumpUntil(tester, _tile('alpha'), reason: 'search results');
+
+    expect(
+      find.text('Newest'),
+      findsNothing,
+      reason: 'the header no longer carries a filter chip',
+    );
+    final trigger = find.byKey(const ValueKey('feed-filter-trigger-search'));
+    expect(trigger, findsOneWidget, reason: 'search offers a filter FAB');
+
+    final before = app.network.searches.length;
+    await app.tap(tester, trigger);
+    await pumpUntil(tester, find.text('Sort & Filter'), reason: 'filter sheet');
+    await app.tap(tester, find.text('Most viewed'));
+    await app.tap(tester, find.text('Apply'));
+
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.length == before + 1,
+      reason: 'the filter re-runs the committed search',
+    );
+    final applied = app.network.searches.last;
+    expect(applied.query, 'nature');
+    expect(applied.sorting, 'views');
+  });
+
+  appTest('the filter trigger never covers the end of the results', (
+    tester,
+    app,
+  ) async {
+    app.network.searchHandler = (call) async => searchPageJson(const [
+      'alpha',
+      'beta',
+      'gamma',
+      'delta',
+      'epsilon',
+      'zeta',
+      'eta',
+      'theta',
+    ]);
+    await _openSearch(tester, app);
+    await _submit(tester, app, 'nature');
+    await pumpUntil(tester, _tile('alpha'), reason: 'search results');
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1200));
+    await pumpFrames(tester, 10, const Duration(milliseconds: 100));
+
+    final last = _tile('theta');
+    expect(last, findsOneWidget, reason: 'last result reachable by scrolling');
+    final trigger = find.byKey(const ValueKey('feed-filter-trigger-search'));
+    expect(
+      tester.getRect(last).bottom,
+      lessThanOrEqualTo(tester.getRect(trigger).top),
+      reason: 'the last tile can rest clear of the floating trigger',
+    );
   });
 }

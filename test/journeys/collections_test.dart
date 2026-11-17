@@ -679,6 +679,32 @@ void main() {
         reason: 'Add and Added keep the same footprint',
       );
 
+      // The confirmation snackbar must not cover the filter FAB; Scaffold owns
+      // both so it can lift the FAB above its floating snackbar.
+      await pumpUntil(tester, find.byType(SnackBar), reason: 'Added snackbar');
+      final filterFab = find.byKey(
+        const ValueKey('feed-filter-trigger-filtered'),
+      );
+      final snackRect = tester.getRect(find.byType(SnackBar));
+      final fabRect = tester.getRect(filterFab);
+      expect(
+        snackRect.bottom,
+        lessThanOrEqualTo(fabRect.top),
+        reason: 'the snackbar sits above, not over, the filter FAB',
+      );
+      await app.tap(tester, filterFab);
+      await pumpUntil(
+        tester,
+        find.text('Sort & Filter'),
+        reason: 'filter FAB remains usable while the snackbar is visible',
+      );
+      await app.tap(tester, find.text('Apply'));
+      await app.settleUntil(
+        tester,
+        () => find.text('Sort & Filter').evaluate().isEmpty,
+        reason: 'filter sheet closed',
+      );
+
       // The browsing page is not replaced or reset by saving.
       expect(find.byType(FilteredWallpapersPage), findsOneWidget);
       expect(tile('alpha'), findsOneWidget);
@@ -773,7 +799,10 @@ void main() {
 
       // Change the browsing filter so exact query identity no longer matches
       // the session-created row. Its remembered ID still owns this toggle.
-      await app.tap(tester, find.text('Newest'));
+      await app.tap(
+        tester,
+        find.byKey(const ValueKey('feed-filter-trigger-filtered')),
+      );
       await pumpUntil(
         tester,
         find.text('Sort & Filter'),
@@ -934,5 +963,73 @@ void main() {
       ['Minimal', 'Art', 'Nature', 'Abstract', 'Landscape'],
       reason: 'order and append survive a restart',
     );
+  });
+
+  appTest('a saved collection opens its filters from a floating trigger', (
+    tester,
+    app,
+  ) async {
+    await openCollections(tester, app);
+    await app.tap(tester, collection('Art'));
+    await pumpUntil(tester, tile('alpha'), reason: 'collection feed');
+
+    expect(
+      find.text('Newest'),
+      findsNothing,
+      reason: 'no filter chip row above the grid',
+    );
+    final trigger = find.byKey(
+      const ValueKey('feed-filter-trigger-collection'),
+    );
+    expect(trigger, findsOneWidget, reason: 'collection offers a filter FAB');
+
+    final searchesBefore = app.network.searches.length;
+    await app.tap(tester, trigger);
+    await pumpUntil(tester, find.text('Sort & Filter'), reason: 'filter sheet');
+    await app.tap(tester, find.text('Most viewed'));
+    await app.tap(tester, find.text('Apply'));
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.length == searchesBefore + 1,
+      reason: 'filtered collection request',
+    );
+    final applied = app.network.searches.last;
+    expect(applied.query, 'art');
+    expect(applied.sorting, 'views');
+    expect(
+      find.byType(CollectionExplorePage),
+      findsOneWidget,
+      reason: 'filtering keeps the collection open',
+    );
+  });
+
+  appTest('the tag page opens its filters from a floating trigger', (
+    tester,
+    app,
+  ) async {
+    await openTagGrid(tester, app);
+
+    expect(
+      find.text('Newest'),
+      findsNothing,
+      reason: 'no filter chip row above the tag results',
+    );
+    final trigger = find.byKey(const ValueKey('feed-filter-trigger-filtered'));
+    expect(trigger, findsOneWidget, reason: 'tag page offers a filter FAB');
+
+    final searchesBefore = app.network.searches.length;
+    await app.tap(tester, trigger);
+    await pumpUntil(tester, find.text('Sort & Filter'), reason: 'filter sheet');
+    await app.tap(tester, find.text('Most viewed'));
+    await app.tap(tester, find.text('Apply'));
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.length == searchesBefore + 1,
+      reason: 'filtered tag request',
+    );
+    final applied = app.network.searches.last;
+    expect(applied.query, 'landscape');
+    expect(applied.sorting, 'views');
+    expect(find.byType(FilteredWallpapersPage), findsOneWidget);
   });
 }

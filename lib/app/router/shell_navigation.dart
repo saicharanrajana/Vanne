@@ -3,6 +3,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -21,11 +22,14 @@ const double _iconExtent = 24;
 /// Gap between the glyph and the label of the selected destination.
 const double _labelGap = 8;
 
-/// Padding M3E's floating bar keeps either side of its content.
-///
-/// Budgeted conservatively: a row narrower than the bar's own padding simply
-/// centres inside it, whereas a row wider than it overflows.
-const double _barHorizontalPadding = 16;
+/// Padding M3E's floating bar keeps inside its pill, either side of the
+/// content: its own floating padding plus the icon target's optical overhang
+/// (measured as 16 either side, and matching what the bar lays out when the
+/// content is fully sized). A row narrower than the bar's content box centres
+/// inside it; a row wider than it overflows the bar's own `Row`.
+const double _pillInnerPadding =
+    M3EToolbarTokens.floatingContentPadding +
+    M3EToolbarTokens.floatingContentPadding;
 
 /// The four primary destinations, in tab-router order.
 ///
@@ -58,6 +62,7 @@ final class ShellNavigationToolbar extends StatelessWidget {
   const ShellNavigationToolbar({
     required this.activeIndex,
     required this.onDestinationSelected,
+    this.filterAction,
     super.key,
   });
 
@@ -75,33 +80,199 @@ final class ShellNavigationToolbar extends StatelessWidget {
   /// exactly `safe area + this`, counted once.
   static const double screenOffset = 4;
 
+  /// How much taller M3E draws a floating bar that has an adjacent FAB.
+  ///
+  /// It centres the content band inside the FAB's 80dp box instead of the
+  /// bar's own 64dp. The FAB slot below is permanent, so this silhouette never
+  /// changes with the destination; it is recorded because scroll clearance has
+  /// to allow for it.
+  static const double fabDrop = 8;
+
   /// Height of the floating bar: the content band plus M3E's floating padding.
   static const double barExtent = contentExtent + 16;
 
+  /// Width of the bar's FAB slot: one FAB plus the gap to the pill.
+  ///
+  /// The slot is permanent. M3E draws a floating bar taller when it has an
+  /// adjacent FAB, and that FAB's width is part of the bar's own width. Keeping
+  /// the slot stable preserves vertical geometry; horizontal centering is
+  /// handled by [_ToolbarHorizontalCentering] as the FAB appears or leaves.
+  static const double fabSlotExtent =
+      M3EToolbarTokens.fabBaseline + M3EToolbarTokens.toolbarToFabGap;
+
   /// Space scrollable shell content must leave at the end of its list so its
   /// last row can rest clear of the floating bar and its breathing room.
-  static const double scrollClearance = barExtent + screenOffset + 16;
+  static const double scrollClearance = barExtent + fabDrop + screenOffset + 16;
 
   final int activeIndex;
   final ValueChanged<int> onDestinationSelected;
 
+  /// The active page's "open filters" action, or null when it offers none.
+  ///
+  /// Read through a listenable because the action is published by the page on
+  /// its first frame, after the toolbar has already been built.
+  final ValueListenable<VoidCallback?>? filterAction;
+
   @override
   Widget build(BuildContext context) {
-    return M3EToolbar(
-      safeArea: true,
-      screenOffset: screenOffset,
-      alignment: Alignment.bottomCenter,
-      colorStyle: M3EToolbarColorStyle.standard,
-      expanded: true,
-      semanticLabel: 'Main navigation',
-      actions: [
-        M3EToolbarWidget(
-          child: _DestinationBar(
-            activeIndex: activeIndex,
-            onDestinationSelected: onDestinationSelected,
+    final listenable = filterAction;
+    if (listenable == null) return _buildBar(context, null);
+    return ValueListenableBuilder<VoidCallback?>(
+      valueListenable: listenable,
+      builder: (context, action, _) => _buildBar(context, action),
+    );
+  }
+
+  Widget _buildBar(BuildContext context, VoidCallback? filter) {
+    // Only Discover hosts the filter action: it is a page action, not a fifth
+    // destination, so it rides beside the pill as the bar's own FAB rather
+    // than taking a pill of its own.
+    final showFilter =
+        filter != null && activeIndex == ShellDestination.discover.index;
+
+    return _ToolbarHorizontalCentering(
+      filterVisible: showFilter,
+      child: M3EToolbar(
+        safeArea: true,
+        screenOffset: screenOffset,
+        alignment: Alignment.bottomCenter,
+        colorStyle: M3EToolbarColorStyle.standard,
+        expanded: true,
+        semanticLabel: 'Main navigation',
+        // The filter is the bar's own adjacent FAB rather than an appended
+        // action: M3E lays the FAB out beside the pill, so the two never share
+        // a selection state and the pill stays a destinations-only surface.
+        // `fabExpandsToolbar: false` keeps the pill permanently open and gives
+        // the FAB a single job — run [onFabPressed] — instead of expanding it.
+        onFabPressed: showFilter ? filter : null,
+        fabExpandIcon: const _FilterFabGlyph(),
+        fabCollapseIcon: const _FilterFabGlyph(),
+        fabExpandsToolbar: false,
+        // The slot's surface animates in and out; the slot itself never moves.
+        floatingActionButton: _FilterFabSurface(
+          key: const ValueKey('shell-filter-fab'),
+          onPressed: showFilter ? filter : null,
+        ),
+        actions: [
+          M3EToolbarWidget(
+            child: _DestinationBar(
+              activeIndex: activeIndex,
+              onDestinationSelected: onDestinationSelected,
+              maxWidth: _rowBudget(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Widest the destination row may be without escaping the bar.
+  ///
+  /// M3E lays a floating bar out at its content's natural width, so the row
+  /// has to know its own share: the screen, less the bar's screen offset, less
+  /// the pill's inner padding, less the FAB slot.
+  double _rowBudget(BuildContext context) =>
+      MediaQuery.sizeOf(context).width -
+      2 * (screenOffset + _pillInnerPadding) -
+      fabSlotExtent;
+}
+
+/// Horizontally centers the visible toolbar contents as the FAB fades in/out.
+///
+/// M3E centers the two-piece FAB/pill layout on its combined optical bounds.
+/// This compensates the pill/FAB group's package-derived asymmetric extents:
+/// the pill alone is centered when hidden, and pill plus FAB are centered when
+/// visible. AnimatedSlide keeps the two alignments fluid and reversible.
+final class _ToolbarHorizontalCentering extends StatelessWidget {
+  const _ToolbarHorizontalCentering({
+    required this.filterVisible,
+    required this.child,
+  });
+
+  final bool filterVisible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final halfSlot = ShellNavigationToolbar.fabSlotExtent / 2;
+    final shownOverhang = halfSlot + M3EToolbarTokens.floatingContentPadding;
+    final logicalOffset = filterVisible ? halfSlot - shownOverhang : halfSlot;
+    final width = MediaQuery.sizeOf(context).width;
+
+    return AnimatedSlide(
+      offset: Offset((rtl ? -1 : 1) * logicalOffset / width, 0),
+      duration: reduceMotion ? Duration.zero : AppMotion.tabSelectionFade,
+      curve: AppMotion.tabTransitionCurve,
+      child: child,
+    );
+  }
+}
+
+/// The Discover filter glyph, worn by the bar's own adjacent FAB.
+///
+/// Split out as a widget so the FAB's icon — the only interactive part of it
+/// that the shell owns — keeps the trigger key journeys tap, and so the glyph
+/// still carries a tooltip and a semantic name. M3E builds the default FAB
+/// from an icon only, so the name has to travel with the icon.
+final class _FilterFabGlyph extends StatelessWidget {
+  const _FilterFabGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Filters',
+      excludeFromSemantics: true,
+      child: Semantics(
+        key: const ValueKey('feed-filter-trigger-discover'),
+        container: true,
+        button: true,
+        label: 'Filters',
+        child: const Icon(PhosphorIconsBold.slidersHorizontal, size: 24),
+      ),
+    );
+  }
+}
+
+/// The bar's FAB slot surface: the sort & filter trigger, or nothing.
+///
+/// The slot is permanent (see [ShellNavigationToolbar.fabSlotExtent]) and only
+/// this surface changes, so the trigger can appear and leave smoothly without
+/// the bar — or the selection pill beside it — shifting. While it is away the
+/// slot is inert: no hit testing, no semantics, nothing painted.
+final class _FilterFabSurface extends StatelessWidget {
+  const _FilterFabSurface({required this.onPressed, super.key});
+
+  /// The filter action, or null while the active destination has none.
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = onPressed != null;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final duration = reduceMotion ? Duration.zero : AppMotion.tabSelectionFade;
+
+    return IgnorePointer(
+      ignoring: !shown,
+      child: ExcludeSemantics(
+        excluding: !shown,
+        child: AnimatedOpacity(
+          opacity: shown ? 1 : 0,
+          duration: duration,
+          curve: AppMotion.tabTransitionCurve,
+          child: AnimatedScale(
+            scale: shown ? 1 : 0.72,
+            duration: duration,
+            curve: AppMotion.tabTransitionCurve,
+            child: M3EFab(
+              icon: const _FilterFabGlyph(),
+              color: M3EFabColor.secondary,
+              onPressed: onPressed,
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -115,10 +286,15 @@ final class _DestinationBar extends StatefulWidget {
   const _DestinationBar({
     required this.activeIndex,
     required this.onDestinationSelected,
+    required this.maxWidth,
   });
 
   final int activeIndex;
   final ValueChanged<int> onDestinationSelected;
+
+  /// Widest the destination row may become, already reduced by any trailing
+  /// action the toolbar hosts.
+  final double maxWidth;
 
   @override
   State<_DestinationBar> createState() => _DestinationBarState();
@@ -201,12 +377,8 @@ final class _DestinationBarState extends State<_DestinationBar>
     const destinations = ShellDestination.values;
 
     // M3E lays its floating content out at its intrinsic width, so without a
-    // budget the bar would happily grow wider than the screen. Budget the row
-    // against the screen: the shell's screen offset plus the bar's optical
-    // padding either side.
-    final budget =
-        MediaQuery.sizeOf(context).width -
-        2 * (ShellNavigationToolbar.screenOffset + _barHorizontalPadding);
+    // budget the bar would happily grow wider than the screen.
+    final budget = widget.maxWidth;
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: budget),
@@ -226,6 +398,17 @@ final class _DestinationBarState extends State<_DestinationBar>
                       _labelGap +
                       _pillPadding * 2)
                   .clamp(ShellNavigationToolbar.destinationExtent, maxSelected),
+          ];
+          // Where even the clamped slot cannot hold the whole label, the slot
+          // stays icon-only with its name in the tooltip and semantics rather
+          // than painting a clipped word.
+          final labelFits = [
+            for (final destination in destinations)
+              _labelWidth(context, destination.label, textStyle) +
+                      _iconExtent +
+                      _labelGap +
+                      _pillPadding * 2 <=
+                  maxSelected,
           ];
 
           return AnimatedBuilder(
@@ -297,6 +480,7 @@ final class _DestinationBarState extends State<_DestinationBar>
                           destination: destinations[index],
                           selected: activations[index] >= 0.5,
                           activation: activations[index],
+                          showLabel: labelFits[index],
                           idleColor: scheme.onSurfaceVariant,
                           selectedColor: scheme.onSecondaryContainer,
                           textStyle: textStyle,
@@ -320,6 +504,7 @@ final class _DestinationSlot extends StatelessWidget {
     required this.destination,
     required this.selected,
     required this.activation,
+    this.showLabel = true,
     required this.idleColor,
     required this.selectedColor,
     required this.textStyle,
@@ -336,6 +521,9 @@ final class _DestinationSlot extends StatelessWidget {
   /// How far the slot is towards being the selected one (0…1).
   final double activation;
 
+  /// Whether this slot's label fits inside its selected extent.
+  final bool showLabel;
+
   final Color idleColor;
   final Color selectedColor;
   final TextStyle? textStyle;
@@ -346,7 +534,9 @@ final class _DestinationSlot extends StatelessWidget {
     // The label only appears in the last sliver of the indicator's travel —
     // once its slot is wide enough to hold it in full — so it is never caught
     // mid-clip, and exactly one label is in the tree at rest.
-    final labelOpacity = ((activation - 0.9) / 0.1).clamp(0.0, 1.0);
+    final labelOpacity = showLabel
+        ? ((activation - 0.9) / 0.1).clamp(0.0, 1.0)
+        : 0.0;
 
     return Semantics(
       container: true,

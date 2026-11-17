@@ -47,8 +47,10 @@ import 'package:vanne/features/favorites/application/favorites_controller.dart';
 import 'package:vanne/features/search/application/search_controller.dart';
 import 'package:vanne/features/settings/application/settings_controller.dart';
 import 'package:vanne/features/wallpaper_detail/application/wallpaper_detail_controller.dart';
+import 'package:vanne/shared/widgets/smart_network_image.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
+import 'fake_cache_manager.dart';
 import 'fake_platform.dart';
 import 'fake_wallhaven.dart';
 
@@ -490,7 +492,12 @@ void appTest(
     final app = create?.call() ?? TestApp();
     addTearDown(app.deleteData);
     // CachedNetworkImage talks to HttpClient directly; serve a fake image so
-    // no journey can reach the network or wait on image I/O.
+    // no journey can reach the network or wait on image I/O. Images go through
+    // a cache-manager fake: the real DefaultCacheManager schedules a 10s
+    // cleanup timer whose pending state at teardown is machine-speed
+    // dependent (green locally, red on the 2-core CI runner).
+    SmartNetworkImage.debugCacheManager = FakeCacheManager();
+    addTearDown(() => SmartNetworkImage.debugCacheManager = null);
     await mockNetworkImagesFor(() async {
       try {
         await body(tester, app);

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 // Prefer material_ui over package:flutter/material.dart: the app runs on the
@@ -30,6 +31,14 @@ class SmartNetworkImage extends StatelessWidget {
     this.placeholderColor,
     this.placeholderImageUrl,
   });
+
+  /// Test seam: swaps the cache manager backing every [CachedNetworkImage]
+  /// rendered through this widget. Production leaves it null and uses the
+  /// package default; widget tests inject [FakeCacheManager] so
+  /// `flutter_cache_manager`'s store — whose periodic cleanup timer leaks
+  /// into the tests' fake-async zone — is never created.
+  @visibleForTesting
+  static BaseCacheManager? debugCacheManager;
 
   final String url;
   final double? width;
@@ -76,6 +85,7 @@ class SmartNetworkImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
+      cacheManager: debugCacheManager,
       // Decode at the consuming surface's size for RAM. The optional
       // placeholder image has its own cache entry and is never promoted to
       // the full-resolution image.
@@ -122,6 +132,7 @@ class SmartNetworkImage extends StatelessWidget {
           width: width,
           height: height,
           fit: fit,
+          cacheManager: debugCacheManager,
           memCacheWidth: memCacheWidth,
           fadeInDuration: reduceMotion ? Duration.zero : AppMotion.transition,
           fadeInCurve: AppMotion.arrivalCurve,

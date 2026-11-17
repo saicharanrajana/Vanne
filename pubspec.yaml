@@ -71,6 +71,10 @@ dev_dependencies:
   integration_test:
     sdk: flutter
 
+  # Direct dep for the test harness: FakeCacheManager uses package:file's
+  # LocalFileSystem to build FileInfo results for flutter_cache_manager.
+  file: ^7.0.1
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your

@@ -453,7 +453,21 @@ void _clearPathProvider() {
 ///
 /// Flutter's test default (Ahem) gives every glyph a square advance, which
 /// makes headings wrap and overflow in ways the real font never would.
-Future<void> loadAppFonts() async {
+/// The future is shared by all [appTest] registrations in this test isolate.
+Future<void>? _appFontsFuture;
+
+Future<void> loadAppFonts() {
+  return _appFontsFuture ??= _loadAppFonts().catchError((
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    // A transient asset-loading failure must not poison later setup attempts.
+    _appFontsFuture = null;
+    Error.throwWithStackTrace(error, stackTrace);
+  });
+}
+
+Future<void> _loadAppFonts() async {
   final loader = FontLoader('Outfit');
   loader.addFont(rootBundle.load('assets/fonts/Outfit-Variable.ttf'));
   await loader.load();

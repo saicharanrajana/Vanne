@@ -6,8 +6,9 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../core/collections/collection_entry.dart';
 import '../../../core/domain/feed_filter.dart';
 import '../../../core/wallpaper/feed_controller.dart';
+import '../../../shared/utils/wallhaven_color_utils.dart';
 
-/// Owns the dedicated Search experience: typed query plus colour and saved-tag
+/// Owns the dedicated Search experience: typed query plus colour and saved
 /// collection filters, submitted explicitly (never per keystroke).
 ///
 /// Reload triggers (submit key, chip taps) pass through one trailing
@@ -25,11 +26,20 @@ final class SearchController extends FeedController {
   /// Selected dominant-color filters.
   final selectedColors = signal(const <FeedColor>{});
 
+  /// Currently applied saved colour collection, or `null` for none.
+  ///
+  /// Occupies the same single-select slot as [selectedColors]: a saved colour
+  /// stands for one colour filter, so picking it replaces a plain swatch and
+  /// picking a swatch replaces it. The whole entry is kept so the row can
+  /// match the selected card; [pruneMissingCollections] drops it as soon as
+  /// its saved collection disappears.
+  final selectedColorCollection = signal<CollectionEntry?>(null);
+
   /// Currently applied tag collection, or `null` for none.
   ///
   /// Single-select like the colour row. The whole entry is kept so the row can
-  /// match the selected card; [pruneSelectedTag] drops it as soon as its saved
-  /// collection disappears.
+  /// match the selected card; [pruneMissingCollections] drops it as soon as
+  /// its saved collection disappears.
   final selectedTag = signal<CollectionEntry?>(null);
 
   /// Trailing-edge debounce timer; null when no request is pending.
@@ -41,6 +51,7 @@ final class SearchController extends FeedController {
     () =>
         _committedQuery.value.isNotEmpty ||
         selectedColors.value.isNotEmpty ||
+        selectedColorCollection.value != null ||
         selectedTag.value != null,
   );
 
@@ -77,6 +88,13 @@ final class SearchController extends FeedController {
       colors: {
         for (final color in selectedColors.value)
           WallhavenColor.values.firstWhere((wire) => wire.hex == color.hex),
+        // A saved colour collection keeps the exact RGB the user saved, which
+        // is usually not one of Wallhaven's documented values. Each hex is
+        // mapped to its nearest wire colour, exactly as the collection's own
+        // browsing page does, so the filter stays the search that was saved.
+        for (final hex
+            in selectedColorCollection.value?.colors ?? const <String>[])
+          if (wallhavenColorForHex(hex) case final WallhavenColor wire) wire,
       },
       filter: filter.value,
     );
@@ -89,14 +107,32 @@ final class SearchController extends FeedController {
   }
 
   /// Toggles a color chip; single-select: tapping a color selects it
-  /// exclusively (replacing any previous), tapping the same again clears.
+  /// exclusively (replacing any previous, including a saved colour
+  /// collection), tapping the same again clears.
   /// Filter changes re-run the search (debounced).
   void toggleColor(FeedColor color) {
     final current = selectedColors.peek();
-    if (current.contains(color)) {
+    if (current.contains(color) && selectedColorCollection.peek() == null) {
       selectedColors.set(const {});
     } else {
       selectedColors.set({color});
+      // One colour slot for the whole row: a swatch replaces a saved colour.
+      selectedColorCollection.set(null);
+    }
+    _debouncedReload();
+  }
+
+  /// Toggles a saved colour collection; single-select like [toggleTag], and it
+  /// shares [selectedColors]' slot: picking one replaces a plain swatch, and
+  /// picking the selected card again clears the colour filter.
+  /// Filter changes re-run the search (debounced).
+  void toggleColorCollection(CollectionEntry entry) {
+    final current = selectedColorCollection.peek();
+    if (current?.id == entry.id) {
+      selectedColorCollection.set(null);
+    } else {
+      selectedColorCollection.set(entry);
+      selectedColors.set(const {});
     }
     _debouncedReload();
   }
@@ -114,20 +150,36 @@ final class SearchController extends FeedController {
     _debouncedReload();
   }
 
-  /// Drops an applied tag whose collection no longer exists.
+  /// Drops an applied collection whose saved row no longer exists.
   ///
   /// Called with the ids currently saved, so a filter can never outlive its
-  /// card: leaving it set would keep changing the results while the By tag row
-  /// has nothing to show or clear. The refresh is immediate rather than
-  /// debounced because losing a collection is a single event, not a burst of
-  /// input. Results reload only while another input (typed query or colour)
-  /// still makes the search non-empty; otherwise the screen returns to its
-  /// pristine state without fetching the generic feed.
-  void pruneSelectedTag(Iterable<String> savedIds) {
-    final current = selectedTag.peek();
-    if (current == null || savedIds.contains(current.id)) return;
-    selectedTag.set(null);
-    if (_committedQuery.peek().isNotEmpty || selectedColors.peek().isNotEmpty) {
+  /// card: leaving it set would keep changing the results while the row has
+  /// nothing to show or clear. Colour and tag selections are pruned alike.
+  /// The refresh is immediate rather than debounced because losing a
+  /// collection is a single event, not a burst of input. Results reload only
+  /// while another input (typed query or colour) still makes the search
+  /// non-empty; otherwise the screen returns to its pristine state without
+  /// fetching the generic feed.
+  void pruneMissingCollections(Iterable<String> savedIds) {
+    final ids = savedIds.toSet();
+    var changed = false;
+
+    final tag = selectedTag.peek();
+    if (tag != null && !ids.contains(tag.id)) {
+      selectedTag.set(null);
+      changed = true;
+    }
+
+    final color = selectedColorCollection.peek();
+    if (color != null && !ids.contains(color.id)) {
+      selectedColorCollection.set(null);
+      changed = true;
+    }
+
+    if (!changed) return;
+    if (_committedQuery.peek().isNotEmpty ||
+        selectedColors.peek().isNotEmpty ||
+        selectedColorCollection.peek() != null) {
       unawaited(reload());
     }
   }
@@ -137,6 +189,7 @@ final class SearchController extends FeedController {
     queryText.set('');
     _committedQuery.set('');
     selectedColors.set(const {});
+    selectedColorCollection.set(null);
     selectedTag.set(null);
     _debouncedReload();
   }
@@ -156,6 +209,7 @@ final class SearchController extends FeedController {
     queryText.dispose();
     _committedQuery.dispose();
     selectedColors.dispose();
+    selectedColorCollection.dispose();
     selectedTag.dispose();
     hasCommittedInput.dispose();
     filter.dispose();

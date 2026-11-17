@@ -83,13 +83,13 @@ final class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     // A deleted collection must not keep filtering through an invisible card:
-    // the By tag row only shows saved tag collections, so the applied tag is
+    // both rows only show saved collections, so an applied tag or colour is
     // dropped as soon as its source row is gone.
     _pruneTagEffect = effect(() {
       final savedIds = [
         for (final entry in _collections.entries.value) entry.id,
       ];
-      untracked(() => controller.pruneSelectedTag(savedIds));
+      untracked(() => controller.pruneMissingCollections(savedIds));
     });
     _textEditing.addListener(() {
       controller.queryText.set(_textEditing.text);
@@ -130,6 +130,15 @@ final class _SearchScreenState extends State<SearchScreen> {
       if (entry.isTagCollection) entry,
   ];
 
+  /// Collections the colour row can offer, in the user's saved order.
+  ///
+  /// The mirror of [_tagEntries]: only positively classified colour
+  /// collections can contribute a colour filter.
+  List<CollectionEntry> _colorEntries() => [
+    for (final entry in _collections.entries.value)
+      if (entry.isColorCollection) entry,
+  ];
+
   double _headerExtent(BuildContext context, {required bool showTagRow}) {
     // Line heights round in the text layout, so each heading keeps a couple of
     // logical pixels of headroom instead of assuming the scaled 24dp line
@@ -157,7 +166,9 @@ final class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildHeader(
     BuildContext context, {
+    required List<CollectionEntry> colorEntries,
     required List<CollectionEntry> tagEntries,
+    required CollectionEntry? selectedColorCollection,
     required CollectionEntry? selectedTag,
   }) {
     final theme = Theme.of(context);
@@ -221,6 +232,9 @@ final class _SearchScreenState extends State<SearchScreen> {
                 child: SearchColorCarousel(
                   selected: controller.selectedColors.value,
                   onToggle: controller.toggleColor,
+                  entries: colorEntries,
+                  selectedCollectionId: selectedColorCollection?.id,
+                  onToggleCollection: controller.toggleColorCollection,
                 ),
               ),
               // The whole tag section disappears when no saved collection
@@ -254,6 +268,60 @@ final class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  /// The results feed, or `null` while no input has been committed.
+  WallpaperGrid? _resultsGrid() {
+    if (!controller.hasCommittedInput.value) return null;
+    final state = controller.state.value;
+    return WallpaperGrid(
+      items: state.items.toList(growable: false),
+      isLoadingFirst: state.loadingFirst,
+      isLoadingMore: state.loadingMore,
+      hasMore: state.hasMore,
+      error: state.error,
+      paginationError: state.paginationError,
+      onRetry: controller.reload,
+      onRetryPagination: controller.retryPagination,
+      onLoadMore: controller.loadMore,
+      favoriteIds: favorites.favoriteIds,
+      onToggleFavorite: favorites.toggle,
+      heroScope: 'search-',
+      // Room for the floating filter trigger at the end of the list.
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        4,
+        16,
+        24 + FeedFilterFab.scrollClearance,
+      ),
+      emptyState: const EmptyState(
+        title: 'No wallpapers found',
+        message: 'Try another search or remove a filter.',
+      ),
+      onOpen: widget.onOpenWallpaper,
+    );
+  }
+
+  /// Pristine state, shown until any input has been committed.
+  Widget _pristineSliver(BuildContext context) {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: const Padding(
+          padding: EdgeInsets.only(top: 32),
+          child: EmptyState(
+            iconData: PhosphorIconsFill.magnifyingGlass,
+            title: 'Search wallpapers',
+            message:
+                'Type a query, pick a color, or start from a saved '
+                'collection.',
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -269,72 +337,21 @@ final class _SearchScreenState extends State<SearchScreen> {
         bottom: false,
         child: SignalBuilder(
           builder: (context) {
+            final selectedColorCollection =
+                controller.selectedColorCollection.value;
             final selectedTag = controller.selectedTag.value;
+            final colorEntries = _colorEntries();
             final tagEntries = _tagEntries();
+            final grid = _resultsGrid();
 
-            if (!controller.hasCommittedInput.value) {
-              return CustomScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                slivers: [
-                  _buildHeader(
-                    context,
-                    tagEntries: tagEntries,
-                    selectedTag: selectedTag,
-                  ),
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.viewInsetsOf(context).bottom,
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.only(top: 32),
-                        child: EmptyState(
-                          iconData: PhosphorIconsFill.magnifyingGlass,
-                          title: 'Search wallpapers',
-                          message:
-                              'Type a query, pick a color, or start from a '
-                              'saved tag collection.',
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            final state = controller.state.value;
-            final grid = WallpaperGrid(
-              items: state.items.toList(growable: false),
-              isLoadingFirst: state.loadingFirst,
-              isLoadingMore: state.loadingMore,
-              hasMore: state.hasMore,
-              error: state.error,
-              paginationError: state.paginationError,
-              onRetry: controller.reload,
-              onRetryPagination: controller.retryPagination,
-              onLoadMore: controller.loadMore,
-              favoriteIds: favorites.favoriteIds,
-              onToggleFavorite: favorites.toggle,
-              heroScope: 'search-',
-              // Room for the floating filter trigger at the end of the list.
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                4,
-                16,
-                24 + FeedFilterFab.scrollClearance,
-              ),
-              emptyState: const EmptyState(
-                title: 'No wallpapers found',
-                message: 'Try another search or remove a filter.',
-              ),
-              onOpen: widget.onOpenWallpaper,
-            );
-
+            // One scroll view for both the pristine screen and the results.
+            // The header — and the two filter rows inside it — therefore stay
+            // the same elements when the first input is committed, so a row
+            // the user scrolled keeps its offset instead of rewinding to its
+            // first card under the finger that just tapped one.
             return NotificationListener<ScrollNotification>(
               onNotification: (notification) {
-                grid.maybeTriggerLoadMore(notification);
+                grid?.maybeTriggerLoadMore(notification);
                 return false;
               },
               child: CustomScrollView(
@@ -343,10 +360,15 @@ final class _SearchScreenState extends State<SearchScreen> {
                 slivers: [
                   _buildHeader(
                     context,
+                    colorEntries: colorEntries,
                     tagEntries: tagEntries,
+                    selectedColorCollection: selectedColorCollection,
                     selectedTag: selectedTag,
                   ),
-                  ...grid.buildSlivers(context),
+                  if (grid == null)
+                    _pristineSliver(context)
+                  else
+                    ...grid.buildSlivers(context),
                 ],
               ),
             );

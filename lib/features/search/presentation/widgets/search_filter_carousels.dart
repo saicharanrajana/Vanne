@@ -5,6 +5,7 @@ import '../../../../core/collections/collection_entry.dart';
 import '../../../../core/collections/seed_collections.dart';
 import '../../../../core/domain/feed_filter.dart';
 import '../../../../shared/utils/color_display.dart';
+import '../../../../shared/utils/collection_display.dart';
 import '../../../../shared/utils/hex_color.dart';
 import '../../../../shared/widgets/smart_network_image.dart';
 
@@ -65,14 +66,28 @@ final class SearchFilterHeading extends StatelessWidget {
 ///
 /// Tapping a card toggles it; selection is single-select, so tapping another
 /// card replaces it and tapping the selected card clears it.
+///
+/// Saved colour collections lead the row, ahead of the bundled swatches: they
+/// are the colours the user chose, and each card applies the colour saved with
+/// it. The [FeedColor] swatches follow in their fixed order.
 final class SearchColorCarousel extends StatelessWidget {
   final Set<FeedColor> selected;
   final ValueChanged<FeedColor> onToggle;
+
+  /// Saved colour collections to lead the row with.
+  final List<CollectionEntry> entries;
+
+  /// Id of the applied colour collection, or `null` for none.
+  final String? selectedCollectionId;
+  final ValueChanged<CollectionEntry> onToggleCollection;
 
   const SearchColorCarousel({
     super.key,
     required this.selected,
     required this.onToggle,
+    this.entries = const [],
+    this.selectedCollectionId,
+    required this.onToggleCollection,
   });
 
   @override
@@ -81,9 +96,21 @@ final class SearchColorCarousel extends StatelessWidget {
     return _FilterCarousel(
       rowKey: 'search-color-carousel',
       cards: [
+        // A saved colour whose hex cannot be parsed has no swatch to show, so
+        // it is skipped rather than rendered as a misleading blank card.
+        for (final entry in entries)
+          if (_swatchFor(entry) case final Color swatch)
+            _collectionCard(entry, swatch, brightness),
         for (final color in FeedColor.values) _colorCard(color, brightness),
       ],
     );
+  }
+
+  /// The colour a saved collection filters by, or `null` when it stores none
+  /// this card can show.
+  static Color? _swatchFor(CollectionEntry entry) {
+    if (entry.colors.isEmpty) return null;
+    return parseHexColor(entry.colors.first);
   }
 
   _FilterCardSpec _colorCard(FeedColor color, Brightness brightness) {
@@ -107,6 +134,29 @@ final class SearchColorCarousel extends StatelessWidget {
       labelColor: label,
       background: ColoredBox(color: swatch),
       onTap: () => onToggle(color),
+    );
+  }
+
+  /// A saved colour collection, drawn as the colour card it stands for: the
+  /// saved swatch is the background and the collection name is the label.
+  _FilterCardSpec _collectionCard(
+    CollectionEntry entry,
+    Color swatch,
+    Brightness brightness,
+  ) {
+    final label = ColorDisplay.onColorFor(swatch);
+    final isSelected = entry.id == selectedCollectionId;
+    final title = CollectionDisplay.titleFor(entry);
+    return _FilterCardSpec(
+      key: ValueKey('search-color-collection-${entry.id}'),
+      label: title,
+      semantics: 'Collection $title${isSelected ? ', selected' : ''}',
+      selected: isSelected,
+      ringColor: ColorDisplay.selectionColorFor(swatch, brightness: brightness),
+      hairlineColor: label.withValues(alpha: 0.28),
+      labelColor: label,
+      background: ColoredBox(color: swatch),
+      onTap: () => onToggleCollection(entry),
     );
   }
 }

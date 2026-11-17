@@ -93,6 +93,14 @@ final class CollectionEntry {
   bool get isTagCollection =>
       origin == CollectionOrigin.tag && query.trim().isNotEmpty;
 
+  /// Whether this collection may contribute its [colors] as a colour filter.
+  ///
+  /// The mirror of [isTagCollection]: only positively classified colour
+  /// collections qualify, so a legacy row of unknown origin is never treated
+  /// as one from the shape of its fields alone.
+  bool get isColorCollection =>
+      origin == CollectionOrigin.color && colors.isNotEmpty;
+
   /// Returns a copy with cover metadata or origin replaced. A null argument
   /// keeps the current value; cover updates never clear an existing cover.
   CollectionEntry copyWith({

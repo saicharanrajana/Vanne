@@ -27,12 +27,12 @@ final class TagDto {
   });
 
   factory TagDto.fromJson(Map<String, dynamic> json) => TagDto(
-        id: parseIntField(json['id']) ?? 0,
-        name: json['name'] as String? ?? '',
-        alias: json['alias'] as String?,
-        category: json['category'] as String?,
-        categoryId: parseIntField(json['category_id']),
-        purity: json['purity'] as String?,
-        createdAt: parseTimestamp(json['created_at']),
-      );
+    id: parseIntField(json['id']) ?? 0,
+    name: parseStringField(json['name']) ?? '',
+    alias: parseStringField(json['alias']),
+    category: parseStringField(json['category']),
+    categoryId: parseIntField(json['category_id']),
+    purity: parseStringField(json['purity']),
+    createdAt: parseTimestamp(json['created_at']),
+  );
 }

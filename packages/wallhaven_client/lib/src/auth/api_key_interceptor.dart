@@ -9,6 +9,11 @@ import 'api_key_manager.dart';
 /// deliberately so the key never appears in URLs, cache keys, or exception
 /// `uri` fields. When no key is set, requests pass through untouched —
 /// SFW usage never requires a key.
+///
+/// A request that already carries the header keeps it: `WallhavenClient`
+/// pins the credential when it dispatches the call, so the header always
+/// matches the identity the cache and dedupe entries were filed under, even
+/// when the key changes before this interceptor runs.
 final class ApiKeyInterceptor extends Interceptor {
   final ApiKeyManager _manager;
 
@@ -16,8 +21,18 @@ final class ApiKeyInterceptor extends Interceptor {
 
   static const String headerName = 'X-API-Key';
 
+  /// Marks requests whose credential (including anonymous) was captured by
+  /// the client at dispatch time. Direct Dio users omit this and retain
+  /// the normal live-manager injection behaviour.
+  static const String credentialCapturedExtra = 'wallhaven_credential_captured';
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.extra[credentialCapturedExtra] == true ||
+        options.headers.containsKey(headerName)) {
+      handler.next(options);
+      return;
+    }
     final key = _manager.apiKey;
     if (key != null && key.isNotEmpty) {
       options.headers[headerName] = key;

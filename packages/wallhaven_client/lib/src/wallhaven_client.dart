@@ -1,9 +1,9 @@
-
 import 'dart:convert';
 
 import 'package:compute/compute.dart';
 import 'package:dio/dio.dart';
 
+import 'auth/api_key_interceptor.dart';
 import 'auth/api_key_manager.dart';
 import 'auth/authentication_state.dart';
 import 'config/wallhaven_config.dart';
@@ -59,18 +59,20 @@ final class WallhavenClient {
     final effectiveClock = clock ?? (() => DateTime.now().toUtc());
     final effectiveCache = cache ?? InMemoryCacheStore();
     return WallhavenClient._(
-      apiKeyManager: apiKeyManager,
-      config: config,
-      cacheStore: effectiveCache,
-      clock: effectiveClock,
-    ).._dio = dio ??
-        buildDio(
-          config,
-          apiKeyManager: apiKeyManager,
-          cacheStore: effectiveCache,
-          clock: effectiveClock,
-          delay: delay,
-        );
+        apiKeyManager: apiKeyManager,
+        config: config,
+        cacheStore: effectiveCache,
+        clock: effectiveClock,
+      )
+      .._dio =
+          dio ??
+          buildDio(
+            config,
+            apiKeyManager: apiKeyManager,
+            cacheStore: effectiveCache,
+            clock: effectiveClock,
+            delay: delay,
+          );
   }
 
   WallhavenClient._({
@@ -96,9 +98,12 @@ final class WallhavenClient {
     CancelToken? cancelToken,
   }) async {
     _assertNsfwAllowed(request.purity);
-    final data = await _getBody('/search',
-        query: request.toQueryParameters(), cancelToken: cancelToken);
-    return _parseListing(data);
+    final (:body, request: httpRequest) = await _getBody(
+      '/search',
+      query: request.toQueryParameters(),
+      cancelToken: cancelToken,
+    );
+    return _decode(httpRequest, () => _parseListing('/search', body));
   }
 
   /// Requests the page following [current] by re-issuing [used] at
@@ -127,17 +132,42 @@ final class WallhavenClient {
 
   /// Fetches wallpaper details including uploader and tags: `GET /w/{id}`.
   Future<Wallpaper> wallpaper(String id, {CancelToken? cancelToken}) async {
-    final data =
-        await _getEnvelope('/w/$id', cancelToken: cancelToken);
-    return wallpaperFromDto(
-      WallpaperDto.fromJson(_castObject(data)),
+    final (:data, request: httpRequest) = await _getEnvelope(
+      '/w/$id',
+      cancelToken: cancelToken,
     );
+    return _decode(httpRequest, () {
+      final dto = WallpaperDto.fromJson(_castObject(data));
+      // An id is the wallpaper's identity: without it the payload cannot be
+      // opened, deduped or favorited, so it is a broken response rather than
+      // a partially-filled wallpaper.
+      if (dto.id.isEmpty) {
+        throw WallhavenInvalidResponseException(
+          'Wallpaper payload is missing its "id".',
+          uri: _uri('/w/$id'),
+        );
+      }
+      return wallpaperFromDto(dto);
+    });
   }
 
   /// Fetches tag metadata: `GET /tag/{id}`.
   Future<Tag> tag(int id, {CancelToken? cancelToken}) async {
-    final data = await _getEnvelope('/tag/$id', cancelToken: cancelToken);
-    return tagFromDto(TagDto.fromJson(_castObject(data)));
+    final (:data, request: httpRequest) = await _getEnvelope(
+      '/tag/$id',
+      cancelToken: cancelToken,
+    );
+    return _decode(httpRequest, () {
+      final dto = TagDto.fromJson(_castObject(data));
+      // Tag ids are 1-based at the API; 0 means the field was absent/unusable.
+      if (dto.id <= 0) {
+        throw WallhavenInvalidResponseException(
+          'Tag payload is missing its "id".',
+          uri: _uri('/tag/$id'),
+        );
+      }
+      return tagFromDto(dto);
+    });
   }
 
   /// Reads authenticated user settings: `GET /settings`.
@@ -148,8 +178,14 @@ final class WallhavenClient {
     if (!apiKeyManager.isAuthenticated) {
       throw const AuthenticationRequiredException();
     }
-    final data = await _getEnvelope('/settings', cancelToken: cancelToken);
-    return userSettingsFromDto(UserSettingsDto.fromJson(_castObject(data)));
+    final (:data, request: httpRequest) = await _getEnvelope(
+      '/settings',
+      cancelToken: cancelToken,
+    );
+    return _decode(
+      httpRequest,
+      () => userSettingsFromDto(UserSettingsDto.fromJson(_castObject(data))),
+    );
   }
 
   /// Lists collections. Without [username] lists the authenticated user's
@@ -163,11 +199,17 @@ final class WallhavenClient {
       throw const AuthenticationRequiredException();
     }
     final path = username == null ? '/collections' : '/collections/$username';
-    final data = await _getList(path, cancelToken: cancelToken);
-    return [
-      for (final item in data)
-        collectionFromDto(CollectionDto.fromJson(_castObject(item))),
-    ];
+    final (:data, request: httpRequest) = await _getList(
+      path,
+      cancelToken: cancelToken,
+    );
+    return _decode(httpRequest, () {
+      final collections = <WallpaperCollection>[];
+      for (final item in data) {
+        collections.add(_collectionFromPayload(item, path));
+      }
+      return collections;
+    });
   }
 
   /// Lists the wallpapers in [username]'s collection [collectionId]:
@@ -188,12 +230,13 @@ final class WallhavenClient {
         'purity': encodePurities(purity),
       if (page > 1) 'page': '$page',
     };
-    final data = await _getBody(
+    final (:body, request: httpRequest) = await _getBody(
       '/collections/$username/$collectionId',
       query: query,
       cancelToken: cancelToken,
     );
-    return _parseListing(data);
+    final listingPath = '/collections/$username/$collectionId';
+    return _decode(httpRequest, () => _parseListing(listingPath, body));
   }
 
   /// Releases the underlying HTTP resources and drops all cached
@@ -215,49 +258,93 @@ final class WallhavenClient {
     }
   }
 
+  /// Runs [parse] over a response and discards the cached copy when [parse]
+  /// rejects the payload.
+  ///
+  /// The transport caches any `200` before its body is understood, so without
+  /// this a structurally broken response would be replayed from the cache on
+  /// every retry until the TTL expired — the user could not recover by
+  /// retrying. Only validation failures evict: a network failure has nothing
+  /// cached to discard.
+  Future<T> _decode<T>(RequestOptions request, T Function() parse) async {
+    try {
+      return parse();
+    } on WallhavenInvalidResponseException {
+      await _discardCached(request);
+      rethrow;
+    }
+  }
+
+  /// Best-effort removal of the cached response for [request].
+  ///
+  /// The interceptor that owns the cache is asked directly rather than going
+  /// through [cacheStore]: an injected Dio may have been wired to a different
+  /// store instance, and the entry to drop is always the one the transport
+  /// actually wrote.
+  Future<void> _discardCached(RequestOptions request) async {
+    for (final interceptor in _dio.interceptors) {
+      if (interceptor is CacheInterceptor) {
+        await interceptor.discard(request);
+        return;
+      }
+    }
+  }
+
   /// Performs a GET returning the `{data: ...}` envelope contents.
-  Future<Object?> _getEnvelope(
+  Future<({Object? data, RequestOptions request})> _getEnvelope(
     String path, {
     Map<String, String> query = const {},
     CancelToken? cancelToken,
   }) async {
-    final body = await _getBody(path, query: query, cancelToken: cancelToken);
+    final (:body, request: httpRequest) = await _getBody(
+      path,
+      query: query,
+      cancelToken: cancelToken,
+    );
     if (!body.containsKey('data')) {
+      await _discardCached(httpRequest);
       throw WallhavenInvalidResponseException(
         'Expected a JSON object with a "data" field.',
         uri: _uri(path),
       );
     }
-    return body['data'];
+    return (data: body['data'], request: httpRequest);
   }
 
   /// GET whose envelope data must be a JSON array (collection listings).
-  Future<List<Object?>> _getList(
+  Future<({List<Object?> data, RequestOptions request})> _getList(
     String path, {
     Map<String, String> query = const {},
     CancelToken? cancelToken,
   }) async {
-    final data = await _getEnvelope(path, query: query, cancelToken: cancelToken);
+    final (:data, request: httpRequest) = await _getEnvelope(
+      path,
+      query: query,
+      cancelToken: cancelToken,
+    );
     if (data is! List<dynamic>) {
+      await _discardCached(httpRequest);
       throw WallhavenInvalidResponseException(
         'Expected a JSON array in "data".',
         uri: _uri(path),
       );
     }
-    return List<Object?>.from(data);
+    return (data: List<Object?>.from(data), request: httpRequest);
   }
 
   /// GET returning the FULL decoded JSON body as a map — used by listing
   /// endpoints (`/search`, collection wallpapers) whose shape is
   /// `{"data": [...], "meta": {...}}` with no additional envelope.
-  Future<Map<String, dynamic>> _getBody(
+  Future<({Map<String, dynamic> body, RequestOptions request})> _getBody(
     String path, {
     Map<String, String> query = const {},
     CancelToken? cancelToken,
   }) async {
     Object? body;
+    final RequestOptions request;
     try {
       final response = await _dedupeGet(path, query, cancelToken);
+      request = response.requestOptions;
       body = response.data;
     } on DioException catch (error) {
       throw mapDioError(error, clock: clock);
@@ -277,16 +364,18 @@ final class WallhavenClient {
       try {
         body = await compute<String, Object?>(_decodeJsonBody, body);
       } on FormatException catch (error) {
+        await _discardCached(request);
         throw WallhavenMalformedJsonException(error.message, uri: _uri(path));
       }
     }
     if (body is! Map<String, dynamic>) {
+      await _discardCached(request);
       throw WallhavenInvalidResponseException(
         'Expected a JSON object body.',
         uri: _uri(path),
       );
     }
-    return body;
+    return (body: body, request: request);
   }
 
   /// Deduplicates concurrent identical GETs so widget rebuilds never fire
@@ -296,35 +385,90 @@ final class WallhavenClient {
   /// dio's own query encoder would leave `+` inside values unencoded, and
   /// Wallhaven decodes `+` as a space — which would silently corrupt the
   /// `+requiredTag` operator. `Uri` encodes it as `%2B` exactly once.
+  ///
+  /// The credential is captured here, in one synchronous step, and pinned
+  /// onto the request: the dedupe key, the cache scope and the `X-API-Key`
+  /// header all describe the same identity even if the key changes before
+  /// the interceptor chain runs.
   Future<Response<dynamic>> _dedupeGet(
     String path,
     Map<String, String> query,
     CancelToken? cancelToken,
   ) {
-    final key = 'GET $path?${_normalizedQuery(query)}';
+    final scope = apiKeyManager.authScope;
+    final apiKey = apiKeyManager.apiKey;
+    final key = '$scope GET $path?${_normalizedQuery(query)}';
     return _deduper.run(key, () {
-      final target =
-          Uri.parse('${config.baseUrl}$path').replace(queryParameters: query);
-      return _dio.getUri(target, cancelToken: cancelToken);
+      final target = Uri.parse('${config.baseUrl}$path')
+          .replace(queryParameters: query);
+      return _dio.getUri(
+        target,
+        cancelToken: cancelToken,
+        options: Options(
+          headers: <String, dynamic>{
+            if (apiKey != null && apiKey.isNotEmpty)
+              ApiKeyInterceptor.headerName: apiKey,
+          },
+          extra: <String, dynamic>{
+            CacheInterceptor.authScopeExtra: scope,
+            ApiKeyInterceptor.credentialCapturedExtra: true,
+          },
+        ),
+      );
     });
   }
 
-  PaginatedResult<Wallpaper> _parseListing(Map<String, dynamic> listing) {
+  PaginatedResult<Wallpaper> _parseListing(
+    String path,
+    Map<String, dynamic> listing,
+  ) {
     // Listing envelope shape: {"data": [...], "meta": {...}}.
     final metaDto = SearchMetaDto.fromJson(
       _castObject(listing['meta'] ?? const <String, dynamic>{}),
     );
     final rawItems = listing['data'];
-    final items = [
-      // Skip malformed entries instead of rejecting the whole page.
-      for (final item in (rawItems is List<dynamic> ? rawItems : <dynamic>[]))
-        if (item is Map<String, dynamic>)
-          wallpaperFromDto(WallpaperDto.fromJson(item)),
-    ];
+    // A listing with no "data" at all is an empty page; a listing whose
+    // "data" is present but not an array violates the endpoint's shape, and
+    // reporting it as "no results" would silently hide results the user
+    // asked for.
+    if (rawItems != null && rawItems is! List<dynamic>) {
+      throw WallhavenInvalidResponseException(
+        'Expected a JSON array in "data".',
+        uri: _uri(path),
+      );
+    }
+    final candidates = rawItems as List<dynamic>? ?? const <dynamic>[];
+    final items = <Wallpaper>[];
+    // Skip malformed entries instead of rejecting the whole page: one bad
+    // row must never cost the user the other 23.
+    for (final item in candidates) {
+      if (item is! Map<String, dynamic>) continue;
+      final wallpaper = wallpaperFromDto(WallpaperDto.fromJson(item));
+      // An entry without an id cannot be deduped by the feed or opened by
+      // the detail screen, so it is malformed even though it parsed.
+      if (wallpaper.id.isEmpty) continue;
+      items.add(wallpaper);
+    }
     return PaginatedResult<Wallpaper>(
       items: items,
       meta: searchMetaFromDto(metaDto),
     );
+  }
+
+  /// Builds one collection, rejecting an entry with no usable identity.
+  ///
+  /// Unlike a wallpaper listing, a collection list is a small set the user
+  /// navigates by id; silently dropping one would hide saved collections, so
+  /// an unusable entry fails the whole response as a typed error.
+  WallpaperCollection _collectionFromPayload(Object? payload, String path) {
+    final dto = CollectionDto.fromJson(_castObject(payload));
+    if (dto.id <= 0) {
+      throw WallhavenInvalidResponseException(
+        'Collection payload is missing its "id".',
+        uri: _uri(path),
+      );
+    }
+    return collectionFromDto(dto);
   }
 
   /// Returns [request] with [seed] applied, or unchanged when [seed] is
@@ -332,8 +476,7 @@ final class WallhavenClient {
   WallhavenSearchRequest _withSeed(
     WallhavenSearchRequest request,
     String? seed,
-  ) =>
-      seed == null || seed.isEmpty ? request : request.withSeed(seed);
+  ) => seed == null || seed.isEmpty ? request : request.withSeed(seed);
 
   Uri _uri(String path) => Uri.parse('${config.baseUrl}$path');
 
@@ -343,9 +486,7 @@ final class WallhavenClient {
 
 Map<String, dynamic> _castObject(Object? value) {
   if (value is Map<String, dynamic>) return value;
-  throw const WallhavenInvalidResponseException(
-    'Expected a JSON object.',
-  );
+  throw const WallhavenInvalidResponseException('Expected a JSON object.');
 }
 
 /// Isolate entry point for [compute]: `jsonDecode`'s optional parameters

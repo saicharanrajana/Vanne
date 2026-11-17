@@ -3,9 +3,10 @@ import 'search_query.dart';
 
 /// Strongly typed Wallhaven search request.
 ///
-/// Maps 1:1 onto the documented `/search` query parameters. Defaults match
-/// the API's own defaults (latest SFW, all categories, `date_added` desc)
-/// and are omitted from the generated parameter map when unchanged.
+/// Maps 1:1 onto the documented `/search` query parameters. Default values
+/// match the API's defaults (latest SFW, all categories, `date_added` desc).
+/// Purity is always serialized because SFW-only and all-purity searches must
+/// remain distinct in transport caches and in-flight request deduplication.
 final class WallhavenSearchRequest {
   /// Raw query string for power users who want full control of `q` syntax.
   ///
@@ -119,11 +120,7 @@ final class WallhavenSearchRequest {
       }
     }
     if (seed != null && !_seedPattern.hasMatch(seed!)) {
-      throw ArgumentError.value(
-        seed,
-        'seed',
-        'must match [a-zA-Z0-9]{6}',
-      );
+      throw ArgumentError.value(seed, 'seed', 'must match [a-zA-Z0-9]{6}');
     }
     for (final tag in excludedTags) {
       if (tag.isEmpty || !_tagPattern.hasMatch(tag)) {
@@ -153,24 +150,25 @@ final class WallhavenSearchRequest {
     String? seed,
     bool replaceSeed = false,
   }) => WallhavenSearchRequest(
-        query: query,
-        structuredQuery: structuredQuery,
-        categories: categories,
-        purity: purity,
-        sorting: sorting,
-        order: order,
-        topRange: topRange,
-        minResolution: minResolution,
-        resolutions: resolutions,
-        ratios: ratios,
-        colors: colors,
-        excludedTags: excludedTags,
-        page: page ?? this.page,
-        seed: replaceSeed ? seed : this.seed,
-      );
+    query: query,
+    structuredQuery: structuredQuery,
+    categories: categories,
+    purity: purity,
+    sorting: sorting,
+    order: order,
+    topRange: topRange,
+    minResolution: minResolution,
+    resolutions: resolutions,
+    ratios: ratios,
+    colors: colors,
+    excludedTags: excludedTags,
+    page: page ?? this.page,
+    seed: replaceSeed ? seed : this.seed,
+  );
 
   /// Wire-format query parameters. Null/empty/default-noop entries are
-  /// omitted; list values are comma-joined per the API contract.
+  /// omitted except purity, which is always explicit; list values are
+  /// comma-joined per the API contract.
   Map<String, String> toQueryParameters() {
     // Note: keys here are pre-encoding literals. dio/Uri percent-encode them
     // exactly once when building the request URL.
@@ -185,13 +183,10 @@ final class WallhavenSearchRequest {
     if (categories.length != WallhavenCategory.values.length) {
       params['categories'] = encodeCategories(categories);
     }
-    // Purity is omitted when equal to the documented API default (SFW
-    // only) or when every purity is enabled (equivalent server-side).
-    final isDefaultPurity = purity.length == 1 &&
-        purity.contains(WallhavenPurity.sfw);
-    if (!isDefaultPurity && purity.length != WallhavenPurity.values.length) {
-      params['purity'] = encodePurities(purity);
-    }
+    // Keep purity explicit even for SFW and all-purity requests. Although
+    // the API treats omitted/all as equivalent, the client cache and request
+    // deduper key on the wire query and must distinguish these policies.
+    params['purity'] = encodePurities(purity);
     if (sorting != WallhavenSorting.dateAdded) {
       params['sorting'] = sorting.wireName;
     }

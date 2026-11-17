@@ -30,20 +30,14 @@ final class UserSettingsDto {
 
   factory UserSettingsDto.fromJson(Map<String, dynamic> json) =>
       UserSettingsDto(
-        thumbSize: json['thumb_size'] as String?,
+        thumbSize: parseStringField(json['thumb_size']),
         perPage: parseIntField(json['per_page']),
-        purities: _stringList(json['purity']),
-        categories: _stringList(json['categories']),
-        resolutions: _stringList(json['resolutions']),
-        aspectRatios: _stringList(json['aspect_ratios']),
-        toplistRange: json['toplist_range'] as String?,
-        tagBlacklist: _stringList(json['tag_blacklist']),
-        userBlacklist: _stringList(json['user_blacklist']),
+        purities: parseStringListField(json['purity']),
+        categories: parseStringListField(json['categories']),
+        resolutions: parseStringListField(json['resolutions']),
+        aspectRatios: parseStringListField(json['aspect_ratios']),
+        toplistRange: parseStringField(json['toplist_range']),
+        tagBlacklist: parseStringListField(json['tag_blacklist']),
+        userBlacklist: parseStringListField(json['user_blacklist']),
       );
-
-  static List<String> _stringList(Object? value) => [
-        if (value is List<dynamic>)
-          for (final item in value)
-            if (item is String) item,
-      ];
 }

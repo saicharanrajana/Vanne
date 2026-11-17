@@ -1,6 +1,8 @@
 /// Uploader JSON payload.
 library;
 
+import 'json_fields.dart';
+
 /// Uploader block; present in detail responses, absent from listings.
 final class UploaderDto {
   final String username;
@@ -20,16 +22,15 @@ final class UploaderDto {
   /// Tolerant parse: avatar entries with non-string URLs are skipped
   /// rather than failing the whole response.
   factory UploaderDto.fromJson(Map<String, dynamic> json) {
-    final rawAvatar = json['avatar'];
+    final rawAvatar = parseObjectField(json['avatar']);
     final avatar = <String, String>{};
-    if (rawAvatar is Map<String, dynamic>) {
-      rawAvatar.forEach((key, value) {
-        if (value is String) avatar[key] = value;
-      });
-    }
+    rawAvatar?.forEach((key, value) {
+      final url = parseStringField(value);
+      if (url != null) avatar[key] = url;
+    });
     return UploaderDto(
-      username: json['username'] as String? ?? '',
-      group: json['group'] as String?,
+      username: parseStringField(json['username']) ?? '',
+      group: parseStringField(json['group']),
       avatar: Map.unmodifiable(avatar),
     );
   }

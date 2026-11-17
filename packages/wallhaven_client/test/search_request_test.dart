@@ -3,16 +3,15 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 
 void main() {
   group('WallhavenSearchRequest.toQueryParameters', () {
-    test('defaults emit only q-less minimal parameters', () {
-      // Defaults mirror the API's own defaults, so nothing is emitted.
-      expect(WallhavenSearchRequest().toQueryParameters(), isEmpty);
+    test('defaults explicitly encode SFW purity', () {
+      expect(WallhavenSearchRequest().toQueryParameters(), {'purity': '100'});
     });
 
     test('query parameter name is q', () {
-      expect(
-        WallhavenSearchRequest(query: 'anime').toQueryParameters(),
-        {'q': 'anime'},
-      );
+      expect(WallhavenSearchRequest(query: 'anime').toQueryParameters(), {
+        'q': 'anime',
+        'purity': '100',
+      });
     });
 
     test('structuredQuery is used over raw query when only it is set', () {
@@ -20,7 +19,7 @@ void main() {
         WallhavenSearchRequest(
           structuredQuery: WallhavenQuery().term('anime').exclude('nsfw'),
         ).toQueryParameters(),
-        {'q': 'anime -nsfw'},
+        {'q': 'anime -nsfw', 'purity': '100'},
       );
     });
 
@@ -41,13 +40,13 @@ void main() {
       expect(params['categories'], '100');
     });
 
-    test('all categories are omitted (API default)', () {
+    test('all categories are omitted but all purities are explicit', () {
       final params = WallhavenSearchRequest(
         categories: WallhavenCategory.values.toSet(),
         purity: WallhavenPurity.values.toSet(),
       ).toQueryParameters();
       expect(params.containsKey('categories'), isFalse);
-      expect(params.containsKey('purity'), isFalse);
+      expect(params['purity'], '111');
     });
 
     test('purity bitfield encoding includes nsfw position', () {
@@ -102,14 +101,10 @@ void main() {
 
     test('page 1 omitted, page 3 emitted', () {
       expect(
-        WallhavenSearchRequest(page: 1).toQueryParameters()
-            .containsKey('page'),
+        WallhavenSearchRequest(page: 1).toQueryParameters().containsKey('page'),
         isFalse,
       );
-      expect(
-        WallhavenSearchRequest(page: 3).toQueryParameters()['page'],
-        '3',
-      );
+      expect(WallhavenSearchRequest(page: 3).toQueryParameters()['page'], '3');
     });
 
     test('seed emitted verbatim', () {
@@ -142,8 +137,10 @@ void main() {
         () => WallhavenSearchRequest(resolutions: ['1080p']),
         throwsArgumentError,
       );
-      expect(() => WallhavenSearchRequest(ratios: ['16-9']),
-          throwsArgumentError);
+      expect(
+        () => WallhavenSearchRequest(ratios: ['16-9']),
+        throwsArgumentError,
+      );
     });
 
     test('rejects page < 1', () {
@@ -166,8 +163,7 @@ void main() {
     });
 
     test('withSeed replaces the seed', () {
-      final updated =
-          WallhavenSearchRequest(query: 'a').withSeed('xyz789');
+      final updated = WallhavenSearchRequest(query: 'a').withSeed('xyz789');
       expect(updated.seed, 'xyz789');
       expect(updated.toQueryParameters()['seed'], 'xyz789');
     });

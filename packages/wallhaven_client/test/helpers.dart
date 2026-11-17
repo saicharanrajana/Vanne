@@ -110,10 +110,14 @@ WallhavenClient buildTestClient({
   final effectiveClock = clock ?? MutableClock();
   final delaySink = delays.isEmpty ? null : delays;
   var delayIndex = 0;
+  // One store for both the transport and the client, exactly like production:
+  // a client holding a different store than its interceptor could not see (or
+  // discard) what was actually cached.
+  final store = InMemoryCacheStore();
   final dio = buildDio(
     const WallhavenConfig(),
     apiKeyManager: manager,
-    cacheStore: InMemoryCacheStore(),
+    cacheStore: store,
     clock: () => effectiveClock.now,
     delay: (d) async {
       // Record requested backoff durations; never actually sleep.
@@ -130,6 +134,7 @@ WallhavenClient buildTestClient({
     apiKeyManager: manager,
     config: const WallhavenConfig(),
     dio: dio,
+    cache: store,
     clock: () => effectiveClock.now,
   );
 }

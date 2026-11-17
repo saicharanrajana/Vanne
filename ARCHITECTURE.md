@@ -470,7 +470,8 @@ The destination is owned by `DownloadDestinationController`:
 
 - Default is `Pictures/VanneWallpapers`, written with an app-owned `MediaStore`
   insert (`RELATIVE_PATH` + `IS_PENDING`), so it is gallery-indexed and needs
-  no storage permission. `gal` cannot do this: it hardcodes `Pictures`.
+  no storage permission. A gallery-only helper such as `gal` cannot do this:
+  it hardcodes `Pictures`.
 - The user may pick a parent folder from the system
   `ACTION_OPEN_DOCUMENT_TREE` picker. The app persists that tree's
   read+write grant (`SettingsStore` holds the URI and the provider's display

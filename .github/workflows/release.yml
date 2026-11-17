@@ -100,17 +100,27 @@ jobs:
           Verify downloads against \`SHA256SUMS.txt\`.
           EOF
 
+      # gh CLI instead of softprops/action-gh-release: that action PATCHes the
+      # release with an explicit target_commitish on every update, and GitHub
+      # rejects PATCHes (and creates) whose resolved target commit touches
+      # .github/workflows/ with GITHUB_TOKEN — which never has the workflows
+      # permission. Any `ci:` commit folded into a release would then fail the
+      # attach. `gh release upload`/`edit` only send the fields being changed,
+      # sidestepping the gate without needing a PAT.
       - name: Attach APKs to the release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.TAG }}
-          body_path: dist/apk_table.md
-          append_body: true
-          files: |
-            dist/vanne-*-arm64-v8a.apk
-            dist/vanne-*-armeabi-v7a.apk
-            dist/vanne-*-universal.apk
-            dist/SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/vanne-*.apk dist/SHA256SUMS.txt --clobber
+
+      - name: Add the download guide to the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" --json body --jq '.body // ""' > dist/body.md
+          # Idempotent: a re-run must not stack a second copy of the table.
+          grep -q 'Which APK do I download?' dist/body.md \
+            || cat dist/apk_table.md >> dist/body.md
+          gh release edit "$TAG" --notes-file dist/body.md
 
       - name: Clean up signing secrets
         if: always()

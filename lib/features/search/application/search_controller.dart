@@ -65,8 +65,9 @@ final class SearchController extends FeedController {
   Future<void> applyFilter(FeedFilter newFilter) async {
     if (newFilter == filter.value) return;
     filter.set(newFilter);
-    // TODO(settings-persist-filter): branch on settings toggle to persist
-    // globally if enabled.
+    // A pristine search shows no results to re-filter; the filter applies to
+    // whatever is committed next instead of refetching the generic feed.
+    if (!hasCommittedInput.peek()) return;
     await reload();
   }
 
@@ -101,9 +102,12 @@ final class SearchController extends FeedController {
   }
 
   /// Commits the current text and restarts pagination (debounced).
+  ///
+  /// Submitting an empty field with no filters commits nothing, which returns
+  /// the screen to its pristine state without a request.
   void submit() {
     _committedQuery.set(queryText.value.trim());
-    _debouncedReload();
+    _commitChange();
   }
 
   /// Toggles a color chip; single-select: tapping a color selects it
@@ -119,7 +123,7 @@ final class SearchController extends FeedController {
       // One colour slot for the whole row: a swatch replaces a saved colour.
       selectedColorCollection.set(null);
     }
-    _debouncedReload();
+    _commitChange();
   }
 
   /// Toggles a saved colour collection; single-select like [toggleTag], and it
@@ -134,7 +138,7 @@ final class SearchController extends FeedController {
       selectedColorCollection.set(entry);
       selectedColors.set(const {});
     }
-    _debouncedReload();
+    _commitChange();
   }
 
   /// Toggles a tag collection; single-select: tapping a different card
@@ -147,7 +151,7 @@ final class SearchController extends FeedController {
     } else {
       selectedTag.set(entry);
     }
-    _debouncedReload();
+    _commitChange();
   }
 
   /// Drops an applied collection whose saved row no longer exists.
@@ -157,7 +161,7 @@ final class SearchController extends FeedController {
   /// nothing to show or clear. Colour and tag selections are pruned alike.
   /// The refresh is immediate rather than debounced because losing a
   /// collection is a single event, not a burst of input. Results reload only
-  /// while another input (typed query or colour) still makes the search
+  /// while another input (typed query, colour or tag) still makes the search
   /// non-empty; otherwise the screen returns to its pristine state without
   /// fetching the generic feed.
   void pruneMissingCollections(Iterable<String> savedIds) {
@@ -177,30 +181,57 @@ final class SearchController extends FeedController {
     }
 
     if (!changed) return;
-    if (_committedQuery.peek().isNotEmpty ||
-        selectedColors.peek().isNotEmpty ||
-        selectedColorCollection.peek() != null) {
-      unawaited(reload());
+    // A reload queued before the prune would fetch the stale spec (or the
+    // generic feed once nothing is left), so drop it before deciding.
+    _debounce?.cancel();
+    _debounce = null;
+    // [hasCommittedInput] is the single definition of "this search means
+    // something": keeping a tag alive here is what stops a tag+colour search
+    // from leaving tag+deleted-colour results on screen and appending tag-only
+    // pages under them.
+    if (!hasCommittedInput.peek()) {
+      reset();
+      return;
     }
-  }
-
-  /// Clears every input back to a pristine search state (debounced).
-  void clearAll() {
-    queryText.set('');
-    _committedQuery.set('');
-    selectedColors.set(const {});
-    selectedColorCollection.set(null);
-    selectedTag.set(null);
-    _debouncedReload();
+    // Losing a collection is one event, not a burst of input: refresh now
+    // instead of waiting out the debounce window.
+    unawaited(reload());
   }
 
   /// Collapses bursts of reload triggers into one network call: each new
   /// trigger cancels the pending timer and restarts the window; only the
   /// trailing edge fetches. Returns immediately; no value is exposed —
   /// callers observe progress via the feed [state].
-  void _debouncedReload([Duration delay = const Duration(milliseconds: 350)]) {
+  ///
+  /// A search with nothing committed has nothing to fetch: the screen is
+  /// pristine, so the pending window is dropped and loaded pages (plus any
+  /// response still in flight) are discarded instead of spending a request on
+  /// the generic feed.
+  void _commitChange() {
     _debounce?.cancel();
-    _debounce = Timer(delay, reload);
+    if (!hasCommittedInput.peek()) {
+      _debounce = null;
+      reset();
+      return;
+    }
+    _debounce = Timer(_debounceWindow, reload);
+  }
+
+  /// Trailing-edge window that collapses bursts of input into one request.
+  static const _debounceWindow = Duration(milliseconds: 350);
+
+  @override
+  void onPolicyChanged() {
+    // Pristine searches show no results, so restarting would only spend a
+    // request on the generic feed the user never asked for. [reset] still
+    // invalidates a response that was in flight when the policy changed.
+    if (!hasCommittedInput.peek()) {
+      _debounce?.cancel();
+      _debounce = null;
+      reset();
+      return;
+    }
+    super.onPolicyChanged();
   }
 
   @override

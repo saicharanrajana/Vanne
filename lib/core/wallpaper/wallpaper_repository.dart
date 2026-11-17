@@ -1,3 +1,4 @@
+import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../storage/settings_store.dart';
@@ -23,6 +24,18 @@ class WallpaperRepository {
     required this.settingsStore,
   });
 
+  /// Number of changes to the content policy (purity, blocked tags, or the
+  /// active API key) since the process started.
+  ///
+  /// Live feeds read the policy fresh on every request, so a change would
+  /// otherwise leave already-loaded pages on screen under the old policy and
+  /// mix the two in later pages. [FeedController] watches this signal and
+  /// restarts the feed; it is deliberately a counter rather than a boolean so
+  /// consecutive changes are never coalesced away.
+  final policyRevision = signal(0);
+
+  void _bumpPolicy() => policyRevision.value++;
+
   /// Whether an API key is currently active.
   bool get isAuthenticated => client.apiKeyManager.isAuthenticated;
 
@@ -41,19 +54,38 @@ class WallpaperRepository {
 
   /// Persists [apiKey] securely and activates it immediately.
   Future<void> saveApiKey(String apiKey) async {
+    final previous = client.apiKeyManager.apiKey;
     await keyStore.save(apiKey);
     client.apiKeyManager.setApiKey(apiKey);
+    if (previous != apiKey) _bumpPolicy();
   }
 
   /// Removes the key from storage and deactivates it.
+  ///
+  /// NSFW is disabled here rather than by the caller: no request may ever ask
+  /// for it unauthenticated, and doing both in one step means live feeds
+  /// restart once instead of twice.
   Future<void> removeApiKey() async {
+    final hadKey = client.apiKeyManager.apiKey != null;
+    final hadNsfw = settingsStore.nsfwEnabled;
     await keyStore.delete();
     client.apiKeyManager.setApiKey(null);
+    if (hadNsfw) settingsStore.nsfwEnabled = false;
+    if (hadKey || hadNsfw) _bumpPolicy();
   }
 
-  void setNsfwEnabled(bool enabled) => settingsStore.nsfwEnabled = enabled;
+  void setNsfwEnabled(bool enabled) {
+    if (settingsStore.nsfwEnabled == enabled) return;
+    settingsStore.nsfwEnabled = enabled;
+    _bumpPolicy();
+  }
 
-  void setBlockedTags(Set<String> tags) => settingsStore.blockedTags = tags;
+  void setBlockedTags(Set<String> tags) {
+    final current = settingsStore.blockedTags;
+    if (current.length == tags.length && current.containsAll(tags)) return;
+    settingsStore.blockedTags = tags;
+    _bumpPolicy();
+  }
 
   Set<String> _excludedTagsForRequest() => settingsStore.blockedTags;
 

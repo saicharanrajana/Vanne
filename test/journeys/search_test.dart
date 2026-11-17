@@ -727,13 +727,29 @@ void main() {
     await pumpUntil(tester, _tile('alpha'), reason: 'colour results');
     expect(app.network.searches.last.color, '0066cc');
 
-    // Tapping the selected card again clears the filter.
+    // Tapping the selected card again clears the filter. Nothing else is
+    // committed, so the screen returns to its pristine state instead of
+    // spending a request on the generic feed.
+    final beforeClearing = app.network.searches.length;
     await _tapCard(tester, app, card);
+    await app.settle(tester);
     await pumpFrames(tester, 10, const Duration(milliseconds: 50));
     expect(
-      app.network.searches.last.color,
-      isEmpty,
+      app.network.searches,
+      hasLength(beforeClearing),
+      reason: 'an empty search has nothing to fetch',
+    );
+    expect(
+      find.bySemanticsLabel(RegExp('Collection Blue, selected')),
+      findsNothing,
       reason: 'the colour filter is cleared with its card',
+    );
+    expect(
+      find.text(
+        'Type a query, pick a color, or start from a saved collection.',
+      ),
+      findsOneWidget,
+      reason: 'the screen is pristine again',
     );
   });
 

@@ -44,9 +44,11 @@ void main() {
     expect(call.query, isEmpty);
     expect(call.ratios, 'portrait');
     expect(call.categories, '100', reason: 'Discover defaults to General');
-    // Purity and date_added sorting are the API defaults, so they are
-    // omitted from the wire request rather than sent redundantly.
-    expect(call.purity, isEmpty);
+    // Purity is always stated on the wire, even when it is the SFW-only
+    // default: the client cache and request deduper key on the query, so an
+    // omitted purity could not be told apart from an all-purities request.
+    expect(call.purity, '100', reason: 'SFW only');
+    // date_added sorting is still the API default, so it stays omitted.
     expect(call.sorting, isEmpty);
   });
 

@@ -8,6 +8,7 @@ import 'package:vanne/core/downloads/download_destination.dart';
 import 'package:vanne/core/security/api_key_store.dart';
 import 'package:vanne/core/storage/settings_store.dart' show AppThemeMode;
 
+import '../support/fixtures.dart';
 import '../support/test_app.dart';
 
 /// Settings owns durable user choices (theme, content policy, API key,
@@ -20,6 +21,9 @@ void main() {
   Finder tabLabel(String slug) => shellDestination(slug);
 
   Finder backButton() => find.byIcon(PhosphorIconsBold.arrowLeft);
+
+  /// One wallpaper tile in the feed, by fixture id.
+  Finder tile(String id) => find.byKey(ValueKey('wallpaper-tile-$id'));
 
   /// Opens the Settings destination and waits for its first section.
   Future<void> openSettings(WidgetTester tester) async {
@@ -43,6 +47,17 @@ void main() {
       await tester.ensureVisible(finder);
       await tester.pump(const Duration(milliseconds: 50));
     }
+  }
+
+  /// Opens Blocked tags from Settings and waits for its editor.
+  Future<void> openBlockedTags(WidgetTester tester) async {
+    await reveal(tester, find.text('Blocked tags'));
+    await tester.tap(find.text('Blocked tags'));
+    await pumpUntil(
+      tester,
+      find.textContaining('Hide wallpapers containing these tags'),
+      reason: 'blocked tags screen',
+    );
   }
 
   appTest('theme selector is aligned, icon-only, and accessible', (
@@ -254,9 +269,10 @@ void main() {
       () => app.network.searches.isNotEmpty,
       reason: 'discover request after restart',
     );
-    // Wallhaven omits `purity` only when every purity is allowed, so an
-    // empty value proves NSFW was not clamped back to SFW.
-    expect(app.network.searches.last.purity, isEmpty);
+    // Every purity is requested as the explicit `sfw|sketchy|nsfw` bitfield,
+    // so this proves NSFW survived the restart instead of being clamped back
+    // to SFW.
+    expect(app.network.searches.last.purity, '111');
   });
 
   appTest(
@@ -423,5 +439,250 @@ void main() {
       reason: 'revoked grant hint',
     );
     expect(app.destination.access.value, DestinationAccess.lost);
+  });
+
+  // Purity, blocked tags and the API key are read fresh by every request, so a
+  // feed that is already on screen is stale as soon as one of them changes.
+  // Discover is retained across tab switches, which is exactly the situation
+  // where old-policy results used to stay visible.
+  appTest(
+    'content policy changes refresh the retained Discover feed',
+    (tester, app) async {
+      // Answers are chosen by the purity the app actually sent, so a page can
+      // never be attributed to the wrong policy: `100` is SFW only and `111`
+      // allows every purity. A tile that survives a change is a stale result.
+      app.network.searchHandler = (call) async => switch (call.purity) {
+        '111' => searchPageJson(const ['unlocked']),
+        _ => searchPageJson(const ['plain', 'beta']),
+      };
+
+      await app.launch(tester);
+      await pumpUntil(tester, tile('plain'), reason: 'discover feed');
+      expect(
+        app.network.searches.last.purity,
+        '100',
+        reason: 'a locked feed asks for SFW only',
+      );
+
+      await openSettings(tester);
+      await reveal(tester, find.text('Show NSFW wallpapers'));
+      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length >= 2,
+        reason: 'discover refetch after unlocking NSFW',
+      );
+      final unlocked = app.network.searches.last;
+      expect(unlocked.page, 1, reason: 'pagination restarts at page 1');
+      expect(
+        unlocked.purity,
+        '111',
+        reason: 'an unlocked, NSFW-enabled feed asks for every purity',
+      );
+
+      // The retained Discover tab shows the new page instead of the old one.
+      await app.tap(tester, tabLabel('discover'));
+      await pumpFrames(tester, 8);
+      await pumpUntil(tester, tile('unlocked'), reason: 'refetched feed');
+      expect(
+        tile('plain'),
+        findsNothing,
+        reason: 'old-policy results are dropped, not left in the grid',
+      );
+
+      // Disabling NSFW again must bring the feed back under SFW.
+      await app.tap(tester, tabLabel('settings'));
+      await pumpFrames(tester, 8);
+      await reveal(tester, find.text('Show NSFW wallpapers'));
+      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length >= 3,
+        reason: 'discover refetch after disabling NSFW',
+      );
+      expect(
+        app.network.searches.last.purity,
+        '100',
+        reason: 'a disabled preference goes back to SFW only',
+      );
+
+      await app.tap(tester, tabLabel('discover'));
+      await pumpFrames(tester, 8);
+      await pumpUntil(tester, tile('beta'), reason: 'feed back under SFW');
+      expect(tile('plain'), findsOneWidget);
+      expect(
+        tile('unlocked'),
+        findsNothing,
+        reason: 'the unlocked page cannot survive the change back to SFW',
+      );
+    },
+    // A configured key, like an installed user who already authenticated.
+    create: () =>
+        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
+  );
+
+  appTest(
+    'removing the API key refreshes the retained feed under SFW',
+    (tester, app) async {
+      app.network.searchHandler = (call) async => switch (call.purity) {
+        '111' => searchPageJson(const ['unlocked']),
+        _ => searchPageJson(const ['plain']),
+      };
+
+      await app.launch(tester);
+      await pumpUntil(tester, tile('plain'), reason: 'discover feed');
+      expect(app.network.searches.last.purity, '100', reason: 'SFW only');
+
+      await openSettings(tester);
+      await reveal(tester, find.text('Show NSFW wallpapers'));
+      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length >= 2,
+        reason: 'unlocked feed',
+      );
+      expect(app.settings.nsfwEnabled.value, isTrue);
+
+      final beforeRemoval = app.network.searches.length;
+      await reveal(tester, find.text('API key'));
+      await app.tap(tester, find.text('API key'));
+      await pumpUntil(
+        tester,
+        find.text('A key is configured on this device.'),
+        reason: 'configured key',
+      );
+      await app.persistTap(tester, find.text('Remove key'));
+      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
+      await app.persistTap(tester, find.text('Remove'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length > beforeRemoval,
+        reason: 'discover refetch after removal',
+      );
+
+      // Removing the key disables NSFW in the same step, so the retained feed
+      // restarts once — already under SFW — instead of twice.
+      expect(app.settings.nsfwEnabled.value, isFalse);
+      expect(
+        app.network.searches.last.purity,
+        '100',
+        reason: 'the refetch asks for SFW only, never the unlocked set',
+      );
+      expect(
+        app.network.searches.length,
+        beforeRemoval + 1,
+        reason: 'one policy event means one refetch',
+      );
+
+      // Removing a key keeps the user on the key screen; back to the shell.
+      await app.tap(tester, backButton());
+      await pumpFrames(tester, 8);
+      await app.tap(tester, tabLabel('discover'));
+      await pumpFrames(tester, 8);
+      await pumpUntil(tester, tile('plain'), reason: 'feed under SFW');
+      expect(
+        tile('unlocked'),
+        findsNothing,
+        reason: 'items loaded with the key are no longer shown',
+      );
+    },
+    create: () =>
+        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
+  );
+
+  appTest('saving a blocked tag restarts a partly scrolled Discover feed', (
+    tester,
+    app,
+  ) async {
+    var handled = 0;
+    app.network.searchHandler = (call) async {
+      handled++;
+      if (handled == 1) {
+        return searchPageJson(
+          const ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8'],
+          currentPage: 1,
+          lastPage: 2,
+        );
+      }
+      if (call.page == 2) {
+        return searchPageJson(
+          const ['b1', 'b2'],
+          currentPage: 2,
+          lastPage: 2,
+        );
+      }
+      return searchPageJson(const ['filtered'], currentPage: 1, lastPage: 1);
+    };
+
+    await app.launch(tester);
+    await pumpUntil(tester, tile('a1'), reason: 'discover feed');
+
+    // A user who has already paged into the feed.
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -2000),
+    );
+    await pumpFrames(tester, 10, const Duration(milliseconds: 100));
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.any((call) => call.page == 2),
+      reason: 'second discover page',
+    );
+
+    await openSettings(tester);
+    await openBlockedTags(tester);
+    await app.enterText(tester, find.byType(TextField), 'anime');
+    await app.persistTap(tester, find.text('Save'));
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.last.excludedTags.contains('anime'),
+      reason: 'discover refetch with the new exclusion',
+    );
+
+    final excluded = app.network.searches.last;
+    expect(excluded.page, 1, reason: 'exclusions restart pagination');
+    expect(excluded.query, '-anime', reason: 'the tag travels as a -tag token');
+
+    // The editor is a pushed screen: the shell (and its destinations) is not
+    // reachable until it pops.
+    await app.tap(tester, backButton());
+    await pumpFrames(tester, 8);
+    await app.tap(tester, tabLabel('discover'));
+    await pumpFrames(tester, 8);
+    await pumpUntil(tester, tile('filtered'), reason: 'filtered feed');
+    expect(
+      tile('a1'),
+      findsNothing,
+      reason: 'results fetched before the exclusion are not shown',
+    );
+  });
+
+  appTest('re-saving the same blocked tags does not refetch the feed', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await openSettings(tester);
+
+    await openBlockedTags(tester);
+    await app.enterText(tester, find.byType(TextField), 'anime');
+    await app.persistTap(tester, find.text('Save'));
+    await pumpFrames(tester, 8);
+    expect(app.settings.blockedTags.value, {'anime'});
+    final afterFirstSave = app.network.searches.length;
+
+    // Same set, different spelling: normalization makes this a no-op, so the
+    // retained feed must not pay for another round of requests.
+    await openBlockedTags(tester);
+    await app.enterText(tester, find.byType(TextField), '  ANIME , anime ');
+    await app.persistTap(tester, find.text('Save'));
+    await app.settle(tester);
+
+    expect(app.settings.blockedTags.value, {'anime'});
+    expect(
+      app.network.searches.length,
+      afterFirstSave,
+      reason: 'an unchanged policy is not a change',
+    );
   });
 }

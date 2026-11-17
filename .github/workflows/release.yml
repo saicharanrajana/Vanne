@@ -62,7 +62,7 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk \
             "dist/vanne-${GITHUB_REF_NAME#v}-universal.apk"
           cd dist
-          shasum -a 256 *.apk > SHA256SUMS.txt
+          shasum -a 256 ./*.apk > SHA256SUMS.txt
 
       - name: Attach APKs to the release
         uses: softprops/action-gh-release@v2

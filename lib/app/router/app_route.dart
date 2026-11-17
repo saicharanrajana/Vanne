@@ -21,6 +21,7 @@ import '../../core/domain/feed_filter.dart';
 import '../../shared/widgets/bottom_padding.dart';
 import '../../shared/widgets/feed_filter_sheet.dart';
 import '../../shared/widgets/spring_sheet.dart';
+import 'shell_filter_action.dart';
 import 'shell_navigation.dart';
 import 'tab_scroll_coordinator.dart';
 
@@ -163,8 +164,27 @@ Route<T> springSheetRouteBuilder<T>(
 const _discoverTabIndex = 0;
 
 @RoutePage()
-final class MainShellPage extends StatelessWidget {
+final class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
+
+  @override
+  State<MainShellPage> createState() => _MainShellPageState();
+}
+
+final class _MainShellPageState extends State<MainShellPage> {
+  /// The active page's "open filters" action.
+  ///
+  /// Discover owns its feed controller, and the toolbar that hosts the action
+  /// is its ancestor, so the page publishes the callback here for as long as
+  /// it is mounted. Other destinations never publish one, so the action is
+  /// absent there instead of being disabled.
+  final ValueNotifier<VoidCallback?> _filterAction = ValueNotifier(null);
+
+  @override
+  void dispose() {
+    _filterAction.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -194,44 +214,50 @@ final class MainShellPage extends StatelessWidget {
             }
             tabsRouter.setActiveIndex(_discoverTabIndex);
           },
-          child: BottomPaddingScope(
-            bottomInset: ShellNavigationToolbar.scrollClearance,
-            child: Scaffold(
-              // The body runs under the floating bar; the transparent bottom
-              // sheet only tells the Scaffold where the bar is, so a floating
-              // snackbar is placed above it instead of covering it.
-              extendBody: true,
-              bottomNavigationBar: const SizedBox(
-                height: ShellNavigationToolbar.scrollClearance,
-              ),
-              body: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ShellTabTransition(
-                    activeIndex: tabsRouter.activeIndex,
-                    children: children,
-                  ),
-                  PositionedDirectional(
-                    start: 0,
-                    end: 0,
-                    bottom: 0,
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      heightFactor: 1,
-                      child: ShellNavigationToolbar(
-                        activeIndex: tabsRouter.activeIndex,
-                        onDestinationSelected: (index) {
-                          M3EHaptics.trigger(M3EHapticFeedback.light);
-                          if (index == tabsRouter.activeIndex) {
-                            locator<TabScrollCoordinator>().scrollToTop(index);
-                            return;
-                          }
-                          tabsRouter.setActiveIndex(index);
-                        },
+          child: ShellFilterAction(
+            binding: _filterAction,
+            child: BottomPaddingScope(
+              bottomInset: ShellNavigationToolbar.scrollClearance,
+              child: Scaffold(
+                // The body runs under the floating bar; the transparent bottom
+                // sheet only tells the Scaffold where the bar is, so a floating
+                // snackbar is placed above it instead of covering it.
+                extendBody: true,
+                bottomNavigationBar: const SizedBox(
+                  height: ShellNavigationToolbar.scrollClearance,
+                ),
+                body: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ShellTabTransition(
+                      activeIndex: tabsRouter.activeIndex,
+                      children: children,
+                    ),
+                    PositionedDirectional(
+                      start: 0,
+                      end: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        heightFactor: 1,
+                        child: ShellNavigationToolbar(
+                          activeIndex: tabsRouter.activeIndex,
+                          filterAction: _filterAction,
+                          onDestinationSelected: (index) {
+                            M3EHaptics.trigger(M3EHapticFeedback.light);
+                            if (index == tabsRouter.activeIndex) {
+                              locator<TabScrollCoordinator>().scrollToTop(
+                                index,
+                              );
+                              return;
+                            }
+                            tabsRouter.setActiveIndex(index);
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

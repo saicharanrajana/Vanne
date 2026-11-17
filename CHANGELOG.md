@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0](https://github.com/saicharanrajana/Vanne/compare/v0.1.0...v0.2.0) (2026-11-17)
+
+
+### Features
+
+* **shell:** add a feed filter action binding ([732921c](https://github.com/saicharanrajana/Vanne/commit/732921cb64eb7fd737b09eec46504a65038a2517))
+* **shell:** add a feed filter action to the toolbar ([2febe18](https://github.com/saicharanrajana/Vanne/commit/2febe184a22158b48a6539508fffdb0a8d4b7e16))
+* **shell:** host the filter action in the navigation toolbar ([43c2387](https://github.com/saicharanrajana/Vanne/commit/43c2387041415a07d4798003e1d92fd412ecb81c))
+* **ui:** place filter triggers on browse screens ([a0a4a71](https://github.com/saicharanrajana/Vanne/commit/a0a4a71ce85ddf25d92da79fe0a7c05dd2abe12e))
+
 ## 0.1.0 (2026-11-17)
 
 

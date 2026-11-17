@@ -3,6 +3,21 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and attach (e.g. v0.1.0)"
+        required: true
+  # Called from the release-please workflow right after a release is cut.
+  # release-please creates the tag with the default GITHUB_TOKEN, and events
+  # triggered by that token do not start new workflow runs — so the tag push
+  # alone would never reach the `push: tags` trigger. Reuse-as-job sidesteps
+  # the recursion rule entirely.
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -11,8 +26,12 @@ jobs:
   apk:
     name: Build and attach signed APKs
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-java@v4
         with:
@@ -56,17 +75,18 @@ jobs:
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-            "dist/vanne-${GITHUB_REF_NAME#v}-arm64-v8a.apk"
+            "dist/vanne-${TAG#v}-arm64-v8a.apk"
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
-            "dist/vanne-${GITHUB_REF_NAME#v}-armeabi-v7a.apk"
+            "dist/vanne-${TAG#v}-armeabi-v7a.apk"
           cp build/app/outputs/flutter-apk/app-release.apk \
-            "dist/vanne-${GITHUB_REF_NAME#v}-universal.apk"
+            "dist/vanne-${TAG#v}-universal.apk"
           cd dist
           shasum -a 256 ./*.apk > SHA256SUMS.txt
 
       - name: Attach APKs to the release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
           files: |
             dist/vanne-*-arm64-v8a.apk
             dist/vanne-*-armeabi-v7a.apk

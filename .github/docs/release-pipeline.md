@@ -7,7 +7,7 @@ operational detail.
 ## The flow
 
 ```
-feature branch ──squash PR──▶ dev ──squash PR──▶ main
+feature branch ──squash PR──▶ dev ──merge-commit PR──▶ main
                                                  │
                                     release-please opens a release PR
                                     ("chore(main): release X.Y.Z")
@@ -21,15 +21,29 @@ feature branch ──squash PR──▶ dev ──squash PR──▶ main
 ```
 
 - Direct pushes to `main` and `dev` are rejected (branch protection); all
-  changes go through squash PRs. Feature branches are deleted on merge
+  changes go through PRs. Feature branches are deleted on merge
   automatically.
 - Merging anything into `main` is the release trigger: release-please decides
   whether a release is needed, opens its PR, and merging that PR ships.
 
+## Merge methods
+
+| Hop | Method | Why |
+|---|---|---|
+| feature → `dev` | squash | one commit per feature PR; that commit's title is the changelog entry |
+| `dev` → `main` | **merge commit** | keeps every commit that accumulated on dev, so release-please emits one changelog entry per feature. The sync PR title is irrelevant to the release; still use a conventional title (e.g. `chore: sync dev into main`) because the PR-title check runs on every PR. |
+| release PR → `main` | squash | release-please's branch is a single commit |
+
+Squash collapses history. Squashing the promotion too would put a single
+umbrella commit on `main` and produce one umbrella changelog entry, losing the
+individual features — keep the merge commit on that hop.
+
 ## Versioning
 
-release-please derives the next version from Conventional Commit titles
-(PR titles, since merges are squashes — the PR title becomes the commit):
+release-please derives the next version from the Conventional Commits that
+reach `main`. Feature PR titles matter — squashing into `dev` turns each PR
+title into a commit title — while the dev→main merge commit is ignored by
+release-please:
 
 | Commit prefix | Version bump | Example |
 |---|---|---|
@@ -65,7 +79,9 @@ Signing: `release.yml` decodes the `KEYSTORE_BASE64` secret to
 
 ## What a release run does, step by step
 
-1. PR into `main` is squash-merged → push to `main`.
+1. `dev` is promoted into `main` with a merge-commit PR → push to `main`.
+   Every commit that accumulated on `dev` (one per feature PR) lands on
+   `main` individually, so the changelog names each feature.
 2. **Release PR** workflow runs release-please:
    - No unreleased conventional commits → no-op.
    - Otherwise → opens/updates the release PR with changelog + version bump.
@@ -117,9 +133,12 @@ Signing: `release.yml` decodes the `KEYSTORE_BASE64` secret to
 
 ## Branch protection
 
-- `main`: requires the "Analyze, test and build APK" check, linear history,
-  squash-only, admins included (no bypass).
-- `dev`: same check and rules; this is where feature work lands first.
+- `main`: requires the "Analyze, test and build APK" check, admins included
+  (no bypass). Linear history is off and merge commits are allowed, because
+  promotions from `dev` are merge commits; squash stays available for feature
+  hotfix PRs and the release PR.
+- `dev`: requires the same check, squash-only, linear history; this is where
+  feature work lands first.
 - CI also runs unsigned APK builds on `dev`, so breakage is caught before it
   ever reaches a release.
 

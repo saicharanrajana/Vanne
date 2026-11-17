@@ -125,10 +125,12 @@ follow-ups are tracked in the repository issue tracker.
 
 Releases are fully automated:
 
-1. Commit messages on `main` follow [Conventional Commits](https://www.conventionalcommits.org/)
+1. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
    (`feat:`, `fix:`, `docs:`, `chore:`, ...). A `commit-msg` hook in `githooks/`
    validates them locally (activate with `git config core.hooksPath githooks`),
-   and CI checks squash-merge PR titles.
+   and CI checks PR titles. Work lands on `dev` via squash PRs; `dev` is
+   promoted to `main` periodically with a merge-commit PR so each feature
+   keeps its own changelog entry.
 2. On every push to `main`, [release-please](https://github.com/googleapis/release-please)
    opens a release PR that updates `CHANGELOG.md` and the `version:` line in
    `pubspec.yaml` (SemVer: `fix` → patch, `feat` → minor).

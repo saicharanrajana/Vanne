@@ -761,6 +761,44 @@ void main() {
     );
   });
 
+  appTest('reduceMotion alone snaps the filter trigger in and out', (
+    tester,
+    app,
+  ) async {
+    // Flutter 3.50 reports iOS/web "Reduce Motion" through
+    // MediaQueryData.reduceMotion, separately from Android's
+    // disableAnimations. Either request must skip the fade.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(reduceMotion: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    final surface = find.byKey(const ValueKey('shell-filter-fab'));
+    final fade = find.descendant(
+      of: surface,
+      matching: find.byType(FadeTransition),
+    );
+    double opacity() => tester.widget<FadeTransition>(fade.first).opacity.value;
+    await pumpFrames(tester, 6);
+    expect(opacity(), 1, reason: 'the trigger is shown on Discover');
+
+    await tester.tap(destination('collections'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      opacity(),
+      0,
+      reason: 'reduceMotion alone must not leave the trigger mid-fade',
+    );
+
+    await tester.tap(destination('discover'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(opacity(), 1, reason: 'and it returns without a fade');
+  });
+
   appTest('a destination switch pans two whole pages across the viewport', (
     tester,
     app,

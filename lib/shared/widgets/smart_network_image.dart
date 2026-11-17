@@ -8,6 +8,7 @@ import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme/app_motion.dart';
+import '../utils/motion_preferences.dart';
 
 /// Disk-cached, smoothly fading network image.
 ///
@@ -75,7 +76,7 @@ class SmartNetworkImage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final fallback = placeholderColor ?? scheme.surfaceContainerHighest;
     // Reduced motion: snap straight to the image, no cross-fade.
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     final thumbnailUrl = placeholderImageUrl;
     final hasThumbnail =
         thumbnailUrl != null && thumbnailUrl.isNotEmpty && thumbnailUrl != url;

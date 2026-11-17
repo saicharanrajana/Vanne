@@ -55,6 +55,12 @@ final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final sections = _sections();
+    // Keep color unset so M3EButton supplies the correct foreground for its
+    // style (onPrimary for filled, onSurfaceVariant for outlined).
+    const actionLabelStyle = TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -113,7 +119,7 @@ final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
                         PhosphorIconsFill.arrowClockwise,
                         size: 18,
                       ),
-                      label: const Text('Reset'),
+                      label: Text('Reset', style: actionLabelStyle),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.lg),
@@ -124,7 +130,7 @@ final class _FeedFilterSheetState extends State<FeedFilterSheetContent> {
                       onPressed: () async {
                         context.router.root.pop(_draft);
                       },
-                      child: const Text('Apply'),
+                      child: Text('Apply', style: actionLabelStyle),
                     ),
                   ),
                 ],

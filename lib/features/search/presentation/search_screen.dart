@@ -11,6 +11,7 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import '../../../app/dependencies.dart';
 import '../../../core/collections/collection_entry.dart';
 import '../../../shared/widgets/app_search_bar_spec.dart';
+import '../../../shared/widgets/feed_filter_fab.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/horizontal_edge_fade.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
@@ -39,10 +40,6 @@ abstract final class _HeaderMetrics {
 
   /// Bottom gutter of the header.
   static const double bottomGutter = 12;
-
-  /// The sort/filter chip row (8dp gap + 32dp chip), shown only once
-  /// something is committed.
-  static const double filterChipBlock = 8 + 32;
 }
 
 /// Dedicated search destination: search field + expressive filter carousels
@@ -133,11 +130,7 @@ final class _SearchScreenState extends State<SearchScreen> {
       if (entry.isTagCollection) entry,
   ];
 
-  double _headerExtent(
-    BuildContext context, {
-    required bool showTagRow,
-    required bool showFilterChip,
-  }) {
+  double _headerExtent(BuildContext context, {required bool showTagRow}) {
     // Line heights round in the text layout, so each heading keeps a couple of
     // logical pixels of headroom instead of assuming the scaled 24dp line
     // lands exactly on a whole pixel.
@@ -159,7 +152,6 @@ final class _SearchScreenState extends State<SearchScreen> {
           _HeaderMetrics.headingGap +
           SearchFilterCarouselSpec.height;
     }
-    if (showFilterChip) extent += _HeaderMetrics.filterChipBlock;
     return extent;
   }
 
@@ -167,7 +159,6 @@ final class _SearchScreenState extends State<SearchScreen> {
     BuildContext context, {
     required List<CollectionEntry> tagEntries,
     required CollectionEntry? selectedTag,
-    required bool showFilterChip,
   }) {
     final theme = Theme.of(context);
     final showTagRow = tagEntries.isNotEmpty;
@@ -182,11 +173,7 @@ final class _SearchScreenState extends State<SearchScreen> {
       scrolledUnderElevation: 0,
       toolbarHeight: 0,
       collapsedHeight: 0,
-      expandedHeight: _headerExtent(
-        context,
-        showTagRow: showTagRow,
-        showFilterChip: showFilterChip,
-      ),
+      expandedHeight: _headerExtent(context, showTagRow: showTagRow),
       flexibleSpace: FlexibleSpaceBar(
         background: SafeArea(
           bottom: false,
@@ -250,36 +237,6 @@ final class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ),
               ],
-              if (showFilterChip)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: SignalBuilder(
-                      builder: (context) {
-                        final filter = controller.filter.value;
-                        return M3EChip(
-                          label: filter.summary,
-                          type: M3EChipType.filter,
-                          selected: true,
-                          leading: Icon(
-                            PhosphorIconsFill.slidersHorizontal,
-                            size: 16,
-                            color: theme.colorScheme.onSecondaryContainer,
-                          ),
-                          onPressed: () {
-                            M3EHaptics.trigger(M3EHapticFeedback.light);
-                            showFeedFilterSheet(
-                              context,
-                              initial: controller.filter.value,
-                              onApply: (f) => controller.applyFilter(f),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ),
               const SizedBox(height: _HeaderMetrics.bottomGutter),
             ],
           ),
@@ -288,9 +245,26 @@ final class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  void _openFilters() {
+    M3EHaptics.trigger(M3EHapticFeedback.light);
+    showFeedFilterSheet(
+      context,
+      initial: controller.filter.value,
+      onApply: (f) => controller.applyFilter(f),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: SignalBuilder(
+        builder: (context) => controller.hasCommittedInput.value
+            ? FeedFilterFab(
+                triggerKey: const ValueKey('feed-filter-trigger-search'),
+                onPressed: _openFilters,
+              )
+            : const SizedBox.shrink(),
+      ),
       body: SafeArea(
         bottom: false,
         child: SignalBuilder(
@@ -307,7 +281,6 @@ final class _SearchScreenState extends State<SearchScreen> {
                     context,
                     tagEntries: tagEntries,
                     selectedTag: selectedTag,
-                    showFilterChip: false,
                   ),
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -345,7 +318,13 @@ final class _SearchScreenState extends State<SearchScreen> {
               favoriteIds: favorites.favoriteIds,
               onToggleFavorite: favorites.toggle,
               heroScope: 'search-',
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              // Room for the floating filter trigger at the end of the list.
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                4,
+                16,
+                24 + FeedFilterFab.scrollClearance,
+              ),
               emptyState: const EmptyState(
                 title: 'No wallpapers found',
                 message: 'Try another search or remove a filter.',
@@ -366,7 +345,6 @@ final class _SearchScreenState extends State<SearchScreen> {
                     context,
                     tagEntries: tagEntries,
                     selectedTag: selectedTag,
-                    showFilterChip: true,
                   ),
                   ...grid.buildSlivers(context),
                 ],

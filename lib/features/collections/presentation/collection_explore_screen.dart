@@ -10,6 +10,7 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../core/collections/collection_entry.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/collection_membership_button.dart';
+import '../../../shared/widgets/feed_filter_fab.dart';
 import '../../../shared/widgets/feed_filter_sheet.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
 import '../../favorites/application/favorites_controller.dart';
@@ -147,6 +148,17 @@ final class _CollectionExploreScreenState
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      floatingActionButton: FeedFilterFab(
+        triggerKey: const ValueKey('feed-filter-trigger-collection'),
+        onPressed: () {
+          M3EHaptics.trigger(M3EHapticFeedback.light);
+          showFeedFilterSheet(
+            context,
+            initial: controller.filter.value,
+            onApply: (f) => controller.applyFilter(f),
+          );
+        },
+      ),
       body: SignalBuilder(
         builder: (context) {
           final state = controller.state.value;
@@ -158,6 +170,13 @@ final class _CollectionExploreScreenState
             error: state.error,
             paginationError: state.paginationError,
             heroScope: 'collection-${entry.id}-',
+            // Room for the floating filter trigger at the end of the list.
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              8,
+              16,
+              24 + FeedFilterFab.scrollClearance,
+            ),
             onRetry: controller.reload,
             onRetryPagination: controller.retryPagination,
             onLoadMore: controller.loadMore,
@@ -215,38 +234,6 @@ final class _CollectionExploreScreenState
                         ),
                       ),
                   ],
-                  bottom: PreferredSize(
-                    preferredSize: const Size.fromHeight(48),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                        child: SignalBuilder(
-                          builder: (context) {
-                            final filter = controller.filter.value;
-                            return M3EChip(
-                              label: filter.summary,
-                              type: M3EChipType.filter,
-                              selected: true,
-                              leading: Icon(
-                                PhosphorIconsFill.slidersHorizontal,
-                                size: 16,
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
-                              onPressed: () {
-                                M3EHaptics.trigger(M3EHapticFeedback.light);
-                                showFeedFilterSheet(
-                                  context,
-                                  initial: controller.filter.value,
-                                  onApply: (f) => controller.applyFilter(f),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
                 ...grid.buildSlivers(context),
               ],

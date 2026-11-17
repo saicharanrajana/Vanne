@@ -55,3 +55,11 @@ app.*.map.json
 
 # Flutter build artifacts (any package)
 build/
+
+# Local agent skills and their source/license records — do not commit
+/.agents/
+
+# Android signing secrets — never commit
+key.properties
+**/*.jks
+**/*.keystore

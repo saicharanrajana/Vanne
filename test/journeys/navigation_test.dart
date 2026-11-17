@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
@@ -217,7 +219,8 @@ void main() {
     await app.launch(tester);
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
-    final resting = tester.getRect(find.byType(M3EToolbar));
+    final resting = tester.getRect(selectionPill());
+    final restingBar = tester.getRect(find.byType(M3EToolbar));
     final body = tester.getRect(find.byType(ShellTabTransition));
     expect(
       body.bottom,
@@ -236,10 +239,15 @@ void main() {
     );
     await goTo(tester, app, 'settings');
     await pumpUntil(tester, find.text('Appearance'), reason: 'settings');
+    final moved = tester.getRect(selectionPill());
+    // The indicator travels between destinations; the band it rides in must
+    // not, or the toolbar would slide with the page transition.
+    expect(moved.top, closeTo(resting.top, 0.1), reason: 'chrome stays put');
+    expect(moved.bottom, closeTo(resting.bottom, 0.1));
     expect(
-      tester.getRect(find.byType(M3EToolbar)),
-      resting,
-      reason: 'the toolbar is chrome, not part of the page transition',
+      tester.getRect(find.byType(M3EToolbar)).bottom,
+      closeTo(restingBar.bottom, 0.1),
+      reason: 'the bar keeps its distance from the screen edge',
     );
   });
 
@@ -514,12 +522,17 @@ void main() {
     expect(find.byKey(const ValueKey('favorite-outline')), findsNothing);
   });
 
-  appTest('the active destination paints exactly one glyph', (tester, app) async {
+  appTest('the active destination paints exactly one glyph', (
+    tester,
+    app,
+  ) async {
     await app.launch(tester);
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
+    // Only the destination slots paint destination glyphs; the toolbar's
+    // Discover filter action is a separate control with its own glyph.
     Finder toolbarIcons() => find.descendant(
-      of: find.byType(M3EToolbar),
+      of: find.byKey(const ValueKey('shell-navigation-row')),
       matching: find.byType(Icon),
     );
 
@@ -571,17 +584,180 @@ void main() {
     ).bottom;
 
     // The indicator fills the bar's content band, so this one measurement pins
-    // the whole stack of gaps below it: M3E's 8dp floating padding, the
-    // screen offset the shell passes in, and the system inset — each once.
+    // the whole stack of gaps below it: M3E's floating padding and the band's
+    // centring inside the bar, the screen offset the shell passes in, and the
+    // system inset — each once.
     expect(
       body.bottom - pill.bottom,
-      closeTo(safeBottom + ShellNavigationToolbar.screenOffset + 8, 0.1),
+      closeTo(
+        safeBottom +
+            ShellNavigationToolbar.screenOffset +
+            (ShellNavigationToolbar.barExtent -
+                ShellNavigationToolbar.contentExtent),
+        0.1,
+      ),
       reason: 'one safe-area inset plus one screen offset, never both stacked',
     );
     expect(
       pill.bottom,
       lessThan(body.bottom),
       reason: 'the toolbar floats over the page, not inside a reserved band',
+    );
+  });
+
+  appTest('toolbar centers its visible content on every destination', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+    await pumpFrames(tester, 40);
+
+    final row = find.byKey(const ValueKey('shell-navigation-row'));
+    final fab = find.byKey(const ValueKey('shell-filter-fab'));
+    final screenCenter = tester
+        .getRect(find.byType(ShellTabTransition))
+        .center
+        .dx;
+    final discoverRow = tester.getRect(row);
+    final discoverFab = tester.getRect(fab);
+    final compositeCenter = Rect.fromLTRB(
+      discoverRow.left,
+      math.min(discoverRow.top, discoverFab.top),
+      discoverFab.right,
+      math.max(discoverRow.bottom, discoverFab.bottom),
+    ).center.dx;
+    expect(compositeCenter, closeTo(screenCenter, 1));
+
+    double? awayCenter;
+    for (final slug in ['collections', 'favorites', 'settings']) {
+      await goTo(tester, app, slug);
+      await pumpFrames(tester, 40);
+      final currentRow = tester.getRect(row);
+      expect(currentRow.center.dx, closeTo(screenCenter, 1), reason: slug);
+      expect(currentRow.top, closeTo(discoverRow.top, 0.5), reason: '$slug y');
+      expect(currentRow.bottom, closeTo(discoverRow.bottom, 0.5));
+      awayCenter ??= currentRow.center.dx;
+    }
+
+    await goTo(tester, app, 'discover');
+    await pumpFrames(tester, 40);
+    final restoredRow = tester.getRect(row);
+    final restoredFab = tester.getRect(fab);
+    final restoredCompositeCenter = Rect.fromLTRB(
+      restoredRow.left,
+      math.min(restoredRow.top, restoredFab.top),
+      restoredFab.right,
+      math.max(restoredRow.bottom, restoredFab.bottom),
+    ).center.dx;
+    expect(restoredCompositeCenter, closeTo(screenCenter, 1));
+    expect(awayCenter, closeTo(screenCenter, 1));
+  });
+
+  appTest('the filter trigger animates horizontal toolbar centering', (
+    tester,
+    app,
+  ) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    final trigger = find.byKey(const ValueKey('feed-filter-trigger-discover'));
+    final surface = find.byKey(const ValueKey('shell-filter-fab'));
+    final fade = find.descendant(
+      of: surface,
+      matching: find.byType(FadeTransition),
+    );
+    double opacity() => tester.widget<FadeTransition>(fade.first).opacity.value;
+
+    expect(trigger, findsOneWidget, reason: 'trigger on Discover');
+    await pumpFrames(tester, 20);
+    expect(opacity(), 1);
+    final navigationRow = find.byKey(const ValueKey('shell-navigation-row'));
+    final restingRow = tester.getRect(navigationRow);
+    final screenCenter = tester
+        .getRect(find.byType(ShellTabTransition))
+        .center
+        .dx;
+    expect(restingRow.center.dx, lessThan(screenCenter));
+
+    // Switching away starts the trigger's exit and centers the nav pill.
+    await tester.tap(destination('collections'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      opacity(),
+      inExclusiveRange(0, 1),
+      reason: 'the trigger animates out instead of vanishing',
+    );
+    final movingRow = tester.getRect(navigationRow);
+    expect(movingRow.top, closeTo(restingRow.top, 0.5));
+    expect(movingRow.center.dx, greaterThan(restingRow.center.dx));
+    expect(movingRow.center.dx, lessThan(screenCenter));
+
+    await pumpFrames(tester, 40);
+    expect(opacity(), 0);
+    expect(tester.getRect(navigationRow).center.dx, closeTo(screenCenter, 1));
+    // The away slot is inert: tapping where the trigger sat must not open the
+    // sheet the trigger stands for.
+    await tester.tapAt(tester.getCenter(surface));
+    await pumpFrames(tester, 12);
+    expect(
+      find.text('Sort & Filter'),
+      findsNothing,
+      reason: 'away slot is inert',
+    );
+
+    // ...and it returns the same way when Discover comes back.
+    await tester.tap(destination('discover'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(opacity(), inExclusiveRange(0, 1), reason: 'animates back in');
+    final returningRow = tester.getRect(navigationRow);
+    expect(returningRow.top, closeTo(restingRow.top, 0.5));
+    expect(returningRow.center.dx, lessThan(screenCenter));
+    await pumpFrames(tester, 40);
+    expect(opacity(), 1);
+    expect(
+      tester.getRect(navigationRow).center.dx,
+      closeTo(restingRow.center.dx, 1),
+    );
+  });
+
+  appTest('reduced motion snaps the filter trigger in and out', (
+    tester,
+    app,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    final surface = find.byKey(const ValueKey('shell-filter-fab'));
+    final fade = find.descendant(
+      of: surface,
+      matching: find.byType(FadeTransition),
+    );
+    double opacity() => tester.widget<FadeTransition>(fade.first).opacity.value;
+    await pumpFrames(tester, 6);
+    expect(opacity(), 1);
+
+    await tester.tap(destination('collections'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(opacity(), 0, reason: 'no linger when animations are disabled');
+    final screenCenter = tester
+        .getRect(find.byType(ShellTabTransition))
+        .center
+        .dx;
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey('shell-navigation-row')))
+          .center
+          .dx,
+      closeTo(screenCenter, 1),
+      reason: 'the hidden FAB leaves the pill centered immediately',
     );
   });
 

@@ -5,6 +5,7 @@ import 'package:signals/signals_flutter.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/router/shell_filter_action.dart';
 import '../../../app/router/tab_scroll_coordinator.dart';
 import '../../../shared/widgets/app_search_bar_spec.dart';
 import '../../../shared/widgets/wallpaper_grid.dart';
@@ -36,8 +37,42 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
   late final DiscoverController controller = locator<DiscoverController>();
   late final FavoritesController favorites = locator<FavoritesController>();
 
+  /// The shell binding this screen published its filter action to, if any.
+  ValueNotifier<VoidCallback?>? _shellFilterBinding;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final binding = ShellFilterAction.maybeBindingOf(context);
+    if (identical(binding, _shellFilterBinding)) return;
+    _unbindShellFilter();
+    _shellFilterBinding = binding;
+    if (binding == null) return;
+    // Publishing during build would rebuild the toolbar mid-frame; the action
+    // appears on the next one instead.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      binding.value = _openFilters;
+    });
+  }
+
+  /// Opens the same sheet the old header chip did. The action lives in the
+  /// shell toolbar, so it takes no space in the feed's header.
+  void _openFilters() {
+    M3EHaptics.trigger(M3EHapticFeedback.light);
+    showDiscoverFilterSheet(context, controller: controller);
+  }
+
+  void _unbindShellFilter() {
+    final binding = _shellFilterBinding;
+    if (binding != null && binding.value == _openFilters) {
+      binding.value = null;
+    }
+  }
+
   @override
   void dispose() {
+    _unbindShellFilter();
     controller.dispose();
     super.dispose();
   }
@@ -62,7 +97,10 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
       scrolledUnderElevation: 0,
       toolbarHeight: 0,
       collapsedHeight: 0,
-      expandedHeight: 188,
+      // Heading, search bar, and their gaps. The filter trigger used to add a
+      // chip row here (8dp gap + 4dp pad + 32dp chip); it now lives in the
+      // shell toolbar.
+      expandedHeight: 144,
       flexibleSpace: FlexibleSpaceBar(
         background: SafeArea(
           bottom: false,
@@ -103,8 +141,6 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
                     onTap: widget.onOpenSearch,
                   ),
                 ),
-                const SizedBox(height: 8),
-                _FilterRow(controller: controller),
               ],
             ),
           ),
@@ -144,44 +180,6 @@ final class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// Compact row showing the active filter summary; tapping opens the
-/// smooth-sheets driven filter sheet.
-final class _FilterRow extends StatelessWidget {
-  final DiscoverController controller;
-
-  const _FilterRow({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: SignalBuilder(
-          builder: (context) {
-            final filter = controller.filter.value;
-            return M3EChip(
-              label: filter.summary,
-              type: M3EChipType.filter,
-              selected: true,
-              leading: Icon(
-                PhosphorIconsFill.slidersHorizontal,
-                size: 16,
-                color: scheme.onSecondaryContainer,
-              ),
-              onPressed: () {
-                M3EHaptics.trigger(M3EHapticFeedback.light);
-                showDiscoverFilterSheet(context, controller: controller);
-              },
-            );
-          },
-        ),
       ),
     );
   }

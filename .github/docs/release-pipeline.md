@@ -7,7 +7,7 @@ operational detail.
 ## The flow
 
 ```
-feature branch ──squash PR──▶ dev ──merge-commit PR──▶ main
+feature branch ──merge-commit PR──▶ dev ──merge-commit PR──▶ main
                                                  │
                                     release-please opens a release PR
                                     ("chore(main): release X.Y.Z")
@@ -30,20 +30,20 @@ feature branch ──squash PR──▶ dev ──merge-commit PR──▶ main
 
 | Hop | Method | Why |
 |---|---|---|
-| feature → `dev` | squash | one commit per feature PR; that commit's title is the changelog entry |
-| `dev` → `main` | **merge commit** | keeps every commit that accumulated on dev, so release-please emits one changelog entry per feature. The sync PR title is irrelevant to the release; still use a conventional title (e.g. `chore: sync dev into main`) because the PR-title check runs on every PR. |
+| feature → `dev` | **merge commit** | each curated commit on the branch survives, so every `feat:`/`fix:` commit becomes its own changelog entry. Squash is still allowed for branches whose commit history you don't want to expose — that collapses them into one entry named by the PR title. |
+| `dev` → `main` | **merge commit** | keeps every commit that accumulated on dev, so release-please emits one changelog entry per commit. The sync PR title is irrelevant to the release; still use a conventional title (e.g. `chore: sync dev into main`) because the PR-title check runs on every PR. |
 | release PR → `main` | squash | release-please's branch is a single commit |
 
-Squash collapses history. Squashing the promotion too would put a single
-umbrella commit on `main` and produce one umbrella changelog entry, losing the
-individual features — keep the merge commit on that hop.
+Squash collapses history. Squashing at either hop merges commits into one
+umbrella commit and therefore one umbrella changelog entry — that is why both
+feature and promotion hops use merge commits.
 
 ## Versioning
 
 release-please derives the next version from the Conventional Commits that
-reach `main`. Feature PR titles matter — squashing into `dev` turns each PR
-title into a commit title — while the dev→main merge commit is ignored by
-release-please:
+reach `main`. With merge commits on both hops those are your feature-branch
+commits, so keep them curated and conventional — the `commit-msg` hook
+enforces the format. The promotion merge commit itself is ignored:
 
 | Commit prefix | Version bump | Example |
 |---|---|---|
@@ -80,8 +80,8 @@ Signing: `release.yml` decodes the `KEYSTORE_BASE64` secret to
 ## What a release run does, step by step
 
 1. `dev` is promoted into `main` with a merge-commit PR → push to `main`.
-   Every commit that accumulated on `dev` (one per feature PR) lands on
-   `main` individually, so the changelog names each feature.
+   Every commit that accumulated on `dev` (each a real feature commit) lands
+   on `main` individually, so the changelog names each change.
 2. **Release PR** workflow runs release-please:
    - No unreleased conventional commits → no-op.
    - Otherwise → opens/updates the release PR with changelog + version bump.
@@ -137,8 +137,9 @@ Signing: `release.yml` decodes the `KEYSTORE_BASE64` secret to
   (no bypass). Linear history is off and merge commits are allowed, because
   promotions from `dev` are merge commits; squash stays available for feature
   hotfix PRs and the release PR.
-- `dev`: requires the same check, squash-only, linear history; this is where
-  feature work lands first.
+- `dev`: requires the same check. Merge commits and squash are both allowed
+  (linear history off) so feature commits are preserved unless you choose to
+  squash; this is where feature work lands first.
 - CI also runs unsigned APK builds on `dev`, so breakage is caught before it
   ever reaches a release.
 

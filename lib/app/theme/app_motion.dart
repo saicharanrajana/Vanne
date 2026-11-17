@@ -13,7 +13,8 @@ abstract final class AppMotion {
   // --- Spatial: position/size changes -------------------------------------
 
   /// Press feedback and other fast, small spatial changes.
-  static const MaterialSpringMotion press = MaterialSpringMotion.standardSpatialFast();
+  static const MaterialSpringMotion press =
+      MaterialSpringMotion.standardSpatialFast();
 
   /// Default spatial motion for elements that move a visible distance.
   static const MaterialSpringMotion spatial =
@@ -26,10 +27,12 @@ abstract final class AppMotion {
   // --- Effects: opacity/color/fades ---------------------------------------
 
   /// Fast non-spatial effects (image fade-in, scrim).
-  static const MaterialSpringMotion effectsFast = MaterialSpringMotion.standardEffectsFast();
+  static const MaterialSpringMotion effectsFast =
+      MaterialSpringMotion.standardEffectsFast();
 
   /// Default non-spatial effect (color cross-fades, theme swaps).
-  static const MaterialSpringMotion effects = MaterialSpringMotion.standardEffectsDefault();
+  static const MaterialSpringMotion effects =
+      MaterialSpringMotion.standardEffectsDefault();
 
   // --- Sheet physics -------------------------------------------------------
   //
@@ -74,4 +77,10 @@ abstract final class AppMotion {
   /// Emphasized decelerate: the pages leave and arrive decisively, with the
   /// long tail that makes a full-width pan read as a page rather than a jolt.
   static const Curve tabTransitionCurve = Cubic(0.2, 0.0, 0.0, 1.0);
+
+  /// Appear/disappear of the toolbar's page action (the sort & filter FAB).
+  ///
+  /// Short and non-spatial: the trigger's slot never moves, so only its own
+  /// surface has to arrive or leave without drawing attention to itself.
+  static const Duration tabSelectionFade = Duration(milliseconds: 180);
 }

@@ -28,9 +28,23 @@ final class DownloadService {
     Dio? dio,
     DownloadDestinationController? destinationController,
     DownloadStoragePlatform? platform,
-  }) : _dio = dio ?? Dio(),
+  }) : _dio = dio ?? _defaultDio(),
        _destination = destinationController,
        _platform = platform ?? const DownloadStoragePlatform();
+
+  /// Transport for full-resolution images.
+  ///
+  /// Timeouts are mandatory here: without them a host that accepts the
+  /// connection but stops sending leaves "Set" and Save spinning forever with
+  /// no way out but leaving the screen. [receiveTimeout] is an inactivity
+  /// window between chunks, not a cap on the whole transfer, so a large
+  /// wallpaper on a slow link still completes.
+  static Dio _defaultDio() => Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
 
   /// Deterministic filename for [wallpaper]: `wallhaven_<id>.<ext>`.
   static String fileNameFor(Wallpaper wallpaper) {
@@ -53,6 +67,12 @@ final class DownloadService {
 
   /// Downloads [wallpaper]'s full image into [destination] (a cache path).
   ///
+  /// The destination only appears once the transfer is whole: bytes are written
+  /// to a unique scratch file and renamed into place afterwards. Callers rely
+  /// on that — "Set" treats an existing cache file as a complete wallpaper —
+  /// so a killed process, a dropped connection, or a cancellation must leave
+  /// the destination absent rather than half-written.
+  ///
   /// Throws [DownloadException] with a user-facing message on failure.
   /// Progress is reported through [onProgress] as 0.0–1.0. Pass a
   /// [cancelToken] to abort the transfer (e.g. when leaving the screen);
@@ -69,23 +89,51 @@ final class DownloadService {
         'No downloadable file is available for this wallpaper.',
       );
     }
+    // Unique per transfer: two downloads of one wallpaper (two detail routes,
+    // or a retry) must never write into the same scratch file.
+    final scratch = File(
+      '${destination.path}.'
+      '${DateTime.now().microsecondsSinceEpoch}_${_scratchSequence++}.part',
+    );
     try {
       await _dio.download(
         url,
-        destination.path,
+        scratch.path,
         onReceiveProgress: (received, total) =>
             total > 0 ? onProgress?.call(received / total) : null,
         cancelToken: cancelToken,
       );
+      // A 200 with no body is not a wallpaper; publishing it would make every
+      // later attempt reuse an empty file.
+      if (await scratch.length() == 0) {
+        throw const DownloadException('Download failed. Please try again.');
+      }
+      await scratch.rename(destination.path);
     } on DioException catch (error) {
       if (error.type == DioExceptionType.cancel) {
         throw const DownloadException('Download cancelled.');
       }
-      throw DownloadException(
-        error.type == DioExceptionType.connectionError
-            ? 'Network unavailable. Check your connection.'
-            : 'Download failed. Please try again.',
-      );
+      throw DownloadException(switch (error.type) {
+        DioExceptionType.connectionError ||
+        DioExceptionType.connectionTimeout =>
+          'Network unavailable. Check your connection.',
+        DioExceptionType.receiveTimeout || DioExceptionType.sendTimeout =>
+          'The download stalled. Please try again.',
+        _ => 'Download failed. Please try again.',
+      });
+    } on FileSystemException {
+      // Local cache publication (length check or atomic rename) can fail after
+      // the network transfer succeeds. Keep callers on the same retryable,
+      // user-facing error contract as transport failures.
+      throw const DownloadException('Download failed. Please try again.');
+    } finally {
+      // The rename consumed the scratch file on success; every other exit path
+      // leaves only garbage behind, which the cache must not accumulate.
+      try {
+        if (await scratch.exists()) await scratch.delete();
+      } on FileSystemException {
+        // Non-fatal: the OS clears cache storage eventually.
+      }
     }
   }
 
@@ -155,7 +203,7 @@ final class DownloadService {
     }
   }
 
-  /// Unique per-save directory under the platform cache root.
+  /// Monotonic counter that keeps every scratch path unique in this process.
   static int _scratchSequence = 0;
 
   static Future<Directory> _createScratchDirectory() async {

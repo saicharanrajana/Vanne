@@ -66,6 +66,11 @@ final class WallpaperDetailController {
     } on WallhavenUserException catch (error) {
       if (_disposed) return;
       detailsError.set(error.message);
+    } catch (_) {
+      // An untyped failure must not escape into the zone: the screen would
+      // keep its listing data but never learn that details are unavailable.
+      if (_disposed) return;
+      detailsError.set('Could not load wallpaper details.');
     }
   }
 
@@ -119,6 +124,9 @@ final class WallpaperDetailController {
       rethrow;
     } on FileSystemException {
       if (_disposed) rethrow;
+      // The cached file is unusable (deleted or truncated outside the app):
+      // drop the path so the next attempt downloads a fresh copy.
+      _cachedTempPath = null;
       const msg = 'Could not prepare the wallpaper file.';
       prepare.set(const PrepareState.failed(msg));
       throw const DownloadException(msg);
@@ -142,6 +150,7 @@ final class WallpaperDetailController {
       apply.set(ApplyState.failed(error.message));
     } on FileSystemException {
       if (_disposed) return;
+      _cachedTempPath = null;
       apply.set(ApplyState.failed('Could not prepare the wallpaper file.'));
     }
   }
@@ -161,9 +170,21 @@ final class WallpaperDetailController {
       apply.set(ApplyState.failed(error.message));
     } on FileSystemException {
       if (_disposed) return;
+      _cachedTempPath = null;
       apply.set(ApplyState.failed('Could not prepare the wallpaper file.'));
     }
   }
+
+  /// Directory holding images prepared by "Set", under a cache root.
+  ///
+  /// Versioned on purpose: an older build wrote straight to
+  /// `wallpaper_apply/<file>` and could leave a truncated prefix behind after a
+  /// killed transfer. Moving the folder means those files are ignored rather
+  /// than inspected, and the OS reclaims them as cache. Anything this build
+  /// publishes here is whole — [DownloadService.downloadToFile] renames it into
+  /// place only after the transfer completes.
+  static Directory wallpaperApplyDir(Directory base) =>
+      Directory('${base.path}/wallpaper_apply/v2');
 
   Future<String> _ensureLocalFile() async {
     final cached = _cachedTempPath;
@@ -182,30 +203,23 @@ final class WallpaperDetailController {
     } on Error {
       base = Directory.systemTemp;
     }
-    final dir = await Directory('${base.path}/wallpaper_apply')
-        .create(recursive: true);
-    final file = File(
+    final dir = await wallpaperApplyDir(base).create(recursive: true);
+    final target = File(
       '${dir.path}/${DownloadService.fileNameFor(wallpaper.value)}',
     );
-    // Reuse if already downloaded in this session (e.g. after prepareForSet).
-    // Guard against 0-byte truncated file from interrupted download.
-    if (await file.exists()) {
-      if (await file.length() > 0) {
-        _cachedTempPath = file.path;
-        return file.path;
-      }
-      // Stale 0-byte file — delete and re-download.
-      try {
-        await file.delete();
-      } catch (_) {}
+    // Reuse a file prepared earlier (e.g. a previous option in the sheet).
+    if (await target.exists() && await target.length() > 0) {
+      _cachedTempPath = target.path;
+      return target.path;
     }
+
     await _downloader.downloadToFile(
       wallpaper.value,
-      file,
+      target,
       cancelToken: _lifecycle,
     );
-    _cachedTempPath = file.path;
-    return file.path;
+    _cachedTempPath = target.path;
+    return target.path;
   }
 
   /// Releases reactive resources when leaving the screen and cancels any

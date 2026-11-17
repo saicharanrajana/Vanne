@@ -83,10 +83,29 @@ jobs:
           cd dist
           shasum -a 256 ./*.apk > SHA256SUMS.txt
 
+      - name: Write download guide
+        run: |
+          cat > dist/apk_table.md << EOF
+
+          ---
+
+          ### Which APK do I download?
+
+          | File | For |
+          |------|-----|
+          | \`vanne-${TAG#v}-arm64-v8a.apk\` | **Recommended** — nearly all Android phones (2017+) |
+          | \`vanne-${TAG#v}-armeabi-v7a.apk\` | Older 32-bit devices |
+          | \`vanne-${TAG#v}-universal.apk\` | Unsure? Emulators and Chromebooks too |
+
+          Verify downloads against \`SHA256SUMS.txt\`.
+          EOF
+
       - name: Attach APKs to the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
+          body_path: dist/apk_table.md
+          append_body: true
           files: |
             dist/vanne-*-arm64-v8a.apk
             dist/vanne-*-armeabi-v7a.apk

@@ -45,12 +45,117 @@ void main() {
     }
   }
 
+  appTest('theme selector is aligned, icon-only, and accessible', (
+    tester,
+    app,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 800);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+    await app.launch(tester);
+    await openSettings(tester);
+
+    expect(
+      find.text('Choose how Vanne follows your device appearance.'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('System theme'), findsOneWidget);
+    expect(find.byTooltip('Light theme'), findsOneWidget);
+    expect(find.byTooltip('Dark theme'), findsOneWidget);
+    expect(find.text('Auto'), findsNothing);
+    expect(find.text('Light'), findsNothing);
+    expect(find.text('Dark'), findsNothing);
+
+    final themeCard = find.ancestor(
+      of: find.text('Theme'),
+      matching: find.byType(M3ECard),
+    );
+    final themeSurface = tester.widget<M3ECard>(themeCard);
+    expect(themeSurface.color, Colors.transparent);
+    expect(themeSurface.elevation, 0);
+
+    final selector = find.byType(M3ESegmentedButton<AppThemeMode>);
+    expect(selector, findsOneWidget);
+    final selectorRect = tester.getRect(selector);
+    final leadingRect = tester.getRect(
+      find.byIcon(PhosphorIconsFill.sun).first,
+    );
+    expect(selectorRect.left, greaterThan(leadingRect.right));
+
+    TextStyle styleOf(String label) =>
+        tester.widget<Text>(find.text(label)).style!;
+    expect(
+      styleOf('Theme'),
+      styleOf('Use dynamic color'),
+      reason: 'Theme title must match an ordinary M3E list-row headline.',
+    );
+    expect(
+      styleOf('Choose how Vanne follows your device appearance.'),
+      styleOf('Match app colors to your wallpaper.'),
+      reason: 'Theme subtitle must match an ordinary M3E supporting line.',
+    );
+
+    Finder segmentIcon(IconData icon) =>
+        find.descendant(of: selector, matching: find.byIcon(icon));
+    expect(segmentIcon(PhosphorIconsFill.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.sun), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.moon), findsOneWidget);
+
+    await app.persistTap(tester, find.byTooltip('Light theme'));
+    expect(app.settings.themeMode.value, AppThemeMode.light);
+    expect(segmentIcon(PhosphorIconsFill.sun), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.moon), findsOneWidget);
+
+    await app.persistTap(tester, find.byTooltip('Dark theme'));
+    expect(app.settings.themeMode.value, AppThemeMode.dark);
+    expect(segmentIcon(PhosphorIconsFill.moon), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.sun), findsOneWidget);
+
+    await app.persistTap(tester, find.byTooltip('System theme'));
+    expect(app.settings.themeMode.value, AppThemeMode.system);
+    expect(segmentIcon(PhosphorIconsFill.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.sun), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.moon), findsOneWidget);
+
+    await reveal(tester, find.text('Downloads'));
+    expect(
+      styleOf('Downloads'),
+      styleOf('Use dynamic color'),
+      reason: 'Downloads title must match an ordinary M3E list-row headline.',
+    );
+    expect(
+      styleOf('Pictures/VanneWallpapers'),
+      styleOf('Match app colors to your wallpaper.'),
+      reason: 'Downloads detail must use M3E supporting-line typography.',
+    );
+    expect(
+      styleOf('Tap to change the downloads location'),
+      styleOf('Match app colors to your wallpaper.'),
+      reason: 'Downloads hint must use M3E supporting-line typography.',
+    );
+    final downloadsCard = find.ancestor(
+      of: find.text('Downloads'),
+      matching: find.byType(M3ECard),
+    );
+    final downloadsSurface = tester.widget<M3ECard>(downloadsCard);
+    expect(downloadsSurface.color, Colors.transparent);
+    expect(downloadsSurface.elevation, 0);
+
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('System theme'), findsOneWidget);
+    expect(find.bySemanticsLabel('Light theme'), findsOneWidget);
+    expect(find.bySemanticsLabel('Dark theme'), findsOneWidget);
+    semantics.dispose();
+  });
+
   appTest('appearance choices survive a restart', (tester, app) async {
     await app.launch(tester);
     await openSettings(tester);
 
     // Each row's title toggles its switch, exactly like tapping the row.
-    await app.persistTap(tester, find.text('Dark'));
+    await app.persistTap(tester, find.byTooltip('Dark theme'));
     await reveal(tester, find.text('Pitch black mode'));
     await app.persistTap(tester, find.text('Pitch black mode'));
     await reveal(tester, find.text('Use dynamic color'));

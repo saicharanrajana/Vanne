@@ -58,9 +58,7 @@ void main() {
   Future<void> sendPaletteChanged(WidgetTester tester) async {
     await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
       paletteChangedChannel.name,
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('changed'),
-      ),
+      const StandardMethodCodec().encodeMethodCall(const MethodCall('changed')),
       (_) {},
     );
     await tester.pump();
@@ -87,7 +85,6 @@ void main() {
     reason: reason,
   );
 
-
   appTest('choosing Dark applies a dark theme without losing the screen', (
     tester,
     app,
@@ -105,7 +102,7 @@ void main() {
 
     await app.tap(tester, shellDestination('settings'));
     await pumpFrames(tester, 8);
-    await app.persistTap(tester, find.text('Dark'));
+    await app.persistTap(tester, find.byTooltip('Dark theme'));
     await pumpFrames(tester, 8);
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
@@ -169,7 +166,12 @@ void main() {
       find.byKey(const ValueKey('wallpaper-tile-alpha')),
       reason: 'discover feed',
     );
-    await waitForPrimary(tester, app, first, reason: 'palette adopted at startup');
+    await waitForPrimary(
+      tester,
+      app,
+      first,
+      reason: 'palette adopted at startup',
+    );
 
     // Open Settings and scroll it so navigation + scroll state can be
     // checked after the palette changes.

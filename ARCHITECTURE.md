@@ -113,12 +113,34 @@ screen's own gestures.
 
 The bar floats over a full-height body. `ShellNavigationToolbar.screenOffset`
 is passed to `M3EToolbar.screenOffset`, so the gap below it is one system inset
-plus one deliberate margin, counted once. The shell's Scaffold reserves an
+plus one deliberate margin, counted once. M3E draws a bar with an adjacent FAB
+taller than one without, so the FAB-less offset carries
+`ShellNavigationToolbar.fabDrop` on top; the pill then rests at the same height
+on every destination. The shell's Scaffold reserves an
 invisible `bottomNavigationBar` of `ShellNavigationToolbar.scrollClearance`
 with `extendBody: true`: the body still runs behind the bar, while floating
 snackbars are placed above the navigation instead of covering it, and
 `BottomPaddingScope` gives scrollable destinations the same clearance at the end
 of their lists.
+
+The sort & filter sheet has one trigger, not a labelled chip. Discover hosts it
+as the bar's own adjacent FAB (`onFabPressed` with `fabExpandsToolbar: false`,
+so a tap only runs the action and never expands the pill): the screen publishes
+its `openFilters` callback through `ShellFilterAction`, and the bar hands the
+FAB that action exactly while a callback is bound and Discover is active, so no
+other destination can offer it.
+
+The FAB slot itself is permanent. M3E draws a floating bar taller when it has an
+adjacent FAB — its box grows for the FAB's 80dp surface — and the FAB's width is
+part of the bar's own width, so passing the FAB only on Discover made the bar
+change height and the pill jump on every destination switch. The shell therefore
+always occupies the slot and animates only the FAB's own surface (`AnimatedOpacity`
++ `AnimatedScale` over `AppMotion.tabSelectionFade`), leaving the slot inert —
+no paint, no hit test, no semantics — while another destination is active.
+
+Every other browsing screen — search, tag/colour results and a saved
+collection — floats the same `FeedFilterFab` in the bottom-end corner with
+scroll clearance reserved for it.
 
 Destination changes pan like a page view (`ShellTabTransition`) driven by
 `AppMotion.tabTransition` and `AppMotion.tabTransitionCurve`: both pages travel

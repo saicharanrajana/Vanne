@@ -138,6 +138,9 @@ Releases are fully automated:
    (`arm64-v8a`, `armeabi-v7a` and a universal build with checksums) and
    attaches them to that release.
 
+The operational detail — triggers, gotchas, recovery steps — lives in
+[.github/docs/release-pipeline.md](.github/docs/release-pipeline.md).
+
 ## Commit message format
 
 ```

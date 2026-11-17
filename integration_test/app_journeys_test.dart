@@ -114,6 +114,13 @@ void main() {
 
     await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+    // The page mounts before the field is laid out; typing into it earlier
+    // drops the input on a device.
+    await pumpUntil(
+      tester,
+      find.byType(EditableText),
+      reason: 'search field is laid out',
+    );
     await app.enterText(tester, find.byType(EditableText), 'nature');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await pumpFrames(tester, 12, const Duration(milliseconds: 50));

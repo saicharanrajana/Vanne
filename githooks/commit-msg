@@ -1,0 +1,43 @@
+#!/bin/sh
+# Validates commit messages against Conventional Commits 1.0.0:
+#   <type>(<optional scope>)!<optional>: <description>
+#
+# Only `feat` and `fix` are mandated by the spec; the remaining types follow
+# the Angular convention recommended by @commitlint/config-conventional.
+# Merge commits, fixup and squash commits are exempt.
+
+msg_file="$1"
+first_line=$(head -n 1 "$msg_file")
+
+case "$first_line" in
+  "Merge "* | "Revert " | fixup\!* | squash\!*) exit 0 ;;
+esac
+
+pattern='^(feat|fix|docs|chore|refactor|test|style|perf|build|ci|revert)(\([a-zA-Z0-9_-]+\))?(!)?: .+'
+
+if ! printf '%s' "$first_line" | grep -qE "$pattern"; then
+  cat >&2 <<EOF
+commit message rejected: "$first_line"
+
+Expected Conventional Commits format:
+  <type>(<optional scope>)!: <description>
+
+Allowed types: feat fix docs chore refactor test style perf build ci revert
+Examples:
+  feat: add saved-tag search carousels
+  fix(client): harden transport and error contract
+EOF
+  exit 1
+fi
+
+# Header (type + description) should stay within git's 72-char convention.
+if [ "$(printf '%s' "$first_line" | wc -c)" -gt 72 ]; then
+  echo "commit message rejected: header is longer than 72 characters" >&2
+  exit 1
+fi
+
+# No trailing period on the description.
+if printf '%s' "$first_line" | grep -qE '[.!?,;:]$'; then
+  echo "commit message rejected: description must not end with punctuation" >&2
+  exit 1
+fi

@@ -2,6 +2,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:system_wallpaper/system_wallpaper.dart';
 
+/// Channel-level contract tests for the wallpaper bridge.
+///
+/// Root widget journeys substitute a fake platform object, so these are the
+/// only tests that can catch a broken native method name, argument key or
+/// error-code translation.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -13,78 +18,93 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
+  void stub(Future<Object?> Function(MethodCall call) handler) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, handler);
+  }
+
+  Future<WallpaperErrorCode> failureCode(
+    Future<WallpaperResult> result,
+  ) async {
+    return ((await result) as WallpaperFailure).code;
+  }
+
   group('SystemWallpaperPlatform', () {
-    test('setWallpaper success', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        expect(call.method, 'setWallpaper');
-        expect(call.arguments['path'], '/tmp/wall.jpg');
-        expect(call.arguments['target'], 'home');
+    test('forwards both set commands to the native side', () async {
+      final calls = <MethodCall>[];
+      stub((call) async {
+        calls.add(call);
         return {'success': true};
       });
 
-      final result = await platform.setWallpaper(
-        filePath: '/tmp/wall.jpg',
-        target: WallpaperTarget.home,
+      expect(
+        await platform.setWallpaper(
+          filePath: '/tmp/wall.jpg',
+          target: WallpaperTarget.home,
+        ),
+        isA<WallpaperSuccess>(),
       );
-      expect(result, isA<WallpaperSuccess>());
+      expect(
+        await platform.setWithSystemPicker(filePath: '/tmp/wall.jpg'),
+        isA<WallpaperSuccess>(),
+      );
+
+      expect(calls, hasLength(2));
+      expect(calls[0].method, 'setWallpaper');
+      expect(calls[0].arguments['path'], '/tmp/wall.jpg');
+      expect(calls[0].arguments['target'], 'home');
+      expect(calls[1].method, 'setWithSystemPicker');
+      expect(calls[1].arguments['path'], '/tmp/wall.jpg');
     });
 
-    test('setWallpaper validates empty path', () async {
-      final result = await platform.setWallpaper(
-        filePath: '',
-        target: WallpaperTarget.both,
-      );
-      expect(result, isA<WallpaperFailure>());
-      expect((result as WallpaperFailure).code, WallpaperErrorCode.invalidArgs);
-    });
-
-    test('setWallpaper maps fileNotFound', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        throw PlatformException(code: 'fileNotFound', message: 'Not found');
-      });
-      final result = await platform.setWallpaper(
-        filePath: '/tmp/missing.jpg',
-        target: WallpaperTarget.lock,
-      );
-      expect((result as WallpaperFailure).code, WallpaperErrorCode.fileNotFound);
-    });
-
-    test('setWallpaper maps unsupported', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        throw PlatformException(code: 'unsupported', message: 'No handler');
-      });
-      final result = await platform.setWallpaper(
-        filePath: '/tmp/wall.jpg',
-        target: WallpaperTarget.both,
-      );
-      expect((result as WallpaperFailure).code, WallpaperErrorCode.unsupported);
-    });
-
-    test('setWithSystemPicker success', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        expect(call.method, 'setWithSystemPicker');
+    test('rejects an empty path before reaching the platform', () async {
+      var called = false;
+      stub((call) async {
+        called = true;
         return {'success': true};
       });
-      final result = await platform.setWithSystemPicker(filePath: '/tmp/wall.jpg');
-      expect(result, isA<WallpaperSuccess>());
+
+      expect(
+        await failureCode(
+          platform.setWallpaper(filePath: '', target: WallpaperTarget.both),
+        ),
+        WallpaperErrorCode.invalidArgs,
+      );
+      expect(
+        await failureCode(platform.setWithSystemPicker(filePath: '')),
+        WallpaperErrorCode.invalidArgs,
+      );
+      expect(called, isFalse);
     });
 
-    test('setWithSystemPicker maps unsupported', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        throw PlatformException(code: 'unsupported', message: 'No app found');
-      });
-      final result = await platform.setWithSystemPicker(filePath: '/tmp/wall.jpg');
-      expect((result as WallpaperFailure).code, WallpaperErrorCode.unsupported);
-    });
+    test('translates native failures for both entry points', () async {
+      stub((call) async => throw PlatformException(code: 'fileNotFound'));
+      expect(
+        await failureCode(
+          platform.setWallpaper(
+            filePath: '/tmp/missing.jpg',
+            target: WallpaperTarget.lock,
+          ),
+        ),
+        WallpaperErrorCode.fileNotFound,
+      );
 
-    test('setWithSystemPicker validates empty path', () async {
-      final result = await platform.setWithSystemPicker(filePath: '');
-      expect((result as WallpaperFailure).code, WallpaperErrorCode.invalidArgs);
+      stub((call) async => throw PlatformException(code: 'unsupported'));
+      expect(
+        await failureCode(
+          platform.setWallpaper(
+            filePath: '/tmp/wall.jpg',
+            target: WallpaperTarget.both,
+          ),
+        ),
+        WallpaperErrorCode.unsupported,
+      );
+      expect(
+        await failureCode(
+          platform.setWithSystemPicker(filePath: '/tmp/wall.jpg'),
+        ),
+        WallpaperErrorCode.unsupported,
+      );
     });
   });
 }

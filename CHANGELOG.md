@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/saicharanrajana/Vanne/compare/v0.2.0...v0.3.0) (2026-11-18)
+
+
+### Features
+
+* **search:** add saved color filters ([dcb512c](https://github.com/saicharanrajana/Vanne/commit/dcb512cfd6671cee03dc1146d011ea774aa685f7))
+* **settings:** refine theme controls ([66a5a0e](https://github.com/saicharanrajana/Vanne/commit/66a5a0e198789f03895c345427fed86d96a79e3d))
+
+
+### Bug Fixes
+
+* **a11y:** honor reduced motion preferences ([d4ad8c6](https://github.com/saicharanrajana/Vanne/commit/d4ad8c60f73e119338b7206f7b0ef11e468f3f19))
+* **ci:** regenerate plugins when building the release apk ([3bfb3dc](https://github.com/saicharanrajana/Vanne/commit/3bfb3dc8a0d2e9bca493ffde3051086e78e1b06d))
+* **client:** isolate auth and validate responses ([eeaf045](https://github.com/saicharanrajana/Vanne/commit/eeaf0456b586d70de1605d335649358c1eaa49e0))
+* **downloads:** publish files atomically ([460aed3](https://github.com/saicharanrajana/Vanne/commit/460aed3f703481ff0d3d250c0abf42a0ac9304eb))
+* **feed:** refresh results when content policy changes ([044fc67](https://github.com/saicharanrajana/Vanne/commit/044fc6700a622f05d36f40d16729a868a70f7d2f))
+* **storage:** handle malformed saved data ([541b2ba](https://github.com/saicharanrajana/Vanne/commit/541b2ba50c90b4ef1145ca670fdd86639c7d8edf))
+
 ## [0.2.0](https://github.com/saicharanrajana/Vanne/compare/v0.1.0...v0.2.0) (2026-11-17)
 
 

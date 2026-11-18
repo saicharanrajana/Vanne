@@ -18,6 +18,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:signals/signals.dart';
 import 'package:vanne/core/domain/feed_filter.dart';
 import 'package:vanne/core/wallpaper/feed_controller.dart';
 import 'package:vanne/core/wallpaper/wallpaper_repository.dart';
@@ -36,11 +37,24 @@ final class _PendingSearch {
 
   void fail([String message = 'Network unavailable.']) =>
       _done.completeError(WallhavenUserException(message));
+
+  /// Completes with a failure the repository contract does not describe, the
+  /// way a decoding or platform bug would surface.
+  void failUnexpectedly() =>
+      _done.completeError(StateError('decoder blew up'));
 }
 
 final class _ScriptedRepository implements WallpaperRepository {
   /// Every page request in call order; tests complete them out of order.
   final searchCalls = <_PendingSearch>[];
+
+  /// The content-policy revision the feed watches, mirroring the real
+  /// repository: bumping it means purity, blocked tags or the API key changed.
+  @override
+  final policyRevision = signal(0);
+
+  /// Simulates a content-policy change made from Settings.
+  void changePolicy() => policyRevision.value++;
 
   @override
   Future<SearchOutcome> search({
@@ -331,6 +345,145 @@ void main() {
       repository.searchCalls[2].succeed(_page(1, items: [_wallpaper('ccc333')]));
       await reload;
       expect(_ids(feed), ['ccc333'], reason: 'reload replaces the feed');
+    });
+  });
+
+  // Purity, blocked tags and the API key are read fresh on every request, so
+  // a page loaded before a change is stale by definition: it may even show
+  // content the user just filtered out. The feed must restart, and a page
+  // whose request was already in flight must never land afterwards.
+  group('content policy', () {
+    test('a policy change restarts the feed from page 1', () async {
+      final first = feed.reload();
+      await settle();
+      repository.searchCalls[0].succeed(
+        _page(1, lastPage: 3, items: [_wallpaper('old111')]),
+      );
+      await first;
+      expect(_ids(feed), ['old111']);
+
+      repository.changePolicy();
+      await settle();
+
+      expect(
+        repository.searchCalls,
+        hasLength(2),
+        reason: 'the retained feed refetches instead of keeping old items',
+      );
+      expect(repository.searchCalls[1].page, 1);
+      expect(
+        _ids(feed),
+        isEmpty,
+        reason: 'old-policy results are gone while the new page loads',
+      );
+
+      repository.searchCalls[1].succeed(
+        _page(1, lastPage: 3, items: [_wallpaper('new222')]),
+      );
+      await settle();
+      expect(_ids(feed), ['new222']);
+    });
+
+    test('a policy change during a request drops that stale response', () async {
+      final stale = feed.reload();
+      await settle();
+      expect(repository.searchCalls, hasLength(1));
+
+      // The change lands while page 1 is still open.
+      repository.changePolicy();
+      await settle();
+      expect(repository.searchCalls, hasLength(2));
+
+      repository.searchCalls[0].succeed(
+        _page(1, items: [_wallpaper('old111')]),
+      );
+      await stale;
+      await settle();
+      expect(
+        _ids(feed),
+        isEmpty,
+        reason: 'the old-policy response must never reach the grid',
+      );
+
+      repository.searchCalls[1].succeed(
+        _page(1, items: [_wallpaper('new222')]),
+      );
+      await settle();
+      expect(_ids(feed), ['new222']);
+      expect(
+        feed.state.value.error,
+        isNull,
+        reason: 'a superseded response is not an error either',
+      );
+    });
+
+    test('a policy change after disposal starts no request', () async {
+      final first = feed.reload();
+      await settle();
+      repository.searchCalls[0].succeed(
+        _page(1, items: [_wallpaper('aaa111')]),
+      );
+      await first;
+
+      feed.dispose();
+      repository.changePolicy();
+      await settle();
+
+      expect(repository.searchCalls, hasLength(1));
+    });
+  });
+
+  // A failure the repository never promised to translate is a bug, but the
+  // user must still get an actionable surface: an endless skeleton or a
+  // half-loaded feed would be worse than an error message with Retry.
+  group('unexpected failures', () {
+    test('an untyped first-load failure surfaces an error and retries', () async {
+      final first = feed.reload();
+      await settle();
+      repository.searchCalls[0].failUnexpectedly();
+      await first;
+
+      expect(feed.state.value.error, isNotNull);
+      expect(feed.state.value.loadingFirst, isFalse);
+
+      final retry = feed.reload();
+      await settle();
+      repository.searchCalls[1].succeed(
+        _page(1, items: [_wallpaper('aaa111')]),
+      );
+      await retry;
+
+      expect(feed.state.value.error, isNull);
+      expect(_ids(feed), ['aaa111']);
+    });
+
+    test('an untyped pagination failure keeps content and retries', () async {
+      final first = feed.reload();
+      await settle();
+      repository.searchCalls[0].succeed(
+        _page(1, lastPage: 2, items: [_wallpaper('aaa111')]),
+      );
+      await first;
+
+      final more = feed.loadMore();
+      await settle();
+      repository.searchCalls[1].failUnexpectedly();
+      await more;
+
+      expect(_ids(feed), ['aaa111'], reason: 'loaded content stays usable');
+      expect(feed.state.value.paginationError, isNotNull);
+      expect(feed.state.value.loadingMore, isFalse);
+      expect(feed.state.value.error, isNull);
+
+      final retry = feed.retryPagination();
+      await settle();
+      repository.searchCalls[2].succeed(
+        _page(2, lastPage: 2, items: [_wallpaper('bbb222')]),
+      );
+      await retry;
+
+      expect(feed.state.value.paginationError, isNull);
+      expect(_ids(feed), ['aaa111', 'bbb222']);
     });
   });
 

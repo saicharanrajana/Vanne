@@ -46,7 +46,7 @@ architecture.
 
 Requirements:
 
-- [Flutter](https://docs.flutter.dev/get-started/install) (Dart SDK ^3.13.1)
+- [Flutter](https://docs.flutter.dev/get-started/install) (Flutter 3.50+, Dart SDK ^3.14.0)
 - An Android device or emulator (primary target)
 
 ```bash

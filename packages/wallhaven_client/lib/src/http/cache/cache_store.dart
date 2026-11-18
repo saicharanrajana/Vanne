@@ -32,6 +32,13 @@ abstract interface class CacheStore {
   /// Stores [entry] under [key], replacing any previous value.
   Future<void> put(String key, CacheEntry entry);
 
+  /// Drops the entry for [key], if any.
+  ///
+  /// Used to discard a response the caller rejected on validation: replaying
+  /// a body the client cannot decode would make every retry fail until the
+  /// TTL expires.
+  Future<void> remove(String key);
+
   /// Removes all entries (used by `close()`).
   Future<void> clear();
 }
@@ -73,6 +80,11 @@ final class InMemoryCacheStore implements CacheStore {
       _entries.remove(_entries.keys.first);
     }
     _entries[key] = entry;
+  }
+
+  @override
+  Future<void> remove(String key) async {
+    _entries.remove(key);
   }
 
   @override

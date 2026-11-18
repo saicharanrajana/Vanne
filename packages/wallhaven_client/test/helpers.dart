@@ -104,24 +104,20 @@ WallhavenClient buildTestClient({
   required FakeWallhavenAdapter adapter,
   ApiKeyManager? apiKeyManager,
   MutableClock? clock,
-  List<Duration> delays = const [],
 }) {
   final manager = apiKeyManager ?? ApiKeyManager();
   final effectiveClock = clock ?? MutableClock();
-  final delaySink = delays.isEmpty ? null : delays;
-  var delayIndex = 0;
+  // One store for both the transport and the client, exactly like production:
+  // a client holding a different store than its interceptor could not see (or
+  // discard) what was actually cached.
+  final store = InMemoryCacheStore();
   final dio = buildDio(
     const WallhavenConfig(),
     apiKeyManager: manager,
-    cacheStore: InMemoryCacheStore(),
+    cacheStore: store,
     clock: () => effectiveClock.now,
-    delay: (d) async {
-      // Record requested backoff durations; never actually sleep.
-      if (delaySink != null && delayIndex < delaySink.length) {
-        delaySink[delayIndex] = d;
-        delayIndex++;
-      }
-    },
+    // Never actually sleep; tests that depend on backoff advance the clock.
+    delay: (d) async {},
   );
   // Route ALL traffic through the fake adapter — without this line,
   // requests would escape to the real network.
@@ -130,6 +126,7 @@ WallhavenClient buildTestClient({
     apiKeyManager: manager,
     config: const WallhavenConfig(),
     dio: dio,
+    cache: store,
     clock: () => effectiveClock.now,
   );
 }

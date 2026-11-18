@@ -48,13 +48,14 @@ void main() {
   });
 
   group('Wallpaper detail parsing', () {
-    test('detail response carries uploader and tags', () async {
-      final client = buildTestClient(
+    test('full and partial detail payloads map optional metadata tolerantly',
+        () async {
+      final fullClient = buildTestClient(
         adapter: FakeWallhavenAdapter.json(fixture('wallpaper_response.json')),
       );
-      addTearDown(client.close);
+      addTearDown(fullClient.close);
 
-      final wallpaper = await client.wallpaper('94x38z');
+      final wallpaper = await fullClient.wallpaper('94x38z');
       expect(wallpaper.hasDetails, isTrue);
       expect(wallpaper.uploader!.username, 'test-user');
       expect(wallpaper.uploader!.group, 'User');
@@ -63,9 +64,8 @@ void main() {
       expect(wallpaper.tags!.first.name, 'anime');
       expect(wallpaper.tags!.first.alias, 'Chinese cartoons');
       expect(wallpaper.tags!.first.categoryId, 1);
-    });
 
-    test('uploader with missing avatar map still parses', () async {
+      // Partial payload: uploader without an avatar map, plus missing thumbs.
       const body = <String, dynamic>{
         'data': <String, dynamic>{
           'id': 'x1y2z3',
@@ -88,27 +88,27 @@ void main() {
           'tags': <dynamic>[],
         },
       };
-      final client = buildTestClient(
+      final partialClient = buildTestClient(
         adapter: FakeWallhavenAdapter.json(body),
       );
-      addTearDown(client.close);
+      addTearDown(partialClient.close);
 
-      final wallpaper = await client.wallpaper('x1y2z3');
-      expect(wallpaper.uploader!.username, 'u');
-      expect(wallpaper.uploader!.avatar, isEmpty);
+      final partial = await partialClient.wallpaper('x1y2z3');
+      expect(partial.uploader!.username, 'u');
+      expect(partial.uploader!.avatar, isEmpty);
       // Missing thumbs degrade to an all-null Thumbnails.
-      expect(wallpaper.thumbnails.bestForGrid, isNull);
+      expect(partial.thumbnails.bestForGrid, isNull);
     });
   });
 
   group('Tag parsing resilience', () {
-    test('complete tag parses all fields', () async {
-      final client = buildTestClient(
+    test('complete and partial tag payloads decode tolerantly', () async {
+      final completeClient = buildTestClient(
         adapter: FakeWallhavenAdapter.json(fixture('tag_response.json')),
       );
-      addTearDown(client.close);
+      addTearDown(completeClient.close);
 
-      final tag = await client.tag(1);
+      final tag = await completeClient.tag(1);
       expect(tag.id, 1);
       expect(tag.name, 'anime');
       expect(tag.alias, 'Chinese cartoons');
@@ -116,24 +116,22 @@ void main() {
       expect(tag.categoryId, 1);
       expect(tag.purity, 'sfw');
       expect(tag.createdAt, DateTime.utc(2015, 1, 16, 2, 6, 45));
-    });
 
-    test('partial tag with null metadata parses to nulls', () async {
-      final client = buildTestClient(
+      final partialClient = buildTestClient(
         adapter: FakeWallhavenAdapter.json(
           fixture('tag_partial_response.json'),
         ),
       );
-      addTearDown(client.close);
+      addTearDown(partialClient.close);
 
-      final tag = await client.tag(777);
-      expect(tag.id, 777);
-      expect(tag.name, 'minimalist');
-      expect(tag.alias, isNull);
-      expect(tag.category, isNull);
-      expect(tag.categoryId, isNull);
-      expect(tag.purity, isNull);
-      expect(tag.createdAt, isNull);
+      final partial = await partialClient.tag(777);
+      expect(partial.id, 777);
+      expect(partial.name, 'minimalist');
+      expect(partial.alias, isNull);
+      expect(partial.category, isNull);
+      expect(partial.categoryId, isNull);
+      expect(partial.purity, isNull);
+      expect(partial.createdAt, isNull);
     });
   });
 
@@ -171,7 +169,7 @@ void main() {
   });
 
   group('Collections parsing', () {
-    test('public flag decodes from 0/1 wire values', () async {
+    test('public flags and numeric-string fields decode compatibly', () async {
       final client = buildTestClient(
         adapter: FakeWallhavenAdapter.json(
           fixture('collections_response.json'),
@@ -185,6 +183,30 @@ void main() {
       expect(collections.first.public, isTrue);
       expect(collections.last.public, isFalse);
       expect(collections.last.count, 7);
+
+      // Wire values may arrive as strings; they decode to the same domain
+      // types instead of being rejected.
+      final numericClient = buildTestClient(
+        adapter: FakeWallhavenAdapter.json({
+          'data': <dynamic>[
+            <String, dynamic>{
+              'id': '7',
+              'label': 'Favourites',
+              'views': '12',
+              'public': '1',
+              'count': 3,
+            },
+          ],
+        }),
+      );
+      addTearDown(numericClient.close);
+
+      final numeric = await numericClient.collections(username: 'someone');
+      expect(numeric.single.id, 7);
+      expect(numeric.single.label, 'Favourites');
+      expect(numeric.single.views, 12);
+      expect(numeric.single.public, isTrue);
+      expect(numeric.single.count, 3);
     });
   });
 

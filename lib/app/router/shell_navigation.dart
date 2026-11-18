@@ -8,6 +8,7 @@ import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../shared/utils/motion_preferences.dart';
 import '../theme/app_motion.dart';
 
 /// Horizontal breathing room inside the selection indicator, either side of
@@ -195,7 +196,7 @@ final class _ToolbarHorizontalCentering extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     final halfSlot = ShellNavigationToolbar.fabSlotExtent / 2;
     final shownOverhang = halfSlot + M3EToolbarTokens.floatingContentPadding;
     final logicalOffset = filterVisible ? halfSlot - shownOverhang : halfSlot;
@@ -250,7 +251,7 @@ final class _FilterFabSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = onPressed != null;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     final duration = reduceMotion ? Duration.zero : AppMotion.tabSelectionFade;
 
     return IgnorePointer(
@@ -323,7 +324,7 @@ final class _DestinationBarState extends State<_DestinationBar>
     final next = widget.activeIndex;
     if (next == _toIndex) return;
 
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     if (reduceMotion) {
       setState(() {
         _fromIndex = next;
@@ -373,7 +374,7 @@ final class _DestinationBarState extends State<_DestinationBar>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textStyle = Theme.of(context).textTheme.labelLarge;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     const destinations = ShellDestination.values;
 
     // M3E lays its floating content out at its intrinsic width, so without a
@@ -665,7 +666,7 @@ final class _ShellTabTransitionState extends State<ShellTabTransition>
     // the viewport, so rapid taps neither replay an older pair nor settle on
     // a destination the user has moved past.
     final from = _controller.value < 0.5 ? _from : _to;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
 
     // Nothing to slide between when motion is off, or when the user came back
     // to the page that already dominates the viewport: settle there instead
@@ -688,7 +689,7 @@ final class _ShellTabTransitionState extends State<ShellTabTransition>
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     final width = MediaQuery.sizeOf(context).width;
     final direction = Directionality.of(context) == TextDirection.rtl
         ? -1.0

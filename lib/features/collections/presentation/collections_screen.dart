@@ -13,6 +13,7 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../core/collections/collection_entry.dart';
 import '../../../core/collections/seed_collections.dart';
 import '../../../shared/utils/color_display.dart';
+import '../../../shared/utils/collection_display.dart';
 import '../../../shared/utils/hex_color.dart';
 import '../../../shared/widgets/app_snack.dart';
 import '../../../shared/widgets/bottom_padding.dart';
@@ -107,11 +108,8 @@ final class CollectionsScreen extends StatelessWidget {
   /// The exact color a color collection was saved with, or `null` for a
   /// query collection. Wallhaven's raw hex is used, not its nearest search
   /// color.
-  static String? colorHexFor(CollectionEntry entry) {
-    if (entry.colors.isNotEmpty) return entry.colors.first;
-    if (entry.name.trim().startsWith('#')) return entry.name.trim();
-    return null;
-  }
+  static String? colorHexFor(CollectionEntry entry) =>
+      CollectionDisplay.colorHexFor(entry);
 }
 
 /// The reorderable grid itself.
@@ -419,9 +417,7 @@ final class _CollectionCard extends StatelessWidget {
     final hasCover =
         color == null && (coverAsset != null || entry.coverUrl != null);
 
-    final title = colorHex == null
-        ? entry.displayName
-        : ColorDisplay.nameForHex(colorHex) ?? entry.displayName;
+    final title = CollectionDisplay.titleFor(entry);
     final subtitle = colorHex == null
         ? null
         : ColorDisplay.normalizedHex(colorHex) ?? entry.displayName;

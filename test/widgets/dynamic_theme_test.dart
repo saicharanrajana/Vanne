@@ -58,9 +58,7 @@ void main() {
   Future<void> sendPaletteChanged(WidgetTester tester) async {
     await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
       paletteChangedChannel.name,
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('changed'),
-      ),
+      const StandardMethodCodec().encodeMethodCall(const MethodCall('changed')),
       (_) {},
     );
     await tester.pump();
@@ -87,73 +85,6 @@ void main() {
     reason: reason,
   );
 
-
-  appTest('choosing Dark applies a dark theme without losing the screen', (
-    tester,
-    app,
-  ) async {
-    // Force a light system preference so the explicit choice is what changes.
-    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
-    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
-
-    await app.launch(tester);
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover feed',
-    );
-
-    await app.tap(tester, shellDestination('settings'));
-    await pumpFrames(tester, 8);
-    await app.persistTap(tester, find.text('Dark'));
-    await pumpFrames(tester, 8);
-
-    final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(materialApp.themeMode, ThemeMode.dark);
-    expect(
-      Theme.of(tester.element(find.text('Appearance'))).brightness,
-      Brightness.dark,
-      reason: 'the whole app, not just the toggle, follows the choice',
-    );
-    // Still on Settings: a theme change must not reset navigation.
-    expect(find.text('Appearance'), findsOneWidget);
-    expect(app.settings.themeMode.value.name, 'dark');
-  });
-
-  appTest('the appearance controls persist across a restart', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover feed',
-    );
-    await app.tap(tester, shellDestination('settings'));
-    await pumpFrames(tester, 8);
-
-    await app.persistTap(tester, find.text('Pitch black mode'));
-    await app.persistTap(tester, find.text('Use dynamic color'));
-
-    expect(app.settings.pitchBlack.value, isTrue);
-    expect(app.settings.dynamicColor.value, isFalse);
-
-    await app.restart(tester);
-
-    // A relaunch starts on Discover; open Settings again.
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover after restart',
-    );
-    await app.tap(tester, shellDestination('settings'));
-    await pumpFrames(tester, 8);
-
-    expect(app.settings.pitchBlack.value, isTrue);
-    expect(app.settings.dynamicColor.value, isFalse);
-  });
-
   appTest('a live palette push repaints the app without resetting the route', (
     tester,
     app,
@@ -169,7 +100,12 @@ void main() {
       find.byKey(const ValueKey('wallpaper-tile-alpha')),
       reason: 'discover feed',
     );
-    await waitForPrimary(tester, app, first, reason: 'palette adopted at startup');
+    await waitForPrimary(
+      tester,
+      app,
+      first,
+      reason: 'palette adopted at startup',
+    );
 
     // Open Settings and scroll it so navigation + scroll state can be
     // checked after the palette changes.

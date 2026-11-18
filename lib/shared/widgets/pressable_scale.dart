@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:motor/motor.dart';
 
 import '../../app/theme/app_motion.dart';
+import '../utils/motion_preferences.dart';
 
 /// Spring-driven press feedback for tappable content.
 ///
@@ -40,7 +41,7 @@ final class _PressableScaleState extends State<PressableScale> {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
 
     return Listener(
       onPointerDown: (_) => setState(() => _pressed = true),

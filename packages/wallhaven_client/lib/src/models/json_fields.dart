@@ -11,7 +11,7 @@ import 'package:meta/meta.dart';
 @internal
 int? parseIntField(Object? value) {
   if (value is int) return value;
-  if (value is num) return value.toInt();
+  if (value is num && value.isFinite) return value.toInt();
   if (value is String) return int.tryParse(value);
   return null;
 }
@@ -40,3 +40,36 @@ DateTime? parseTimestamp(Object? value) {
   final normalized = '${value.replaceFirst(' ', 'T')}Z';
   return DateTime.tryParse(normalized)?.toUtc();
 }
+
+/// Parses a string, returning `null` for any other JSON type.
+///
+/// A stray number or object where a string is documented must degrade to the
+/// field's default. An untyped cast would throw `TypeError` out of `fromJson`,
+/// which escapes the client's typed-error contract and strands callers that
+/// only handle `WallhavenException`.
+@internal
+String? parseStringField(Object? value) => value is String ? value : null;
+
+/// Parses a list of strings, skipping entries that are not strings.
+@internal
+List<String> parseStringListField(Object? value) => value is List<dynamic>
+    ? <String>[
+        for (final item in value)
+          if (item is String) item,
+      ]
+    : const <String>[];
+
+/// Parses an object field, returning `null` when absent or not an object.
+@internal
+Map<String, dynamic>? parseObjectField(Object? value) =>
+    value is Map<String, dynamic> ? value : null;
+
+/// Parses a list of JSON objects, skipping entries that are not objects.
+@internal
+List<Map<String, dynamic>> parseObjectListField(Object? value) =>
+    value is List<dynamic>
+    ? <Map<String, dynamic>>[
+        for (final item in value)
+          if (item is Map<String, dynamic>) item,
+      ]
+    : const <Map<String, dynamic>>[];

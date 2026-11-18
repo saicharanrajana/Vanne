@@ -72,20 +72,20 @@ void main() {
     await pumpUntil(tester, tile('alpha'), reason: 'tag results');
   }
 
-  appTest('discover → detail → favorite → favorites → unfavorite', (
+  appTest('device smoke: favorites, back and search stay wired', (
     tester,
     app,
   ) async {
     await app.launch(tester);
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
+    // Discover → detail → favorite → favorites → unfavorite.
     await app.tap(tester, tile('alpha'));
     await pumpUntil(
       tester,
       find.byType(WallpaperDetailPage),
       reason: 'detail page',
     );
-
     await app.persistTap(
       tester,
       find.byKey(const ValueKey('favorite-outline')).first,
@@ -96,24 +96,70 @@ void main() {
     await pumpFrames(tester, 8);
     await goTo(tester, app, 'favorites');
     await pumpUntil(tester, tile('alpha'), reason: 'favorite in Favorites tab');
-
     await app.persistTap(
       tester,
       find.byKey(const ValueKey('favorite-filled')).first,
     );
     await pumpFrames(tester, 8);
     expect(find.text('No favorites yet'), findsOneWidget);
-  });
 
-  appTest('search commit → result → detail → back to search', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+    // Platform back from a secondary destination returns to Discover.
+    await goTo(tester, app, 'settings');
+    await pumpUntil(tester, find.text('Appearance'), reason: 'settings');
+    await app.act(tester, () => tester.binding.handlePopRoute());
+    await pumpFrames(tester, 24, const Duration(milliseconds: 16));
+    await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
+    expect(find.text('Appearance'), findsNothing);
 
+    // Search: filter carousels apply a colour and a saved tag.
     await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('search-color-black')),
+      reason: 'search color carousel is laid out',
+    );
+    // Carousel cards paint inside an IgnorePointer picture layer, so tap the
+    // card's rect the way a finger would.
+    Future<void> tapCard(String key) =>
+        app.tapAt(tester, tester.getRect(find.byKey(ValueKey(key))).center);
+
+    await tapCard('search-color-black');
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.last.color == '000000',
+      reason: 'colour applied',
+    );
+    await pumpUntil(tester, tile('alpha'), reason: 'color results');
+    expect(app.network.searches.last.color, '000000');
+
+    // The tag row sits below the colour row and is already on screen here.
+    expect(find.text('By tag'), findsOneWidget);
+    await tapCard('search-tag-seed-art');
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.last.query == 'art',
+      reason: 'tag applied',
+    );
+    expect(app.network.searches.last.query, 'art');
+    expect(app.network.searches.last.color, '000000');
+
+    // Tapping the selected tag card again drops the tag, keeping the colour.
+    await tapCard('search-tag-seed-art');
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.last.query.isEmpty,
+      reason: 'tag dropped',
+    );
+    expect(app.network.searches.last.query, isEmpty);
+    expect(app.network.searches.last.color, '000000');
+
+    // Clear the colour so the typed search below runs on a plain query.
+    await tapCard('search-color-black');
+    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
+
+    // Search commit → result → detail → back to search.
+    //
     // The page mounts before the field is laid out; typing into it earlier
     // drops the input on a device.
     await pumpUntil(
@@ -132,48 +178,9 @@ void main() {
       find.byType(WallpaperDetailPage),
       reason: 'detail from search',
     );
-
     await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
     await pumpFrames(tester, 10);
     expect(find.byType(SearchPage), findsOneWidget);
-  });
-
-  appTest('search filter carousels apply a color and a saved tag', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
-    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('search-color-black')),
-      reason: 'search color carousel is laid out',
-    );
-
-    // Carousel cards paint inside an IgnorePointer picture layer, so tap the
-    // card's rect the way a finger would.
-    Future<void> tapCard(String key) =>
-        app.tapAt(tester, tester.getRect(find.byKey(ValueKey(key))).center);
-
-    await tapCard('search-color-black');
-    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
-    await pumpUntil(tester, tile('alpha'), reason: 'color results');
-    expect(app.network.searches.last.color, '000000');
-
-    expect(find.text('By tag'), findsOneWidget);
-    await tapCard('search-tag-seed-art');
-    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
-    expect(app.network.searches.last.query, 'art');
-    expect(app.network.searches.last.color, '000000');
-
-    // Tapping the selected tag card again drops the tag, keeping the colour.
-    await tapCard('search-tag-seed-art');
-    await pumpFrames(tester, 12, const Duration(milliseconds: 50));
-    expect(app.network.searches.last.query, isEmpty);
-    expect(app.network.searches.last.color, '000000');
   });
 
   appTest('save download and open-source reach the platform fakes', (
@@ -230,6 +237,7 @@ void main() {
       'https://wallhaven.cc/w/alpha',
     );
   });
+
 
   appTest('shipped collections render and a tag grid can be added and removed', (
     tester,
@@ -305,21 +313,4 @@ void main() {
     expect(find.text('Landscape'), findsNothing);
   });
 
-  appTest('system back from a secondary destination returns to Discover', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    await goTo(tester, app, 'settings');
-    await pumpUntil(tester, find.text('Appearance'), reason: 'settings');
-
-    // The platform back route must land on the home destination on a real
-    // engine, not just in the host test binding.
-    await app.act(tester, () => tester.binding.handlePopRoute());
-    await pumpFrames(tester, 24, const Duration(milliseconds: 16));
-    await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
-    expect(find.text('Appearance'), findsNothing);
-  });
 }

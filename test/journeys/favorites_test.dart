@@ -16,26 +16,18 @@ Finder _unfavoriteButton(String id) => find.descendant(
 );
 
 void main() {
-  appTest('favoriting a tile shows it in the Favorites tab', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, _tile('alpha'), reason: 'discover tile alpha');
-
-    await app.persistTap(tester, _favoriteButton('alpha'));
-    expect(app.favorites.favoriteIds.value, contains('alpha'));
-
-    await app.tap(tester, shellDestination('favorites'));
-    await pumpFrames(tester, 10);
-    expect(_tile('alpha'), findsOneWidget);
-    expect(_unfavoriteButton('alpha'), findsOneWidget);
-  });
-
   appTest('favorites survive an app restart', (tester, app) async {
     await app.launch(tester);
     await pumpUntil(tester, _tile('alpha'), reason: 'discover tile alpha');
     await app.persistTap(tester, _favoriteButton('alpha'));
+    expect(app.favorites.favoriteIds.value, contains('alpha'));
+
+    // The action shows up in Favorites immediately, before the restart.
+    await app.tap(tester, shellDestination('favorites'));
+    await pumpFrames(tester, 10);
+    expect(_tile('alpha'), findsOneWidget);
+    expect(_unfavoriteButton('alpha'), findsOneWidget);
+
     await app.restart(tester);
 
     await app.tap(tester, shellDestination('favorites'));

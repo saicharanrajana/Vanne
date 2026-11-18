@@ -30,11 +30,11 @@ final class SearchMetaDto {
   });
 
   factory SearchMetaDto.fromJson(Map<String, dynamic> json) => SearchMetaDto(
-        currentPage: parseIntField(json['current_page']) ?? 1,
-        lastPage: parseIntField(json['last_page']) ?? 0,
-        perPage: parseIntField(json['per_page']) ?? 24,
-        total: parseIntField(json['total']),
-        query: json['query'],
-        seed: json['seed'] as String?,
-      );
+    currentPage: parseIntField(json['current_page']) ?? 1,
+    lastPage: parseIntField(json['last_page']) ?? 0,
+    perPage: parseIntField(json['per_page']) ?? 24,
+    total: parseIntField(json['total']),
+    query: json['query'],
+    seed: parseStringField(json['seed']),
+  );
 }

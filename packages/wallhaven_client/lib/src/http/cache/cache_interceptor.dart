@@ -9,25 +9,77 @@ final class CacheInterceptor extends Interceptor {
   /// Extra key disabling caching for one request.
   static const String optOutExtra = 'wallhaven_cache';
 
+  /// Extra key holding the authentication scope captured when the request
+  /// entered the chain. It is read back when the response arrives, so a late
+  /// reply is filed under the identity that produced it.
+  static const String authScopeExtra = 'wallhaven_auth_scope';
+
   final CacheStore store;
   final WallhavenConfig config;
 
   /// Returns "now" — injectable so tests can advance past the TTL.
   final DateTime Function() clock;
 
+  /// Returns the opaque identity token of the current credential (see
+  /// `ApiKeyManager.authScope`). Responses are cached per token, so two
+  /// accounts sharing an endpoint never see each other's payloads.
+  final String Function()? authScope;
+
   CacheInterceptor({
     required this.store,
     required this.config,
     DateTime Function()? clock,
+    this.authScope,
   }) : clock = clock ?? DateTime.now;
+
+  /// Scope used when no [authScope] provider is wired (a bare interceptor in
+  /// a unit test).
+  static const String _unscoped = 'unscoped';
 
   /// Builds the normalized cache key for a request.
   ///
-  /// Key = `GET <path>?<sorted encoded query>` — sorted so that parameter
-  /// order never splits cache entries. The API key never participates: it
-  /// travels in a header (see [ApiKeyInterceptor]), not the URL.
-  String cacheKey(RequestOptions options) =>
-      '${options.method} ${options.path}?${normalizedQuery(options.queryParameters)}';
+  /// Key = `<scope> <METHOD> <path>?<sorted encoded query>` — sorted so that
+  /// parameter order never splits cache entries. The API key never
+  /// participates: it travels in a header (see `ApiKeyInterceptor`), and the
+  /// scope is an opaque generation token rather than the key itself.
+  String cacheKey(RequestOptions options) {
+    _scopeOf(options);
+    return keyFor(options);
+  }
+
+  /// The cache key for an already-scoped request.
+  ///
+  /// [discard] keys off it too, so the client can drop exactly the entry the
+  /// transport wrote for a response it rejected on validation.
+  static String keyFor(RequestOptions options) {
+    final scope = options.extra[authScopeExtra];
+    return '${scope is String ? scope : _unscoped} ${options.method} '
+        '${options.path}?${normalizedQuery(options.queryParameters)}';
+  }
+
+  /// Returns — capturing on first use — the auth scope for [options].
+  String _scopeOf(RequestOptions options) {
+    final captured = options.extra[authScopeExtra];
+    if (captured is String) return captured;
+    final scope = authScope?.call() ?? _unscoped;
+    options.extra[authScopeExtra] = scope;
+    return scope;
+  }
+
+  /// Drops the cached response for [options], if one exists.
+  ///
+  /// Called when the client rejects a payload it just received: the transport
+  /// caches a `200` before the body is understood, so leaving it in place
+  /// would make every retry replay the same unusable response until the TTL
+  /// expired. Best-effort — a failing cache must never change the error the
+  /// caller sees.
+  Future<void> discard(RequestOptions options) async {
+    try {
+      await store.remove(keyFor(options));
+    } catch (_) {
+      // Ignored on purpose; see above.
+    }
+  }
 
   /// Canonical form of a query map: keys sorted, every key and value
   /// percent-encoded so semantically different queries never collide
@@ -52,6 +104,9 @@ final class CacheInterceptor extends Interceptor {
       handler.next(options);
       return;
     }
+    // Capture the identity before the network call, so the matching response
+    // is never attributed to a credential that replaced it meanwhile.
+    _scopeOf(options);
     try {
       final entry = await store.get(cacheKey(options), now: clock());
       if (entry != null) {

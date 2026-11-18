@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../app/theme/app_motion.dart';
+import '../utils/motion_preferences.dart';
 import '../../app/theme/app_spacing.dart';
 import 'pressable_scale.dart';
 
@@ -79,7 +80,7 @@ final class _CollectionMembershipButtonState
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = prefersReducedMotion(context);
     final duration = reduceMotion ? Duration.zero : AppMotion.transition;
     final curve = AppMotion.arrivalCurve;
 

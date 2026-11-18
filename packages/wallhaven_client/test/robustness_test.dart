@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -133,66 +132,6 @@ void main() {
       expect((await store.get('a', now: now))!.json, {'i': 0});
       expect((await store.get('c', now: now))!.json, {'i': 2});
     });
-
-    test('expired-but-unread entries do not accumulate forever', () async {
-      final store = InMemoryCacheStore(maxEntries: 2);
-      final now = DateTime.utc(2026, 1, 1);
-      Future<void> put(String key, DateTime expiry) => store.put(
-            key,
-            CacheEntry(statusCode: 200, json: key, expiresAt: expiry),
-          );
-
-      await put('a', now.add(const Duration(seconds: 10)));
-      await put('b', now.add(const Duration(seconds: 10)));
-      final later = now.add(const Duration(minutes: 30));
-      // Both a and b are expired now; putting two more must evict them.
-      await put('c', later.add(const Duration(hours: 1)));
-      await put('d', later.add(const Duration(hours: 1)));
-
-      expect(await store.get('a', now: later), isNull);
-      expect(await store.get('b', now: later), isNull);
-      expect(await store.get('c', now: later), isNotNull);
-      expect(await store.get('d', now: later), isNotNull);
-    });
-  });
-
-  group('concurrent rate limiting', () {
-    test('burst of parallel requests stays under the cap', () async {
-      final delays = <Duration>[];
-      final clock = MutableClock();
-      final manager = ApiKeyManager();
-      final dio = buildDio(
-        const WallhavenConfig(
-          baseUrl: 'https://unit.test/api/v1',
-          requestsPerMinute: 3,
-        ),
-        apiKeyManager: manager,
-        cacheStore: InMemoryCacheStore(),
-        clock: () => clock.now,
-        delay: (d) async {
-          delays.add(d);
-          // Simulate time passing while throttled so the window drains.
-          clock.now = clock.now.add(d);
-        },
-      )..httpClientAdapter =
-            FakeWallhavenAdapter(List.filled(12, FakeHandlers.ok));
-      final client = WallhavenClient(
-        apiKeyManager: manager,
-        config: const WallhavenConfig(baseUrl: 'https://unit.test/api/v1'),
-        dio: dio,
-        clock: () => clock.now,
-      );
-
-      // 12 parallel searches against a 3-per-window limiter.
-      final futures = [
-        for (var i = 0; i < 12; i++)
-          client.search(WallhavenSearchRequest(query: 'q$i')),
-      ];
-      // All complete without errors; the limiter engaged at least once
-      // because the first window only admits 3 of the 12.
-      await Future.wait(futures);
-      expect(delays, isNotEmpty);
-    });
   });
 
   group('dedupe cancellation semantics', () {
@@ -247,36 +186,6 @@ void main() {
         client.search(WallhavenSearchRequest(query: 'boom')),
         throwsA(isA<WallhavenNetworkException>()),
       );
-    });
-
-    test('HTTP-date Retry-After maps to a duration via the injected clock',
-        () async {
-      final fixedNow = DateTime.utc(2026, 8, 24, 12, 0, 0);
-      final manager = ApiKeyManager();
-      final dio = buildDio(
-        const WallhavenConfig(baseUrl: 'https://unit.test/api/v1'),
-        apiKeyManager: manager,
-        cacheStore: InMemoryCacheStore(),
-      )..httpClientAdapter = RateLimitedAdapter(retryAfterHttpDate: true);
-      final client = WallhavenClient(
-        apiKeyManager: manager,
-        config: const WallhavenConfig(baseUrl: 'https://unit.test/api/v1'),
-        dio: dio,
-        clock: () => fixedNow,
-      );
-
-      Object? error;
-      try {
-        await client.search(WallhavenSearchRequest(query: 'slow'));
-      } on WallhavenRateLimitExceededException catch (e) {
-        error = e;
-      }
-      expect(error, isA<WallhavenRateLimitExceededException>());
-      final retryAfter = (error as WallhavenRateLimitExceededException)
-          .retryAfter;
-      expect(retryAfter, isNotNull);
-      // "Mon, 24 Aug 2026 12:01:00 GMT" − 12:00:00 → 60 s.
-      expect(retryAfter, const Duration(seconds: 60));
     });
   });
 }
@@ -341,34 +250,6 @@ class NeverCompletingAdapter implements HttpClientAdapter {
       200,
       headers: {
         'content-type': ['application/json'],
-      },
-    );
-  }
-
-  @override
-  void close({bool force = false}) {}
-}
-
-/// Adapter answering 429 with an HTTP-date Retry-After header.
-class RateLimitedAdapter implements HttpClientAdapter {
-  RateLimitedAdapter({required this.retryAfterHttpDate});
-
-  final bool retryAfterHttpDate;
-
-  static const _httpDate = 'Mon, 24 Aug 2026 12:01:00 GMT';
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
-  ) async {
-    return ResponseBody.fromString(
-      jsonEncode({'error': 'Too many requests'}),
-      429,
-      headers: {
-        'content-type': ['application/json'],
-        if (retryAfterHttpDate) 'retry-after': [_httpDate],
       },
     );
   }

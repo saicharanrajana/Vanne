@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:material_ui/material_ui.dart' hide GlobalMaterialLocalizations;
+import 'package:material_ui/material_ui.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:vanne/l10n/generated/app_localizations.dart';
 
@@ -89,11 +88,12 @@ final class _WallpaperAppState extends State<WallpaperApp> {
           title: 'Prisma Wallpapers',
           debugShowCheckedModeBanner: false,
           scaffoldMessengerKey: AppSnack.messengerKey,
-          localizationsDelegates: const [
+          // material_ui owns the Material, Cupertino and Widgets delegates for
+          // this tree; the SDK's flutter_localizations equivalent is deprecated
+          // in Flutter 3.50.
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
             AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
           theme: AppTheme.build(

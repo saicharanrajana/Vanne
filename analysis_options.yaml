@@ -12,6 +12,10 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - build/**
+    # gen_l10n output keeps emitting the SDK's flutter_localizations delegates,
+    # which Flutter 3.50 deprecates; the app registers material_ui's delegate
+    # list instead (see lib/app/app.dart), so only the generated copy is legacy.
+    - lib/l10n/generated/**
     - android/**
     - ios/**
     - web/**

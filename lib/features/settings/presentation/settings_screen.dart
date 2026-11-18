@@ -261,54 +261,106 @@ final class _ThemeModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final m3eTheme = M3ETheme.of(context);
+    final itemTheme = m3eTheme.listTheme.item;
+    final typeScale = m3eTheme.typeScale;
 
     return SignalBuilder(
       builder: (context) {
         final mode = settings.themeMode.value;
         return M3ECard(
-          variant: M3ECardVariant.filled,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          variant: itemTheme.variant,
+          border: null,
+          color: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.symmetric(
+            horizontal: itemTheme.horizontalPadding,
+            vertical: itemTheme.threeLineVerticalPadding,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    PhosphorIconsFill.sun,
-                    size: 20,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(child: Text('Theme', style: textTheme.titleSmall)),
-                ],
+              Icon(
+                PhosphorIconsFill.sun,
+                size: itemTheme.iconSize,
+                color: scheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 12),
-              // M3ESegmentedButton must never sit directly in a horizontal
-              // Row: it lays out its segments with width: infinity and needs
-              // bounded incoming constraints (a Row provides unbounded
-              // width), which crashes layout.
-              SizedBox(
-                width: double.infinity,
-                child: M3ESegmentedButton<AppThemeMode>(
-                  segments: [
-                    for (final m in AppThemeMode.values)
-                      M3ESegment<AppThemeMode>(
-                        value: m,
-                        label: switch (m) {
-                          AppThemeMode.system => 'Auto',
-                          AppThemeMode.light => 'Light',
-                          AppThemeMode.dark => 'Dark',
+              SizedBox(width: itemTheme.gap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Theme',
+                      style: itemTheme.headlineStyle(
+                        typeScale,
+                        m3eTheme.colorScheme,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Choose how Vanne follows your device appearance.',
+                      style: itemTheme.supportingStyle(
+                        typeScale,
+                        m3eTheme.colorScheme,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: M3ESegmentedButton<AppThemeMode>(
+                        showSelectedIcon: false,
+                        segments: [
+                          M3ESegment<AppThemeMode>(
+                            value: AppThemeMode.system,
+                            icon: Tooltip(
+                              message: 'System theme',
+                              child: Icon(
+                                mode == AppThemeMode.system
+                                    ? PhosphorIconsFill.deviceMobile
+                                    : PhosphorIconsRegular.deviceMobile,
+                              ),
+                            ),
+                            semanticLabel: 'System theme',
+                          ),
+                          M3ESegment<AppThemeMode>(
+                            value: AppThemeMode.light,
+                            icon: Tooltip(
+                              message: 'Light theme',
+                              child: Icon(
+                                mode == AppThemeMode.light
+                                    ? PhosphorIconsFill.sun
+                                    : PhosphorIconsRegular.sun,
+                              ),
+                            ),
+                            semanticLabel: 'Light theme',
+                          ),
+                          M3ESegment<AppThemeMode>(
+                            value: AppThemeMode.dark,
+                            icon: Tooltip(
+                              message: 'Dark theme',
+                              child: Icon(
+                                mode == AppThemeMode.dark
+                                    ? PhosphorIconsFill.moon
+                                    : PhosphorIconsRegular.moon,
+                              ),
+                            ),
+                            semanticLabel: 'Dark theme',
+                          ),
+                        ],
+                        selected: {mode},
+                        onSelectionChanged: (selection) {
+                          if (selection.isNotEmpty) {
+                            M3EHaptics.selection();
+                            settings.setThemeMode(selection.first);
+                          }
                         },
                       ),
+                    ),
                   ],
-                  selected: {mode},
-                  onSelectionChanged: (selection) {
-                    if (selection.isNotEmpty) {
-                      M3EHaptics.selection();
-                      settings.setThemeMode(selection.first);
-                    }
-                  },
                 ),
               ),
             ],
@@ -406,10 +458,15 @@ final class _FolderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final itemTheme = M3ETheme.of(context).listTheme.item;
+    final m3eTheme = M3ETheme.of(context);
+    final itemTheme = m3eTheme.listTheme.item;
+    final typeScale = m3eTheme.typeScale;
 
     return M3ECard(
-      variant: M3ECardVariant.filled,
+      variant: itemTheme.variant,
+      border: null,
+      color: Colors.transparent,
+      elevation: 0,
       onPressed: onTap,
       semanticLabel: '$title. Saving to $folderPath. $hint',
       padding: EdgeInsets.symmetric(
@@ -438,8 +495,9 @@ final class _FolderTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: scheme.onSurface,
+                      style: itemTheme.headlineStyle(
+                        typeScale,
+                        m3eTheme.colorScheme,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -449,19 +507,18 @@ final class _FolderTile extends StatelessWidget {
                     // important part of this row.
                     Text(
                       folderPath,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: isError ? scheme.error : scheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: itemTheme
+                          .supportingStyle(typeScale, m3eTheme.colorScheme)
+                          .copyWith(color: isError ? scheme.error : null),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       hint,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isError ? scheme.error : scheme.onSurfaceVariant,
-                      ),
+                      style: itemTheme
+                          .supportingStyle(typeScale, m3eTheme.colorScheme)
+                          .copyWith(color: isError ? scheme.error : null),
                     ),
                   ],
                 ),

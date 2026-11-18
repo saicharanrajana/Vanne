@@ -146,7 +146,13 @@ jobs:
       - name: Build release APK
         # Signing config falls back to the debug keystore in CI; the signed
         # artifacts are produced by the release workflow.
-        run: flutter build apk --release --no-pub
+        #
+        # Do NOT pass --no-pub here even though `pub get` already ran: that
+        # resolution includes dev dependencies, so the generated
+        # GeneratedPluginRegistrant references integration_test and the
+        # release Java compile fails (flutter/flutter#169336). Omitting
+        # --no-pub regenerates the registrant in release mode.
+        run: flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7

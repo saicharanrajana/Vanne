@@ -144,16 +144,6 @@ void main() {
     await pumpUntil(tester, tile('alpha'), reason: 'favorite in Favorites tab');
   });
 
-  appTest('opening the source page hands the URL to the browser', (
-    tester,
-    app,
-  ) async {
-    await openDetail(tester, app);
-
-    await tapSheet(tester, app, openSource);
-    expect(app.urlLauncher.opened, [Uri.parse('https://wallhaven.cc/w/alpha')]);
-  });
-
   appTest('a missing browser reports instead of failing silently', (
     tester,
     app,
@@ -168,33 +158,19 @@ void main() {
       reason: 'missing-browser feedback',
     );
     expect(app.urlLauncher.opened, hasLength(1));
+
+    // With a browser available the same action hands over the exact page.
+    await clearSnack(tester);
+    app.urlLauncher.succeeds = true;
+    app.urlLauncher.opened.clear();
+    await tapSheet(tester, app, openSource);
+    await app.settle(tester);
+
+    expect(app.urlLauncher.opened, [
+      Uri.parse('https://wallhaven.cc/w/alpha'),
+    ]);
   });
 
-  appTest('saving a wallpaper downloads once and reports the folder', (
-    tester,
-    app,
-  ) async {
-    await openDetail(tester, app);
-
-    await tapSheet(tester, app, download);
-    await app.settleUntil(
-      tester,
-      () => app.storagePlatform.savedDownloads.isNotEmpty,
-      reason: 'platform save invoked',
-    );
-    await app.settleUntil(
-      tester,
-      () => download.evaluate().isNotEmpty,
-      reason: 'save finished',
-    );
-
-    expect(app.storagePlatform.savedDownloads, hasLength(1));
-    final saved = app.storagePlatform.savedDownloads.single;
-    // The default destination is MediaStore's Pictures/VanneWallpapers.
-    expect(saved.treeUri, isNull);
-    expect(saved.mimeType, 'image/jpeg');
-    expect(saved.folderName, 'VanneWallpapers');
-  });
 
   appTest('save feedback names the folder that received the file', (
     tester,
@@ -274,6 +250,13 @@ void main() {
       find.text('Saved to Pictures/VanneWallpapers'),
       reason: 'retry confirmation',
     );
+
+    // One platform write per attempt, into the default MediaStore folder.
+    expect(app.storagePlatform.savedDownloads, hasLength(2));
+    final saved = app.storagePlatform.savedDownloads.last;
+    expect(saved.treeUri, isNull);
+    expect(saved.mimeType, 'image/jpeg');
+    expect(saved.folderName, 'VanneWallpapers');
   });
 
   appTest('double-tapping save issues exactly one platform write', (
@@ -329,52 +312,47 @@ void main() {
       find.text('Saved to Pictures/VanneWallpapers'),
       reason: 'single success confirmation',
     );
-  });
-
-  appTest('setting a wallpaper applies the chosen target', (tester, app) async {
-    await openDetail(tester, app);
-
-    // "Set" resolves a local file first, then opens the target sheet.
-    await tapSheet(tester, app, find.text('Set'));
-    await app.settleUntil(
-      tester,
-      () => find.text('Set wallpaper').evaluate().isNotEmpty,
-      reason: 'set-wallpaper sheet',
-    );
-    expect(find.text('Home Screen'), findsOneWidget);
-
-    await app.persistTap(tester, find.text('Home Screen'));
-    await app.settleUntil(
-      tester,
-      () => app.wallpaperPlatform.appliedTargets.isNotEmpty,
-      reason: 'apply reached platform',
-    );
-    await app.settle(tester, rounds: 4);
-    await pumpUntil(
-      tester,
-      find.text('Wallpaper set for your home screen'),
-      reason: 'apply confirmation',
-    );
-
-    expect(app.wallpaperPlatform.appliedTargets, [WallpaperTarget.home]);
-    expect(find.text('Set wallpaper'), findsNothing);
+    expect(app.storagePlatform.savedDownloads, hasLength(1));
   });
 
   appTest('each sheet option maps to its platform target', (tester, app) async {
     await openDetail(tester, app);
 
-    // Home was covered above; prove the other two options route correctly
-    // and that the cached prepared file is reused instead of re-downloaded.
+    // Home: the sheet resolves a local file, applies the target, confirms the
+    // result for that target, and closes.
     await tapSheet(tester, app, find.text('Set'));
     await app.settleUntil(
       tester,
       () => find.text('Set wallpaper').evaluate().isNotEmpty,
       reason: 'first sheet',
     );
-    await app.persistTap(tester, find.text('Lock Screen'));
+    await app.persistTap(tester, find.text('Home Screen'));
     await app.settleUntil(
       tester,
       () => app.wallpaperPlatform.appliedTargets.length == 1,
+      reason: 'home apply',
+    );
+    await app.settle(tester, rounds: 4);
+    await pumpUntil(
+      tester,
+      find.text('Wallpaper set for your home screen'),
+      reason: 'home confirmation',
+    );
+    expect(app.wallpaperPlatform.appliedTargets, [WallpaperTarget.home]);
+    expect(find.text('Set wallpaper'), findsNothing, reason: 'sheet closed');
+
+    // The other two targets route correctly, reusing the prepared file.
+    await clearSnack(tester);
+    await tapSheet(tester, app, find.text('Set'));
+    await app.settleUntil(
+      tester,
+      () => find.text('Set wallpaper').evaluate().isNotEmpty,
+      reason: 'second sheet',
+    );
+    await app.persistTap(tester, find.text('Lock Screen'));
+    await app.settleUntil(
+      tester,
+      () => app.wallpaperPlatform.appliedTargets.length == 2,
       reason: 'lock apply',
     );
 
@@ -383,16 +361,17 @@ void main() {
     await app.settleUntil(
       tester,
       () => find.text('Set wallpaper').evaluate().isNotEmpty,
-      reason: 'second sheet',
+      reason: 'third sheet',
     );
     await app.persistTap(tester, find.text('Home & Lock Screen'));
     await app.settleUntil(
       tester,
-      () => app.wallpaperPlatform.appliedTargets.length == 2,
+      () => app.wallpaperPlatform.appliedTargets.length == 3,
       reason: 'both apply',
     );
 
     expect(app.wallpaperPlatform.appliedTargets, [
+      WallpaperTarget.home,
       WallpaperTarget.lock,
       WallpaperTarget.both,
     ]);
@@ -404,7 +383,7 @@ void main() {
     await app.settleUntil(
       tester,
       () => find.text('Set wallpaper').evaluate().isNotEmpty,
-      reason: 'third sheet',
+      reason: 'fourth sheet',
     );
     await app.persistTap(tester, find.text('Crop and set'));
     await app.settleUntil(
@@ -412,7 +391,7 @@ void main() {
       () => app.wallpaperPlatform.systemPickerLaunches == 1,
       reason: 'system picker launched',
     );
-    expect(app.wallpaperPlatform.appliedTargets, hasLength(2));
+    expect(app.wallpaperPlatform.appliedTargets, hasLength(3));
   });
 
   appTest('a failed apply keeps the sheet open for another try', (

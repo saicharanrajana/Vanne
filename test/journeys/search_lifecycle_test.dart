@@ -201,6 +201,41 @@ void main() {
         reason: 'an empty search shows its pristine state again',
       );
       expect(_tile('alpha'), findsNothing);
+
+      // The same invariant holds when the vanished collection is a colour:
+      // the filter dies with its card and the bundled swatches stay put.
+      final colorId = await _saveCollection(
+        tester,
+        app,
+        name: 'Deep Blues',
+        query: '',
+        origin: CollectionOrigin.color,
+        colors: const ['#0000ff'],
+      );
+      final colorCard = find.byKey(
+        ValueKey('search-color-collection-$colorId'),
+      );
+      await _tapCard(tester, app, colorCard);
+      await pumpUntil(tester, _tile('alpha'), reason: 'colour results');
+      expect(app.network.searches.last.color, '0066cc');
+
+      final beforeColorRemoval = app.network.searches.length;
+      await app.act(tester, () => app.collections.remove(colorId));
+      await app.settle(tester);
+      await pumpFrames(tester, 10, const Duration(milliseconds: 50));
+
+      expect(colorCard, findsNothing, reason: 'the removed card is gone');
+      expect(
+        app.network.searches,
+        hasLength(beforeColorRemoval),
+        reason: 'no other input remains, so the generic feed is never fetched',
+      );
+      expect(
+        find.byKey(const ValueKey('search-color-black')),
+        findsOneWidget,
+        reason: 'the bundled swatches are untouched',
+      );
+      expect(_pristine, findsOneWidget);
     },
   );
 
@@ -227,6 +262,21 @@ void main() {
     'a credential change refetches the committed search',
     (tester, app) async {
       await _openSearch(tester, app);
+      expect(_pristine, findsOneWidget);
+
+      // Nothing is committed yet, so revoking the key fetches nothing.
+      await app.act(tester, () => app.settings.removeApiKey());
+      await app.settle(tester);
+      await pumpFrames(tester, 10, const Duration(milliseconds: 50));
+      expect(
+        _queries(app),
+        isEmpty,
+        reason: 'nothing is committed, so nothing is fetched',
+      );
+      expect(_pristine, findsOneWidget);
+
+      await app.act(tester, () => app.settings.saveApiKey('stored-key'));
+      await app.settle(tester);
       await _submit(tester, 'sky');
       await pumpUntil(tester, _tile('alpha'), reason: 'typed results');
       expect(_queries(app), ['sky']);
@@ -254,27 +304,6 @@ void main() {
         reason: 'the repeated search is the one the user is running',
       );
       await pumpUntil(tester, _tile('alpha'), reason: 'refreshed results');
-    },
-    create: () =>
-        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
-  );
-
-  appTest(
-    'a credential change leaves a pristine search alone',
-    (tester, app) async {
-      await _openSearch(tester, app);
-      expect(_pristine, findsOneWidget);
-
-      await app.act(tester, () => app.settings.removeApiKey());
-      await app.settle(tester);
-      await pumpFrames(tester, 10, const Duration(milliseconds: 50));
-
-      expect(
-        _queries(app),
-        isEmpty,
-        reason: 'nothing is committed, so nothing is fetched',
-      );
-      expect(_pristine, findsOneWidget);
     },
     create: () =>
         TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),

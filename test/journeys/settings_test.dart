@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
@@ -167,6 +169,11 @@ void main() {
 
   appTest('appearance choices survive a restart', (tester, app) async {
     await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+    // Theme choices cannot change what the API may return, so the retained
+    // feed must not spend a request on them.
+    final feedRequests = app.network.searches.length;
+
     await openSettings(tester);
 
     // Each row's title toggles its switch, exactly like tapping the row.
@@ -183,6 +190,11 @@ void main() {
     expect(
       Theme.of(tester.element(find.text('Appearance'))).brightness,
       Brightness.dark,
+    );
+    expect(
+      app.network.searches,
+      hasLength(feedRequests),
+      reason: 'appearance does not change what the API may return',
     );
 
     await app.restart(tester);
@@ -275,57 +287,6 @@ void main() {
     expect(app.network.searches.last.purity, '111');
   });
 
-  appTest(
-    'removing the API key disables NSFW access',
-    (tester, app) async {
-      await app.launch(tester);
-      expect(app.settings.hasApiKey.value, isTrue);
-      await openSettings(tester);
-
-      // NSFW is usable while the key exists.
-      await reveal(tester, find.text('Show NSFW wallpapers'));
-      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
-      expect(app.settings.nsfwEnabled.value, isTrue);
-
-      await reveal(tester, find.text('API key'));
-      await app.tap(tester, find.text('API key'));
-      await pumpUntil(
-        tester,
-        find.text('A key is configured on this device.'),
-        reason: 'configured key',
-      );
-
-      // Cancelling the confirmation keeps the key.
-      await app.persistTap(tester, find.text('Remove key'));
-      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
-      expect(
-        find.text(
-          'NSFW access will be disabled until another key is configured.',
-        ),
-        findsOneWidget,
-      );
-      await app.persistTap(tester, find.text('Cancel'));
-      await pumpFrames(tester, 6);
-      expect(app.settings.hasApiKey.value, isTrue);
-
-      // Confirming removal destroys the key and forces NSFW off.
-      await reveal(tester, find.text('Remove key'));
-      await app.persistTap(tester, find.text('Remove key'));
-      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
-      await app.persistTap(tester, find.text('Remove'));
-      await pumpFrames(tester, 8);
-
-      expect(app.settings.hasApiKey.value, isFalse);
-      expect(app.repository.isAuthenticated, isFalse);
-      // ...and NSFW is forced off so the app never requests it unauthenticated.
-      expect(app.settings.nsfwEnabled.value, isFalse);
-      expect(app.settingsStore.nsfwEnabled, isFalse);
-      expect(app.secureStorage, isEmpty);
-    },
-    // A key restored from secure storage at launch, like an installed user.
-    create: () =>
-        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
-  );
 
   appTest('blocked tags are normalized and sent as exclusions', (
     tester,
@@ -346,6 +307,20 @@ void main() {
     await app.persistTap(tester, find.text('Save'));
     await pumpFrames(tester, 8);
     expect(app.settings.blockedTags.value, {'anime', 'ai-generated'});
+
+    // The same set in a different spelling normalizes to the same policy, so
+    // saving it again must not spend a request on the retained feed.
+    final afterFirstSave = app.network.searches.length;
+    await openBlockedTags(tester);
+    await app.enterText(tester, find.byType(TextField), '  ANIME , AI-Generated ');
+    await app.persistTap(tester, find.text('Save'));
+    await app.settle(tester);
+    expect(app.settings.blockedTags.value, {'anime', 'ai-generated'});
+    expect(
+      app.network.searches.length,
+      afterFirstSave,
+      reason: 'an unchanged policy is not a change',
+    );
 
     // Exclusions apply to the next request, not only after a restart.
     await app.tap(tester, backButton());
@@ -551,6 +526,21 @@ void main() {
         find.text('A key is configured on this device.'),
         reason: 'configured key',
       );
+
+      // Cancelling the confirmation keeps the key, so the unlocked feed stays.
+      await app.persistTap(tester, find.text('Remove key'));
+      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
+      expect(
+        find.text(
+          'NSFW access will be disabled until another key is configured.',
+        ),
+        findsOneWidget,
+      );
+      await app.persistTap(tester, find.text('Cancel'));
+      await pumpFrames(tester, 6);
+      expect(app.settings.hasApiKey.value, isTrue);
+
+      await reveal(tester, find.text('Remove key'));
       await app.persistTap(tester, find.text('Remove key'));
       await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
       await app.persistTap(tester, find.text('Remove'));
@@ -562,7 +552,11 @@ void main() {
 
       // Removing the key disables NSFW in the same step, so the retained feed
       // restarts once — already under SFW — instead of twice.
+      expect(app.settings.hasApiKey.value, isFalse);
+      expect(app.repository.isAuthenticated, isFalse);
       expect(app.settings.nsfwEnabled.value, isFalse);
+      expect(app.settingsStore.nsfwEnabled, isFalse);
+      expect(app.secureStorage, isEmpty);
       expect(
         app.network.searches.last.purity,
         '100',
@@ -594,24 +588,22 @@ void main() {
     tester,
     app,
   ) async {
-    var handled = 0;
-    app.network.searchHandler = (call) async {
-      handled++;
-      if (handled == 1) {
-        return searchPageJson(
+    // Page 2 is held open so the policy can change while it is in flight.
+    final stalePage = Completer<Map<String, dynamic>>();
+    app.network.searchHandler = (call) {
+      if (call.excludedTags.contains('anime')) {
+        return Future.value(
+          searchPageJson(const ['filtered'], currentPage: 1, lastPage: 1),
+        );
+      }
+      if (call.page == 2) return stalePage.future;
+      return Future.value(
+        searchPageJson(
           const ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8'],
           currentPage: 1,
           lastPage: 2,
-        );
-      }
-      if (call.page == 2) {
-        return searchPageJson(
-          const ['b1', 'b2'],
-          currentPage: 2,
-          lastPage: 2,
-        );
-      }
-      return searchPageJson(const ['filtered'], currentPage: 1, lastPage: 1);
+        ),
+      );
     };
 
     await app.launch(tester);
@@ -643,6 +635,15 @@ void main() {
     expect(excluded.page, 1, reason: 'exclusions restart pagination');
     expect(excluded.query, '-anime', reason: 'the tag travels as a -tag token');
 
+    // The page fetched under the old policy arrives last and must be dropped.
+    await tester.runAsync(() async {
+      stalePage.complete(
+        searchPageJson(const ['stale'], currentPage: 2, lastPage: 2),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    await app.settle(tester);
+
     // The editor is a pushed screen: the shell (and its destinations) is not
     // reachable until it pops.
     await app.tap(tester, backButton());
@@ -655,34 +656,11 @@ void main() {
       findsNothing,
       reason: 'results fetched before the exclusion are not shown',
     );
-  });
-
-  appTest('re-saving the same blocked tags does not refetch the feed', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await openSettings(tester);
-
-    await openBlockedTags(tester);
-    await app.enterText(tester, find.byType(TextField), 'anime');
-    await app.persistTap(tester, find.text('Save'));
-    await pumpFrames(tester, 8);
-    expect(app.settings.blockedTags.value, {'anime'});
-    final afterFirstSave = app.network.searches.length;
-
-    // Same set, different spelling: normalization makes this a no-op, so the
-    // retained feed must not pay for another round of requests.
-    await openBlockedTags(tester);
-    await app.enterText(tester, find.byType(TextField), '  ANIME , anime ');
-    await app.persistTap(tester, find.text('Save'));
-    await app.settle(tester);
-
-    expect(app.settings.blockedTags.value, {'anime'});
     expect(
-      app.network.searches.length,
-      afterFirstSave,
-      reason: 'an unchanged policy is not a change',
+      tile('stale'),
+      findsNothing,
+      reason: 'a page fetched under the old policy never lands',
     );
   });
+
 }

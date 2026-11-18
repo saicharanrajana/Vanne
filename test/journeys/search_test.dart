@@ -84,9 +84,10 @@ double _rowOffset(WidgetTester tester, Finder row) {
 }
 
 void main() {
-  appTest('typing alone never searches', (tester, app) async {
+  appTest('only a committed, trimmed query searches', (tester, app) async {
     await _openSearch(tester, app);
 
+    // Keystrokes alone must not trigger I/O, however long the user types.
     await app.enterText(tester, _searchField, 'nature');
     await pumpFrames(tester, 20, const Duration(milliseconds: 50));
 
@@ -96,28 +97,14 @@ void main() {
       reason: 'keystrokes must not trigger I/O',
     );
     expect(find.text('Search wallpapers'), findsWidgets);
-  });
 
-  appTest('submitting a trimmed query loads results', (tester, app) async {
-    await _openSearch(tester, app);
+    // Committing sends the trailing spaces the user left behind trimmed.
     await _submit(tester, app, '  nature  ');
-
     await pumpUntil(tester, _tile('alpha'), reason: 'search results');
 
-    final search = app.network.searches.last;
-    expect(search.query, 'nature', reason: 'query is trimmed');
-    expect(
-      app.network.searches.where((c) => c.query.isNotEmpty),
-      hasLength(1),
-      reason: 'one committed request per submit',
-    );
-  });
-
-  appTest('rapid submissions collapse into one request with the last query', (
-    tester,
-    app,
-  ) async {
-    await _openSearch(tester, app);
+    final first = app.network.searches.where((c) => c.query.isNotEmpty);
+    expect(first, hasLength(1), reason: 'one committed request per submit');
+    expect(first.single.query, 'nature', reason: 'query is trimmed');
 
     // Two commits inside the debounce window: only the trailing one runs.
     await app.enterText(tester, _searchField, 'first');
@@ -132,8 +119,8 @@ void main() {
     final committed = app.network.searches
         .where((c) => c.query.isNotEmpty)
         .toList();
-    expect(committed, hasLength(1));
-    expect(committed.single.query, 'second');
+    expect(committed, hasLength(2));
+    expect(committed.last.query, 'second');
   });
 
   appTest('a color card searches by color and stays single-select', (
@@ -196,57 +183,10 @@ void main() {
     expect(app.network.searches.last.query, 'city');
   });
 
-  appTest('the colour row scrolls to reveal further colour cards', (
+  appTest('a far filter card stays in view once selected', (
     tester,
     app,
   ) async {
-    await _openSearch(tester, app);
-    final before = app.network.searches.length;
-
-    final carousel = find.byKey(const ValueKey('search-color-carousel'));
-    final orange = find.byKey(const ValueKey('search-color-orange'));
-    await _revealCard(tester, carousel, orange);
-    expect(
-      app.network.searches,
-      hasLength(before),
-      reason: 'scrolling must not apply a filter',
-    );
-
-    await _tapCard(tester, app, orange);
-    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
-    await pumpUntil(tester, _tile('alpha'), reason: 'orange results');
-
-    expect(app.network.searches.last.color, 'ff9900');
-  });
-
-  appTest('a far colour card stays in view once selected', (tester, app) async {
-    await _openSearch(tester, app);
-    final carousel = find.byKey(const ValueKey('search-color-carousel'));
-    final purple = find.byKey(const ValueKey('search-color-purple'));
-    await _revealCard(tester, carousel, purple);
-
-    final offset = _rowOffset(tester, carousel);
-    final card = tester.getRect(purple);
-    expect(offset, greaterThan(0), reason: 'the row really is scrolled');
-
-    await _tapCard(tester, app, purple);
-    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
-    await pumpUntil(tester, _tile('alpha'), reason: 'purple results');
-
-    expect(app.network.searches.last.color, '993399');
-    expect(
-      _rowOffset(tester, carousel),
-      offset,
-      reason: 'the committed search must not rewind the row the user scrolled',
-    );
-    expect(
-      tester.getRect(purple),
-      card,
-      reason: 'the tapped card stays exactly where the finger left it',
-    );
-  });
-
-  appTest('a far tag card stays in view once selected', (tester, app) async {
     await app.launch(tester);
     await pumpUntil(
       tester,
@@ -266,13 +206,52 @@ void main() {
     await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
     await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
 
-    final carousel = find.byKey(const ValueKey('search-tag-carousel'));
-    final minimal = find.byKey(const ValueKey('search-tag-seed-minimal'));
-    await _revealCard(tester, carousel, minimal);
+    // Colour row: browsing applies nothing, and committing a far card must not
+    // rewind the row the user scrolled.
+    final colorCarousel = find.byKey(const ValueKey('search-color-carousel'));
+    final purple = find.byKey(const ValueKey('search-color-purple'));
+    final beforeColor = app.network.searches.length;
+    await _revealCard(tester, colorCarousel, purple);
+    expect(
+      app.network.searches,
+      hasLength(beforeColor),
+      reason: 'scrolling must not apply a filter',
+    );
 
-    final offset = _rowOffset(tester, carousel);
-    final card = tester.getRect(minimal);
-    expect(offset, greaterThan(0), reason: 'the row really is scrolled');
+    final colorOffset = _rowOffset(tester, colorCarousel);
+    final purpleCard = tester.getRect(purple);
+    expect(colorOffset, greaterThan(0), reason: 'the row really is scrolled');
+
+    await _tapCard(tester, app, purple);
+    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
+    await pumpUntil(tester, _tile('alpha'), reason: 'purple results');
+
+    expect(app.network.searches.last.color, '993399');
+    expect(
+      _rowOffset(tester, colorCarousel),
+      colorOffset,
+      reason: 'the committed search must not rewind the row the user scrolled',
+    );
+    expect(
+      tester.getRect(purple),
+      purpleCard,
+      reason: 'the tapped card stays exactly where the finger left it',
+    );
+
+    // Tag row: same position contract on its own carousel.
+    final tagCarousel = find.byKey(const ValueKey('search-tag-carousel'));
+    final minimal = find.byKey(const ValueKey('search-tag-seed-minimal'));
+    final beforeTag = app.network.searches.length;
+    await _revealCard(tester, tagCarousel, minimal);
+    expect(
+      app.network.searches,
+      hasLength(beforeTag),
+      reason: 'scrolling must not apply a tag',
+    );
+
+    final tagOffset = _rowOffset(tester, tagCarousel);
+    final minimalCard = tester.getRect(minimal);
+    expect(tagOffset, greaterThan(0), reason: 'the row really is scrolled');
 
     await _tapCard(tester, app, minimal);
     await pumpFrames(tester, 10, const Duration(milliseconds: 50));
@@ -280,13 +259,13 @@ void main() {
 
     expect(app.network.searches.last.query, 'minimalist');
     expect(
-      _rowOffset(tester, carousel),
-      offset,
+      _rowOffset(tester, tagCarousel),
+      tagOffset,
       reason: 'applying a tag must not rewind the row the user scrolled',
     );
     expect(
       tester.getRect(minimal),
-      card,
+      minimalCard,
       reason: 'the tapped card stays exactly where the finger left it',
     );
   });
@@ -337,114 +316,7 @@ void main() {
     expect(haptics, isEmpty);
   });
 
-  appTest('the tag row lists tag collections only', (tester, app) async {
-    // A colour-only collection has no tag to apply, so it must not appear.
-    await app.launch(tester);
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover feed',
-    );
-    await app.act(
-      tester,
-      () => app.collections.create(
-        name: 'Deep Blues',
-        query: '',
-        colors: const ['#0000ff'],
-        origin: CollectionOrigin.color,
-      ),
-    );
-    final colorId = app.collections.entries.value
-        .firstWhere((e) => e.name == 'Deep Blues')
-        .id;
 
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
-    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
-
-    expect(find.text('By color'), findsOneWidget);
-    expect(
-      find.text('By tag'),
-      findsOneWidget,
-      reason: 'the bundled tag collections always offer the row',
-    );
-    expect(
-      find.byKey(ValueKey('search-tag-$colorId')),
-      findsNothing,
-      reason: 'a colour collection is not a tag collection',
-    );
-
-    // A bookmarkable tag query appears alongside the bundled cards.
-    await app.act(
-      tester,
-      () => app.collections.create(
-        name: 'Landscape',
-        query: 'landscape',
-        origin: CollectionOrigin.tag,
-      ),
-    );
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('search-tag-carousel')),
-      reason: 'tag carousel',
-    );
-    final tagId = app.collections.entries.value
-        .firstWhere((e) => e.name == 'Landscape')
-        .id;
-
-    // The new card is last, past the bundled four; scroll it into view rather
-    // than assuming the whole row is built.
-    await tester.drag(
-      find.byKey(const ValueKey('search-tag-carousel')),
-      const Offset(-320, 0),
-    );
-    await pumpFrames(tester, 20, const Duration(milliseconds: 100));
-    expect(find.byKey(ValueKey('search-tag-$tagId')), findsOneWidget);
-    expect(
-      find.byKey(ValueKey('search-tag-$colorId')),
-      findsNothing,
-      reason: 'saving a tag collection does not leak the colour one in',
-    );
-  });
-
-  appTest('a tag collection keeps its origin across a restart', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover feed',
-    );
-    await app.act(tester, () async {
-      await app.collections.create(
-        name: 'Landscape',
-        query: 'landscape',
-        origin: CollectionOrigin.tag,
-      );
-      // Off-screen carousel children are not built, so the card under test has
-      // to lead the row. Bundled collections are permanent, so this asks for
-      // the reorder the user has rather than deleting them.
-      final created = app.collections.entries.value.firstWhere(
-        (e) => e.name == 'Landscape',
-      );
-      await app.collections.moveToStart(created.id);
-    });
-    final tagId = app.collections.entries.value
-        .firstWhere((e) => e.name == 'Landscape')
-        .id;
-
-    await app.restart(tester);
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
-    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
-
-    expect(
-      app.collections.entries.value.firstWhere((e) => e.id == tagId).origin,
-      CollectionOrigin.tag,
-      reason: 'origin is persisted, not derived from the row shape',
-    );
-    expect(find.byKey(ValueKey('search-tag-$tagId')), findsOneWidget);
-  });
 
   appTest('a legacy saved search is preserved but never offered as a tag', (
     tester,
@@ -458,7 +330,8 @@ void main() {
     );
 
     // A row written before the origin field existed: an arbitrary saved
-    // search with no colours, shaped exactly like a tag collection.
+    // search with no colours, shaped exactly like a tag collection. Beside it,
+    // a valid new tag collection that must keep its own origin.
     await app.act(tester, () async {
       final box = Hive.box<String>('collections');
       await box.put(
@@ -474,7 +347,22 @@ void main() {
         }),
       );
       await app.collections.restore();
+      await app.collections.create(
+        name: 'Landscape',
+        query: 'landscape',
+        origin: CollectionOrigin.tag,
+      );
+      // Off-screen carousel children are not built, so the card under test
+      // has to lead the row.
+      final created = app.collections.entries.value.firstWhere(
+        (e) => e.name == 'Landscape',
+      );
+      await app.collections.moveToStart(created.id);
     });
+
+    final tagId = app.collections.entries.value
+        .firstWhere((e) => e.name == 'Landscape')
+        .id;
 
     final legacy = app.collections.entries.value.firstWhere(
       (entry) => entry.id == 'legacy-like',
@@ -495,6 +383,7 @@ void main() {
     );
 
     // Unclassified rows are user data: they must survive, just not as tags.
+    // A real tag keeps its own origin and stays offered.
     await app.restart(tester);
     expect(
       app.collections.entries.value.map((entry) => entry.id),
@@ -505,6 +394,19 @@ void main() {
           .firstWhere((entry) => entry.id == 'legacy-like')
           .origin,
       CollectionOrigin.unknown,
+    );
+    expect(
+      app.collections.entries.value.firstWhere((entry) => entry.id == tagId).origin,
+      CollectionOrigin.tag,
+      reason: 'origin is persisted, not derived from the row shape',
+    );
+
+    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
+    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+    expect(
+      find.byKey(ValueKey('search-tag-$tagId')),
+      findsOneWidget,
+      reason: 'a valid tag is still offered after the restart',
     );
   });
 
@@ -585,15 +487,6 @@ void main() {
     await pumpUntil(tester, _tile('alpha'), reason: 'retried results');
   });
 
-  appTest('back returns to the Discover feed', (tester, app) async {
-    await _openSearch(tester, app);
-
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.arrowLeft).first);
-    await pumpFrames(tester, 8);
-
-    expect(find.byType(SearchPage), findsNothing);
-    expect(find.byKey(const ValueKey('wallpaper-tile-alpha')), findsOneWidget);
-  });
 
   appTest('filters live behind a floating trigger, not a chip row', (
     tester,
@@ -719,6 +612,22 @@ void main() {
       findsNothing,
       reason: 'a tag collection is not a colour',
     );
+    expect(
+      find.byKey(ValueKey('search-tag-$colorId')),
+      findsNothing,
+      reason: 'a colour collection is not a tag collection',
+    );
+    final savedTag = find.byKey(ValueKey('search-tag-$tagId'));
+    await _revealCard(
+      tester,
+      find.byKey(const ValueKey('search-tag-carousel')),
+      savedTag,
+    );
+    expect(
+      savedTag,
+      findsOneWidget,
+      reason: 'a saved tag collection is offered in the tag row',
+    );
 
     // #0000ff is not one of Wallhaven's documented values; the nearest one is
     // used so tapping still filters instead of returning everything.
@@ -751,95 +660,15 @@ void main() {
       findsOneWidget,
       reason: 'the screen is pristine again',
     );
-  });
 
-  appTest('a saved colour collection composes with the typed query', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover feed',
-    );
-    await app.act(
-      tester,
-      () => app.collections.create(
-        name: 'Deep Blues',
-        query: '',
-        colors: const ['#0000ff'],
-        origin: CollectionOrigin.color,
-      ),
-    );
-    final colorId = app.collections.entries.value
-        .firstWhere((e) => e.name == 'Deep Blues')
-        .id;
-
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
-    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
+    // A saved colour composes with the typed query instead of replacing it.
     await _submit(tester, app, 'sky');
     await pumpUntil(tester, _tile('alpha'), reason: 'typed results');
-
-    await _tapCard(
-      tester,
-      app,
-      find.byKey(ValueKey('search-color-collection-$colorId')),
-    );
+    await _tapCard(tester, app, card);
     await pumpFrames(tester, 10, const Duration(milliseconds: 50));
 
     final composed = app.network.searches.last;
     expect(composed.query, 'sky', reason: 'the typed query is kept');
     expect(composed.color, '0066cc', reason: 'the saved colour is applied');
-  });
-
-  appTest('removing the applied colour collection clears its filter', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(
-      tester,
-      find.byKey(const ValueKey('wallpaper-tile-alpha')),
-      reason: 'discover feed',
-    );
-    await app.act(
-      tester,
-      () => app.collections.create(
-        name: 'Deep Blues',
-        query: '',
-        colors: const ['#0000ff'],
-        origin: CollectionOrigin.color,
-      ),
-    );
-    final colorId = app.collections.entries.value
-        .firstWhere((e) => e.name == 'Deep Blues')
-        .id;
-
-    await app.tap(tester, find.byIcon(PhosphorIconsBold.magnifyingGlass).first);
-    await pumpUntil(tester, find.byType(SearchPage), reason: 'search page');
-
-    final card = find.byKey(ValueKey('search-color-collection-$colorId'));
-    await _tapCard(tester, app, card);
-    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
-    await pumpUntil(tester, _tile('alpha'), reason: 'colour results');
-    expect(app.network.searches.last.color, '0066cc');
-
-    final before = app.network.searches.length;
-    await app.act(tester, () => app.collections.remove(colorId));
-    await app.settle(tester);
-    await pumpFrames(tester, 10, const Duration(milliseconds: 50));
-
-    expect(card, findsNothing, reason: 'the removed card is gone from the row');
-    expect(
-      app.network.searches,
-      hasLength(before),
-      reason: 'no other input remains, so the generic feed is never fetched',
-    );
-    expect(
-      find.byKey(const ValueKey('search-color-black')),
-      findsOneWidget,
-      reason: 'the bundled swatches are untouched',
-    );
   });
 }

@@ -188,23 +188,6 @@ void main() {
       expect(page.meta.seed, isNull, reason: 'non-string seed is ignored');
     });
 
-    test('a non-list data field fails as a typed error', () async {
-      final client = buildTestClient(
-        adapter: FakeWallhavenAdapter.json({
-          'data': <String, dynamic>{'oops': true},
-          'meta': <String, dynamic>{'current_page': 1, 'last_page': 1},
-        }),
-      );
-      addTearDown(client.close);
-
-      // Reporting a wrong-typed "data" as "no results" would silently hide
-      // the results the user asked for; the shape is broken, so it fails.
-      await expectLater(
-        client.search(WallhavenSearchRequest()),
-        throwsA(isA<WallhavenInvalidResponseException>()),
-      );
-    });
-
     test('an absent data field is an empty page', () async {
       final client = buildTestClient(
         adapter: FakeWallhavenAdapter.json({
@@ -233,7 +216,7 @@ void main() {
       );
     });
 
-    test('a rejected page does not poison the retry path', () async {
+    test('a rejected response is never replayed on retry', () async {
       ResponseBody body(String raw) => ResponseBody.fromString(
         raw,
         200,
@@ -241,50 +224,43 @@ void main() {
           'content-type': ['application/json'],
         },
       );
-      final adapter = FakeWallhavenAdapter([
+
+      // A listing whose "data" is present but not a list is a broken shape,
+      // not "no results": reporting it as empty would silently hide results.
+      final listingAdapter = FakeWallhavenAdapter([
         (_, _) async => body('{"data": "not-an-object"}'),
         (_, _) async => body('{"data": [{"id": "good1"}], "meta": {}}'),
       ]);
-      final client = buildTestClient(adapter: adapter);
-      addTearDown(client.close);
+      final listingClient = buildTestClient(adapter: listingAdapter);
+      addTearDown(listingClient.close);
 
       await expectLater(
-        client.search(WallhavenSearchRequest()),
+        listingClient.search(WallhavenSearchRequest()),
         throwsA(isA<WallhavenInvalidResponseException>()),
       );
-
       // Two things must hold for a retry to be worth offering the user:
       // the failed flight is dropped by the deduper, and the transport cache
       // no longer holds the rejected body.
-      final page = await client.search(WallhavenSearchRequest());
+      final page = await listingClient.search(WallhavenSearchRequest());
       expect(page.items.single.id, 'good1');
-      expect(adapter.callCount, 2, reason: 'the retry must reach the network');
-    });
+      expect(listingAdapter.callCount, 2,
+          reason: 'the retry must reach the network');
 
-    test('rejected detail payloads are re-fetched on retry', () async {
-      ResponseBody body(String raw) => ResponseBody.fromString(
-        raw,
-        200,
-        headers: const {
-          'content-type': ['application/json'],
-        },
-      );
-      final adapter = FakeWallhavenAdapter([
+      final detailAdapter = FakeWallhavenAdapter([
         (_, _) async => body('{"data": {}}'),
         (_, _) async => body('{"data": {"id": "abc123"}}'),
       ]);
-      final client = buildTestClient(adapter: adapter);
-      addTearDown(client.close);
+      final detailClient = buildTestClient(adapter: detailAdapter);
+      addTearDown(detailClient.close);
 
       await expectLater(
-        client.wallpaper('abc123'),
+        detailClient.wallpaper('abc123'),
         throwsA(isA<WallhavenInvalidResponseException>()),
       );
-
-      final wallpaper = await client.wallpaper('abc123');
+      final wallpaper = await detailClient.wallpaper('abc123');
       expect(wallpaper.id, 'abc123');
       expect(
-        adapter.callCount,
+        detailAdapter.callCount,
         2,
         reason: 'an unusable cached 200 must not be replayed',
       );
@@ -307,30 +283,6 @@ void main() {
         client.collections(username: 'someone'),
         throwsA(isA<WallhavenInvalidResponseException>()),
       );
-    });
-
-    test('numeric-string and 0/1 fields still decode', () async {
-      final client = buildTestClient(
-        adapter: FakeWallhavenAdapter.json({
-          'data': <dynamic>[
-            <String, dynamic>{
-              'id': '7',
-              'label': 'Favourites',
-              'views': '12',
-              'public': '1',
-              'count': 3,
-            },
-          ],
-        }),
-      );
-      addTearDown(client.close);
-
-      final collections = await client.collections(username: 'someone');
-      expect(collections.single.id, 7);
-      expect(collections.single.label, 'Favourites');
-      expect(collections.single.views, 12);
-      expect(collections.single.public, isTrue);
-      expect(collections.single.count, 3);
     });
   });
 

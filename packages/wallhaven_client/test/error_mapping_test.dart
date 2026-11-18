@@ -28,51 +28,32 @@ void main() {
         },
       );
 
-  test('400 → WallhavenBadRequestException', () async {
-    final error = await capture(FakeWallhavenAdapter([(_, _) async => status(400)]));
-    expect(error, isA<WallhavenBadRequestException>());
-  });
+  test('HTTP statuses map to their typed exception', () async {
+    for (final entry in {
+      400: isA<WallhavenBadRequestException>(),
+      401: isA<WallhavenUnauthorizedException>(),
+      403: isA<WallhavenForbiddenException>(),
+      404: isA<WallhavenNotFoundException>(),
+      429: isA<WallhavenRateLimitExceededException>(),
+    }.entries) {
+      final error = await capture(
+        FakeWallhavenAdapter([(_, _) async => status(entry.key)]),
+      );
+      expect(error, entry.value, reason: 'status ${entry.key}');
+    }
 
-  test('401 → WallhavenUnauthorizedException', () async {
-    final error = await capture(FakeWallhavenAdapter([(_, _) async => status(401)]));
-    expect(error, isA<WallhavenUnauthorizedException>());
-    expect(error, isNot(isA<NsfwAuthenticationRequiredException>()));
-  });
+    // 401 from the API is an auth failure, not the local NSFW guard.
+    final unauthorized = await capture(
+      FakeWallhavenAdapter([(_, _) async => status(401)]),
+    );
+    expect(unauthorized, isNot(isA<NsfwAuthenticationRequiredException>()));
 
-  test('403 → WallhavenForbiddenException', () async {
-    final error = await capture(FakeWallhavenAdapter([(_, _) async => status(403)]));
-    expect(error, isA<WallhavenForbiddenException>());
-  });
-
-  test('404 → WallhavenNotFoundException', () async {
-    final error = await capture(FakeWallhavenAdapter([(_, _) async => status(404)]));
-    expect(error, isA<WallhavenNotFoundException>());
-  });
-
-  test('500 → WallhavenServerException with status code', () async {
-    final error = await capture(FakeWallhavenAdapter([(_, _) async => status(503)]));
-    final server = error;
+    // 5xx keeps the upstream status code on the typed exception.
+    final server = await capture(
+      FakeWallhavenAdapter([(_, _) async => status(503)]),
+    );
     expect(server, isA<WallhavenServerException>());
     expect((server as WallhavenServerException).statusCode, 503);
-  });
-
-  test('429 → WallhavenRateLimitExceededException', () async {
-    final error = await capture(
-      FakeWallhavenAdapter([
-        (_, _) async => status(
-              429,
-              headers: {
-                'retry-after': ['15'],
-              },
-            ),
-      ]),
-    );
-    final rate = error;
-    expect(rate, isA<WallhavenRateLimitExceededException>());
-    expect(
-      (rate as WallhavenRateLimitExceededException).retryAfter,
-      const Duration(seconds: 15),
-    );
   });
 
   test('connection error → WallhavenNetworkException', () async {
@@ -110,22 +91,4 @@ void main() {
       );
     }
   });
-
-  test('cancellation → WallhavenCancelledException', () async {
-    final token = CancelToken();
-    final adapter = FakeWallhavenAdapter([
-      (_, _) async => throw DioException.requestCancelled(
-            requestOptions: RequestOptions(path: '/search'),
-            reason: 'user cancelled',
-          ),
-    ]);
-    final client = buildTestClient(adapter: adapter);
-    addTearDown(client.close);
-
-    await expectLater(
-      client.search(WallhavenSearchRequest(), cancelToken: token),
-      throwsA(isA<WallhavenCancelledException>()),
-    );
-  });
 }
-

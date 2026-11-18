@@ -21,40 +21,37 @@ void main() {
     expect(uri.queryParameters['sorting'], 'views');
   });
 
-  test('empty search result yields terminal page without error',
-      () async {
-    final client = buildTestClient(
+  test('terminal and out-of-range pages are valid empty results', () async {
+    // current_page 3 > last_page 2 AND empty items → no next page.
+    final emptyClient = buildTestClient(
       adapter: FakeWallhavenAdapter.json(
         fixture('search_empty_response.json'),
       ),
     );
-    addTearDown(client.close);
+    addTearDown(emptyClient.close);
 
-    // current_page 3 > last_page 2 AND empty items → no next page.
-    final page = await client.search(WallhavenSearchRequest(page: 3));
-    expect(page.items, isEmpty);
-    expect(page.hasNextPage, isFalse);
-  });
+    final empty = await emptyClient.search(WallhavenSearchRequest(page: 3));
+    expect(empty.items, isEmpty);
+    expect(empty.hasNextPage, isFalse);
 
-  test('out-of-range page returns a valid empty result', () async {
-    const body = <String, dynamic>{
-      'data': <dynamic>[],
-      'meta': <String, dynamic>{
-        'current_page': 99,
-        'last_page': 5,
-        'per_page': 24,
-        'total': 100,
-      },
-    };
-    final client = buildTestClient(
-      adapter: FakeWallhavenAdapter.json(body),
+    final outOfRangeClient = buildTestClient(
+      adapter: FakeWallhavenAdapter.json(const <String, dynamic>{
+        'data': <dynamic>[],
+        'meta': <String, dynamic>{
+          'current_page': 99,
+          'last_page': 5,
+          'per_page': 24,
+          'total': 100,
+        },
+      }),
     );
-    addTearDown(client.close);
+    addTearDown(outOfRangeClient.close);
 
-    final page = await client.search(WallhavenSearchRequest(page: 99));
-    expect(page.items, isEmpty);
-    expect(page.currentPage, 99);
-    expect(page.hasNextPage, isFalse);
+    final outOfRange =
+        await outOfRangeClient.search(WallhavenSearchRequest(page: 99));
+    expect(outOfRange.items, isEmpty);
+    expect(outOfRange.currentPage, 99);
+    expect(outOfRange.hasNextPage, isFalse);
   });
 
   test('wallpaper detail unwraps envelope and requests /w/{id}',
@@ -148,8 +145,8 @@ void main() {
     expect(page.meta.seed, 'xyz789');
   });
 
-  test('NSFW collection listing fails fast without a key', () async {
-    // Fail fast means zero network activity.
+  test('NSFW requests fail fast without a key', () async {
+    // Fail fast means zero network activity, for every public entrypoint.
     final adapter = FakeWallhavenAdapter.json(const {});
     final client = buildTestClient(adapter: adapter);
     addTearDown(client.close);
@@ -159,6 +156,14 @@ void main() {
         username: 'alice',
         collectionId: 15,
         purity: {WallhavenPurity.sfw, WallhavenPurity.nsfw},
+      ),
+      throwsA(isA<NsfwAuthenticationRequiredException>()),
+    );
+    await expectLater(
+      client.search(
+        WallhavenSearchRequest(
+          purity: {WallhavenPurity.sfw, WallhavenPurity.nsfw},
+        ),
       ),
       throwsA(isA<NsfwAuthenticationRequiredException>()),
     );

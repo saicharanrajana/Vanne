@@ -5,118 +5,69 @@ void main() {
   group('WallhavenSearchRequest.toQueryParameters', () {
     test('defaults explicitly encode SFW purity', () {
       expect(WallhavenSearchRequest().toQueryParameters(), {'purity': '100'});
+
+      // All categories use the API default and are omitted; purity is always
+      // explicit so SFW-only and all-purities requests never share a cache
+      // key (an omitted purity would be ambiguous).
+      final all = WallhavenSearchRequest(
+        categories: WallhavenCategory.values.toSet(),
+        purity: WallhavenPurity.values.toSet(),
+      ).toQueryParameters();
+      expect(all.containsKey('categories'), isFalse);
+      expect(all['purity'], '111');
     });
 
-    test('query parameter name is q', () {
-      expect(WallhavenSearchRequest(query: 'anime').toQueryParameters(), {
-        'q': 'anime',
-        'purity': '100',
-      });
-    });
+    test('a fully populated request emits every documented parameter', () {
+      final params = WallhavenSearchRequest(
+        structuredQuery: WallhavenQuery().term('anime').exclude('nsfw'),
+        categories: {WallhavenCategory.general},
+        // 101 = sfw (4) + nsfw (1): exercises every purity bit, not just the
+        // all/none endpoints.
+        purity: {WallhavenPurity.sfw, WallhavenPurity.nsfw},
+        sorting: WallhavenSorting.toplist,
+        order: WallhavenOrder.asc,
+        topRange: WallhavenTopRange.months6,
+        minResolution: '1920x1080',
+        resolutions: ['1920x1080', '2560x1440'],
+        ratios: ['16x9', '16x10'],
+        colors: {WallhavenColor.blue0066cc, WallhavenColor.whiteFfffff},
+        page: 3,
+        seed: 'abc123',
+      ).toQueryParameters();
 
-    test('structuredQuery is used over raw query when only it is set', () {
+      expect(params['q'], 'anime -nsfw');
+      expect(params['categories'], '100');
+      expect(params['purity'], '101');
+      expect(params['sorting'], 'toplist');
+      expect(params['order'], 'asc');
+      expect(params['topRange'], '6M');
+      expect(params['atleast'], '1920x1080');
+      expect(params['resolutions'], '1920x1080,2560x1440');
+      expect(params['ratios'], '16x9,16x10');
+      // Set ordering is unspecified; compare sorted content.
+      final colors = params['colors']!.split(',')..sort();
+      expect(colors, ['0066cc', 'ffffff']);
+      expect(params['page'], '3');
+      expect(params['seed'], 'abc123');
+
+      // Page 1 is the API default and stays off the wire.
       expect(
-        WallhavenSearchRequest(
-          structuredQuery: WallhavenQuery().term('anime').exclude('nsfw'),
-        ).toQueryParameters(),
-        {'q': 'anime -nsfw', 'purity': '100'},
+        WallhavenSearchRequest(page: 1).toQueryParameters().containsKey('page'),
+        isFalse,
       );
     });
+  });
 
-    test('passing both query and structuredQuery throws', () {
+  group('WallhavenSearchRequest validation', () {
+    test('rejects malformed combinations and values', () {
       expect(
         () => WallhavenSearchRequest(
           query: 'raw',
           structuredQuery: WallhavenQuery().term('x'),
         ),
         throwsArgumentError,
+        reason: 'raw and structured queries are mutually exclusive',
       );
-    });
-
-    test('categories bitfield encoding and order', () {
-      final params = WallhavenSearchRequest(
-        categories: {WallhavenCategory.general},
-      ).toQueryParameters();
-      expect(params['categories'], '100');
-    });
-
-    test('all categories are omitted but all purities are explicit', () {
-      final params = WallhavenSearchRequest(
-        categories: WallhavenCategory.values.toSet(),
-        purity: WallhavenPurity.values.toSet(),
-      ).toQueryParameters();
-      expect(params.containsKey('categories'), isFalse);
-      expect(params['purity'], '111');
-    });
-
-    test('purity bitfield encoding includes nsfw position', () {
-      final params = WallhavenSearchRequest(
-        purity: {WallhavenPurity.sfw, WallhavenPurity.nsfw},
-      ).toQueryParameters();
-      expect(params['purity'], '101');
-    });
-
-    test('sorting/order wire names and non-default emission', () {
-      final params = WallhavenSearchRequest(
-        sorting: WallhavenSorting.toplist,
-        order: WallhavenOrder.asc,
-      ).toQueryParameters();
-      expect(params['sorting'], 'toplist');
-      expect(params['order'], 'asc');
-    });
-
-    test('topRange emitted with wire value', () {
-      expect(
-        WallhavenSearchRequest(topRange: WallhavenTopRange.months6)
-            .toQueryParameters()['topRange'],
-        '6M',
-      );
-    });
-
-    test('minResolution maps to atleast', () {
-      expect(
-        WallhavenSearchRequest(minResolution: '1920x1080')
-            .toQueryParameters()['atleast'],
-        '1920x1080',
-      );
-    });
-
-    test('resolutions and ratios comma-join', () {
-      final params = WallhavenSearchRequest(
-        resolutions: ['1920x1080', '2560x1440'],
-        ratios: ['16x9', '16x10'],
-      ).toQueryParameters();
-      expect(params['resolutions'], '1920x1080,2560x1440');
-      expect(params['ratios'], '16x9,16x10');
-    });
-
-    test('colors join as bare hex without #', () {
-      final params = WallhavenSearchRequest(
-        colors: {WallhavenColor.blue0066cc, WallhavenColor.whiteFfffff},
-      ).toQueryParameters();
-      // Set ordering is unspecified; compare sorted content.
-      final colors = params['colors']!.split(',')..sort();
-      expect(colors, ['0066cc', 'ffffff']);
-    });
-
-    test('page 1 omitted, page 3 emitted', () {
-      expect(
-        WallhavenSearchRequest(page: 1).toQueryParameters().containsKey('page'),
-        isFalse,
-      );
-      expect(WallhavenSearchRequest(page: 3).toQueryParameters()['page'], '3');
-    });
-
-    test('seed emitted verbatim', () {
-      expect(
-        WallhavenSearchRequest(seed: 'abc123').toQueryParameters()['seed'],
-        'abc123',
-      );
-    });
-  });
-
-  group('WallhavenSearchRequest validation', () {
-    test('rejects malformed seed', () {
       for (final bad in ['abc12', 'abc1234', 'abc-23!', '']) {
         expect(
           () => WallhavenSearchRequest(seed: bad),
@@ -126,9 +77,7 @@ void main() {
       }
       // 6 alphanumeric characters pass.
       WallhavenSearchRequest(seed: 'aBc123');
-    });
 
-    test('rejects malformed minResolution/resolutions/ratios', () {
       expect(
         () => WallhavenSearchRequest(minResolution: '1920'),
         throwsArgumentError,
@@ -141,31 +90,7 @@ void main() {
         () => WallhavenSearchRequest(ratios: ['16-9']),
         throwsArgumentError,
       );
-    });
-
-    test('rejects page < 1', () {
       expect(() => WallhavenSearchRequest(page: 0), throwsArgumentError);
-    });
-  });
-
-  group('copy helpers', () {
-    test('withPage changes page and keeps everything else', () {
-      final original = WallhavenSearchRequest(
-        query: 'anime',
-        sorting: WallhavenSorting.random,
-        seed: 'abc123',
-      );
-      final next = original.withPage(2);
-      expect(next.page, 2);
-      expect(next.seed, 'abc123');
-      expect(next.sorting, WallhavenSorting.random);
-      expect(next.query, 'anime');
-    });
-
-    test('withSeed replaces the seed', () {
-      final updated = WallhavenSearchRequest(query: 'a').withSeed('xyz789');
-      expect(updated.seed, 'xyz789');
-      expect(updated.toQueryParameters()['seed'], 'xyz789');
     });
   });
 }

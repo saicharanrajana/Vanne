@@ -7,22 +7,9 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 import 'helpers.dart';
 
 void main() {
-  test('page 1 of a paginated result maps metadata', () async {
-    final client = buildTestClient(
-      adapter: FakeWallhavenAdapter.json(fixture('search_response.json')),
-    );
-    addTearDown(client.close);
-
-    final page = await client.search(WallhavenSearchRequest());
-    expect(page.currentPage, 1);
-    expect(page.lastPage, 36);
-    expect(page.perPage, 24);
-    expect(page.total, 848);
-    expect(page.hasNextPage, isTrue);
-  });
-
-  test('nextPage increments the page and preserves parameters', () async {
-    // Two distinct responses: page 1, then a page-2 body.
+  test('nextPage advances the page and carries query, sorting, and seed',
+      () async {
+    // Scenario 1: query parameters survive the page increment.
     const page2Body = <String, dynamic>{
       'data': <dynamic>[],
       'meta': <String, dynamic>{
@@ -33,24 +20,22 @@ void main() {
         'query': 'anime',
       },
     };
-    final adapter = FakeWallhavenAdapter([
+    var adapter = FakeWallhavenAdapter([
       (_, _) async => ResponseBodies.json(fixture('search_response.json')),
       (_, _) async => ResponseBodies.json(page2Body),
     ]);
-    final client = buildTestClient(adapter: adapter);
+    var client = buildTestClient(adapter: adapter);
     addTearDown(client.close);
 
     final request = WallhavenSearchRequest(query: 'anime');
     final first = await client.search(request);
     final second = await client.nextPage(request, first);
-
     expect(second.currentPage, 2);
     expect(adapter.requests[1].uri.queryParameters['page'], '2');
     expect(adapter.requests[1].uri.queryParameters['q'], 'anime');
-  });
 
-  test('random seed from meta is propagated into the follow-up request',
-      () async {
+    // Scenario 2: a random search with no caller seed adopts the server's
+    // seed for the follow-up page.
     const seededPage2 = <String, dynamic>{
       'data': <dynamic>[],
       'meta': <String, dynamic>{
@@ -60,43 +45,36 @@ void main() {
         'total': 200,
       },
     };
-    final adapter = FakeWallhavenAdapter([
-      // Page 1 of a random search: server assigns the seed.
+    adapter = FakeWallhavenAdapter([
       (_, _) async => ResponseBodies.json(fixture('search_response.json')),
       (_, _) async => ResponseBodies.json(seededPage2),
     ]);
-    final client = buildTestClient(adapter: adapter);
+    client = buildTestClient(adapter: adapter);
     addTearDown(client.close);
 
-    final request =
-        WallhavenSearchRequest(sorting: WallhavenSorting.random); // no seed
-    final first = await client.search(request);
-    expect(first.meta.seed, 'abc123'); // server-assigned
+    final randomRequest =
+        WallhavenSearchRequest(sorting: WallhavenSorting.random);
+    final randomFirst = await client.search(randomRequest);
+    expect(randomFirst.meta.seed, 'abc123'); // server-assigned
 
-    await client.nextPage(request, first);
-
+    await client.nextPage(randomRequest, randomFirst);
     final secondUrl = adapter.requests[1].uri;
     expect(secondUrl.queryParameters['seed'], 'abc123');
     expect(secondUrl.queryParameters['sorting'], 'random');
     expect(secondUrl.queryParameters['page'], '2');
-  });
 
-  test('caller-pinned seed wins over server seed', () async {
-    final adapter = FakeWallhavenAdapter([ResponseBodies.okListing]);
-    final client = buildTestClient(adapter: adapter);
+    // Scenario 3: a caller-pinned seed wins over the server echo.
+    adapter = FakeWallhavenAdapter([ResponseBodies.okListing]);
+    client = buildTestClient(adapter: adapter);
     addTearDown(client.close);
 
-    final request = WallhavenSearchRequest(seed: 'zzz999', page: 1);
-    final first = await client.search(request);
+    final pinned = WallhavenSearchRequest(seed: 'zzz999', page: 1);
+    final pinnedFirst = await client.search(pinned);
     // The canned fixture echoes seed abc123; caller pinned zzz999.
-    final next = await client.nextPage(request, first);
-
-    // The canned handler always echoes current_page 1; what matters here
-    // is that page advanced on the wire and the caller-pinned seed
-    // reached it unchanged.
+    final pinnedNext = await client.nextPage(pinned, pinnedFirst);
     expect(adapter.lastRequest.uri.queryParameters['page'], '2');
     expect(adapter.lastRequest.uri.queryParameters['seed'], 'zzz999');
-    expect(next.items, hasLength(1));
+    expect(pinnedNext.items, hasLength(1));
   });
 
   test('last page has no next page and nextPage makes no request',

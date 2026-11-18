@@ -1,7 +1,7 @@
 name: vanne
 description: "An open-source Android wallpaper application backed by the Wallhaven API."
 publish_to: 'none'
-version: 0.2.0+3
+version: 0.3.0+4
 
 workspace:
   - packages/wallhaven_client

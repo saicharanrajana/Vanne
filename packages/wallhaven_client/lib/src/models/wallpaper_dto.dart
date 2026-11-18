@@ -67,37 +67,34 @@ final class WallpaperDto {
     required this.tags,
   });
 
-  factory WallpaperDto.fromJson(Map<String, dynamic> json) => WallpaperDto(
-        id: json['id'] as String? ?? '',
-        url: json['url'] as String? ?? '',
-        shortUrl: json['short_url'] as String?,
-        uploader: json['uploader'] is Map<String, dynamic>
-            ? UploaderDto.fromJson(json['uploader'] as Map<String, dynamic>)
-            : null,
-        views: parseIntField(json['views']) ?? 0,
-        favorites: parseIntField(json['favorites']) ?? 0,
-        source: json['source'] as String? ?? '',
-        purity: json['purity'] as String? ?? '',
-        category: json['category'] as String? ?? '',
-        width: parseIntField(json['dimension_x']) ?? 0,
-        height: parseIntField(json['dimension_y']) ?? 0,
-        resolution: json['resolution'] as String? ?? '',
-        ratio: json['ratio'] as String? ?? '',
-        fileSize: parseIntField(json['file_size']) ?? 0,
-        fileType: json['file_type'] as String? ?? '',
-        createdAt: parseTimestamp(json['created_at']),
-        colors: [
-          // Skip malformed color entries instead of rejecting the response.
-          for (final color in (json['colors'] as List<dynamic>? ?? <dynamic>[]))
-            if (color is String) color,
-        ],
-        path: json['path'] as String? ?? '',
-        thumbs: json['thumbs'] is Map<String, dynamic>
-            ? ThumbsDto.fromJson(json['thumbs'] as Map<String, dynamic>)
-            : const ThumbsDto(),
-        tags: [
-          for (final tag in (json['tags'] as List<dynamic>? ?? <dynamic>[]))
-            if (tag is Map<String, dynamic>) TagDto.fromJson(tag),
-        ],
-      );
+  factory WallpaperDto.fromJson(Map<String, dynamic> json) {
+    final uploader = parseObjectField(json['uploader']);
+    final thumbs = parseObjectField(json['thumbs']);
+    return WallpaperDto(
+      id: parseStringField(json['id']) ?? '',
+      url: parseStringField(json['url']) ?? '',
+      shortUrl: parseStringField(json['short_url']),
+      uploader: uploader == null ? null : UploaderDto.fromJson(uploader),
+      views: parseIntField(json['views']) ?? 0,
+      favorites: parseIntField(json['favorites']) ?? 0,
+      source: parseStringField(json['source']) ?? '',
+      purity: parseStringField(json['purity']) ?? '',
+      category: parseStringField(json['category']) ?? '',
+      width: parseIntField(json['dimension_x']) ?? 0,
+      height: parseIntField(json['dimension_y']) ?? 0,
+      resolution: parseStringField(json['resolution']) ?? '',
+      ratio: parseStringField(json['ratio']) ?? '',
+      fileSize: parseIntField(json['file_size']) ?? 0,
+      fileType: parseStringField(json['file_type']) ?? '',
+      createdAt: parseTimestamp(json['created_at']),
+      // Malformed entries are skipped instead of rejecting the response.
+      colors: parseStringListField(json['colors']),
+      path: parseStringField(json['path']) ?? '',
+      thumbs: thumbs == null ? const ThumbsDto() : ThumbsDto.fromJson(thumbs),
+      tags: [
+        for (final tag in parseObjectListField(json['tags']))
+          TagDto.fromJson(tag),
+      ],
+    );
+  }
 }

@@ -5,70 +5,37 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 
 void main() {
   group('WallhavenQuery.build', () {
-    test('plain tag', () {
+    test('emits every operator with its documented prefix and order', () {
+      // Plain terms and multiple plain terms first: they are the common path
+      // and must not be lost among the prefix operators.
       expect(WallhavenQuery().term('anime').build(), 'anime');
-    });
-
-    test('multiple plain tags join with spaces', () {
       expect(
         WallhavenQuery().term('anime').term('cyberpunk').build(),
         'anime cyberpunk',
       );
-    });
 
-    test('required tags use + prefix', () {
-      expect(
-        WallhavenQuery().require('anime').require('cyberpunk').build(),
-        '+anime +cyberpunk',
-      );
-    });
-
-    test('mixed include/exclude', () {
-      expect(WallhavenQuery().term('anime').exclude('nsfw').build(),
-          'anime -nsfw');
-    });
-
-    test('user uploads use @ prefix', () {
-      expect(WallhavenQuery().fromUser('username').build(), '@username');
-    });
-
-    test('exact tag uses id: prefix', () {
-      expect(WallhavenQuery().exactTag(123).build(), 'id:123');
-    });
-
-    test('file type uses type: prefix', () {
-      expect(WallhavenQuery().withFileType(WallhavenFileType.png).build(),
-          'type:png');
-    });
-
-    test('similar-to uses like: prefix', () {
-      expect(WallhavenQuery().similarTo('abc123').build(), 'like:abc123');
-    });
-
-    test('combined operators preserve order and prefixes', () {
       final query = WallhavenQuery()
+          .term('landscape')
           .require('anime')
+          .require('cyberpunk')
           .exclude('nsfw')
           .fromUser('alice')
           .exactTag(123)
           .withFileType(WallhavenFileType.png)
           .similarTo('abc123');
-      expect(query.build(),
-          '+anime -nsfw @alice id:123 type:png like:abc123');
+      expect(
+        query.build(),
+        'landscape +anime +cyberpunk -nsfw @alice id:123 type:png '
+        'like:abc123',
+      );
     });
   });
 
   group('WallhavenQuery.parse round-trip', () {
-    test('parses every documented operator', () {
+    test('round-trips operators and keeps unknown or empty input', () {
       const raw = '+anime -nsfw @alice id:123 type:png like:abc123';
       expect(WallhavenQuery.parse(raw).build(), raw);
-    });
-
-    test('keeps unknown prefixes as plain terms', () {
       expect(WallhavenQuery.parse('?weird').build(), '?weird');
-    });
-
-    test('empty string yields empty query', () {
       expect(WallhavenQuery.parse('').isEmpty, isTrue);
     });
   });

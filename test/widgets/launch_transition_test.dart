@@ -95,7 +95,9 @@ void main() {
   });
 
   group('Native splash matches the Flutter launch frame', () {
-    test('day and night launch colours agree with LaunchBackground', () {
+    test('day/night launch colors match the neutral Flutter colors', () {
+      // Native splash resources and Flutter's first frame share exact values;
+      // the neutral colors prevent a visible field around the launch icon.
       expect(
         _launchColor('$_resDir/values/launch_colors.xml'),
         _argb(LaunchBackground.light),
@@ -104,13 +106,6 @@ void main() {
         _launchColor('$_resDir/values-night/launch_colors.xml'),
         _argb(LaunchBackground.dark),
       );
-    });
-
-    test('launch colours are pure white and pure black by design', () {
-      // Neutral icon fields: a tinted launch colour made the splash read as a
-      // grey field around the icon. The first real screen is slightly tinted,
-      // so this is a deliberate, documented trade-off — pin it so a future
-      // palette tweak cannot quietly reintroduce the tinted splash.
       expect(LaunchBackground.light, const Color(0xFFFFFFFF));
       expect(LaunchBackground.dark, const Color(0xFF000000));
     });

@@ -218,18 +218,26 @@ edge shrink, the drag-to-snap scrolling, the item labels and the light tap
 haptic, so the rows contain no custom scroll or text-placement code. `By color`
 keeps the ten Wallhaven search colours, and `By tag` lists the saved **tag**
 collections so a saved tag becomes a one-tap filter. Colour and tag are
-single-select, and a tag contributes its query to the committed query the same
-way a typed term would (the collection's own sort/filter is not applied). A
-selected card draws a 4dp stroke on its own rounded edge and keeps its size,
-so selection never shifts the row. Both rows tint that stroke from the card's
-own palette — the swatch, or the cover palette described below — at a moderate
-tone rather than a text-grade 4.5:1 tone, which reads as glare on dark cards and
-as a near-black band on pale ones. The tone follows the theme: light mode uses
-paler pale strokes and shallower deep strokes (a fixed deep tone turned yellow
-and green into near-black bands), while dark mode keeps the pale stroke and
-pushes deep strokes further down. A 3:1 contrast floor only pushes a too-subtle
-stroke outwards. A tag card with no palette falls back to the theme's neutral
-outline.
+single-select — a bundled swatch and a saved colour share one slot, so picking
+either replaces the other — and a tag contributes its query to the committed
+query the same way a typed term would, while a saved colour contributes its
+stored hexes (each mapped to the nearest documented wire colour) and is listed
+**ahead** of the ten swatches. Neither applies the collection's own
+sort/filter. A selected card draws a 4dp stroke on its own rounded edge and
+keeps its size, so selection never shifts the row. Both rows tint that stroke
+from the card's own palette — the swatch, or the cover palette described below
+— at a moderate tone rather than a text-grade 4.5:1 tone, which reads as glare
+on dark cards and as a near-black band on pale ones. The tone follows the
+theme: light mode uses paler pale strokes and shallower deep strokes (a fixed
+deep tone turned yellow and green into near-black bands), while dark mode keeps
+the pale stroke and pushes deep strokes further down. A 3:1 contrast floor only
+pushes a too-subtle stroke outwards. A tag card with no palette falls back to
+the theme's neutral outline.
+
+The pristine screen and the results share one `CustomScrollView`, and the
+header is the same subtree in both, so committing the first input never
+recreates the rows: a row the user scrolled keeps its offset instead of
+rewinding to its first card under the finger that just tapped one.
 
 Which collections count as tags is recorded, not inferred: `CollectionEntry`
 persists a `CollectionOrigin` (`tag`, `color`, or `unknown`). The `+ Add` flow
@@ -239,7 +247,8 @@ other collection but never offered as a tag, because its query may be an
 arbitrary saved expression such as `like:abc123` rather than a tag term. The
 tag section is hidden entirely when no collection qualifies, and an applied tag
 is dropped with its filter as soon as its collection is deleted, so a saved
-filter can never outlive its card.
+filter can never outlive its card. The colour row applies the same rule: only
+a `color` collection qualifies, and an applied colour is dropped with its card.
 
 Each collection can also carry a small `coverColors` palette: the listing
 palette of the wallpaper that supplied its cover, captured with the cover
@@ -461,7 +470,8 @@ The destination is owned by `DownloadDestinationController`:
 
 - Default is `Pictures/VanneWallpapers`, written with an app-owned `MediaStore`
   insert (`RELATIVE_PATH` + `IS_PENDING`), so it is gallery-indexed and needs
-  no storage permission. `gal` cannot do this: it hardcodes `Pictures`.
+  no storage permission. A gallery-only helper such as `gal` cannot do this:
+  it hardcodes `Pictures`.
 - The user may pick a parent folder from the system
   `ACTION_OPEN_DOCUMENT_TREE` picker. The app persists that tree's
   read+write grant (`SettingsStore` holds the URI and the provider's display

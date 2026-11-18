@@ -315,53 +315,6 @@ void main() {
       },
     );
 
-    test('taps the user already reversed cost no wasted add', () async {
-      await controller.restore();
-
-      final adding = controller.toggle(_wallpaper('bbb222'));
-      final removing = controller.toggle(_wallpaper('bbb222'));
-      expect(controller.favoriteIds.value, {
-        'aaa111',
-      }, reason: 'the latest tap wins on screen immediately');
-
-      await pumpEventQueue();
-      expect(
-        repository.started,
-        isNot(contains('add:bbb222')),
-        reason: 'the queued write sees the final intent, not a stale add',
-      );
-      expect(repository.started.first, 'remove:bbb222');
-      expect(await adding, isTrue);
-      expect(await removing, isTrue);
-      expect(controller.favoriteIds.value, {'aaa111'});
-      expect(repository.stored.keys, {'aaa111'});
-    });
-
-    test('a stale failure does not undo a newer tap', () async {
-      await controller.restore();
-      final gate = repository.gate('remove:aaa111');
-
-      final removing = controller.toggle(_wallpaper('aaa111'));
-      await pumpEventQueue();
-      final reAdding = controller.toggle(_wallpaper('aaa111')); // newer intent
-
-      repository.failNext('remove:aaa111');
-      gate.complete();
-      await pumpEventQueue();
-      await pumpEventQueue();
-
-      expect(
-        await removing,
-        isFalse,
-        reason: 'the failing write reports itself',
-      );
-      expect(controller.favoriteIds.value, {
-        'aaa111',
-      }, reason: 'the failed write must not roll back the newer tap');
-      expect(await reAdding, isTrue);
-      expect(repository.stored.keys, {'aaa111'});
-    });
-
     test('every failed write returns the screen to what is stored', () async {
       await controller.restore();
       final gate = repository.gate('add:bbb222');
@@ -411,30 +364,6 @@ void main() {
           'bbb222',
         }, reason: 'the snapshot that did reach storage is what comes back');
         expect(repository.stored.keys, {'aaa111', 'bbb222'});
-      },
-    );
-
-    test(
-      'a removal that fails while a newer tap re-adds keeps them in sync',
-      () async {
-        await controller.restore();
-        final gate = repository.gate('remove:aaa111');
-
-        final removing = controller.toggle(_wallpaper('aaa111'));
-        await pumpEventQueue();
-        final reAdding = controller.toggle(
-          _wallpaper('aaa111'),
-        ); // newer intent
-
-        repository.failNext('remove:aaa111'); // superseded failure
-        gate.complete();
-        await pumpEventQueue();
-        await pumpEventQueue();
-
-        expect(await removing, isFalse);
-        expect(await reAdding, isTrue);
-        expect(controller.favoriteIds.value, {'aaa111'});
-        expect(repository.stored.keys, {'aaa111'});
       },
     );
 

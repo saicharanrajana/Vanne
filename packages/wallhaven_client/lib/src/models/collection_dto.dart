@@ -22,10 +22,10 @@ final class CollectionDto {
   });
 
   factory CollectionDto.fromJson(Map<String, dynamic> json) => CollectionDto(
-        id: parseIntField(json['id']) ?? 0,
-        label: json['label'] as String? ?? '',
-        views: parseIntField(json['views']) ?? 0,
-        public: parseBoolField(json['public']) ?? false,
-        count: parseIntField(json['count']) ?? 0,
-      );
+    id: parseIntField(json['id']) ?? 0,
+    label: parseStringField(json['label']) ?? '',
+    views: parseIntField(json['views']) ?? 0,
+    public: parseBoolField(json['public']) ?? false,
+    count: parseIntField(json['count']) ?? 0,
+  );
 }

@@ -42,27 +42,34 @@ Dio buildDio(
   dio.transformer = FusedTransformer(contentLengthIsolateThreshold: 0);
   dio.interceptors.addAll([
     ApiKeyInterceptor(apiKeyManager),
-    CacheInterceptor(store: cacheStore, config: config, clock: clock),
+    CacheInterceptor(
+      store: cacheStore,
+      config: config,
+      clock: clock,
+      authScope: () => apiKeyManager.authScope,
+    ),
     RateLimitInterceptor(
       maxRequestsPerMinute: config.requestsPerMinute,
       clock: clock,
       delay: delay,
     ),
-    if (config.enableLogging)
-      createRedactingLogInterceptor(apiKeyManager),
+    if (config.enableLogging) createRedactingLogInterceptor(apiKeyManager),
   ]);
   return dio;
 }
 
-/// A `LogInterceptor` whose output has the API key replaced with
-/// `<redacted>`, so enabling debug logging can never leak the secret.
+/// A `LogInterceptor` that omits request headers, so API-key credentials are
+/// never written to debug logs (including a credential pinned before a key
+/// rotation).
 Interceptor createRedactingLogInterceptor(
   ApiKeyManager apiKeyManager, {
   void Function(String line)? logPrint,
 }) {
-  void printLine(Object line) =>
-      (logPrint ?? defaultPrint)(redactApiKey('$line', apiKey: apiKeyManager.apiKey));
+  void printLine(Object line) => (logPrint ?? defaultPrint)(
+    redactApiKey('$line', apiKey: apiKeyManager.apiKey),
+  );
   return LogInterceptor(
+    requestHeader: false,
     requestBody: true,
     responseBody: false,
     error: true,

@@ -63,10 +63,15 @@ final class SettingsController {
   }
 
   /// Persists blocked tags as a normalized set.
+  ///
+  /// The write goes through the repository, which owns the content policy: it
+  /// skips an unchanged set and bumps the policy revision otherwise, so live
+  /// feeds restart exactly once per real change. Writing the store directly
+  /// would persist the choice but leave every mounted feed on the old one.
   void setBlockedTags(Set<String> value) {
     final normalized = value.map(_normalizeTag).where((s) => s.isNotEmpty).toSet();
-    _store.blockedTags = normalized;
-    blockedTags.set(_store.blockedTags);
+    _repository.setBlockedTags(normalized);
+    blockedTags.set(_repository.blockedTags);
   }
 
   /// Parses raw multiline/comma-separated input and persists the result.
@@ -100,7 +105,9 @@ final class SettingsController {
   /// ask for it unauthenticated.
   Future<void> removeApiKey() async {
     await _repository.removeApiKey();
-    if (nsfwEnabled.value) setNsfwEnabled(false);
+    // The repository already force-disabled the stored preference, in the same
+    // step as removing the key: mirror it here without a second write.
+    nsfwEnabled.set(false);
     hasApiKey.set(false);
   }
 }

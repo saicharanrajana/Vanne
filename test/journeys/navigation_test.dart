@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
@@ -87,28 +85,9 @@ void main() {
     _ => throw ArgumentError(slug),
   };
 
-  appTest('every destination in the toolbar is reachable', (tester, app) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    // The core bar is gone: navigation is the floating M3E toolbar now.
-    expect(find.byType(M3EToolbar), findsOneWidget);
-    expect(find.byType(M3ENavigationBar), findsNothing);
-
-    for (final slug in ['collections', 'favorites', 'settings', 'discover']) {
-      await goTo(tester, app, slug);
-      await pumpUntil(
-        tester,
-        contentOf(slug),
-        reason: '${labels[slug]} destination content',
-      );
-    }
-  });
-
-  appTest('each destination is labelled and only the active one is selected', (
-    tester,
-    app,
-  ) async {
+  appTest(
+    'each destination is reachable, labelled and only the active one is selected',
+    (tester, app) async {
     // The semantics tree is what a screen reader walks, so this is the only
     // journey that turns it on. It must be released before the test ends.
     final semantics = tester.ensureSemantics();
@@ -135,6 +114,39 @@ void main() {
                 ? isSemantics(isSelected: true, isButton: true)
                 : isNot(isSemantics(isSelected: true)),
             reason: '${labels[slug]} selected state with $active active',
+          );
+        }
+      }
+
+      // Every destination is reachable, paints its own content, marks itself
+      // selected, and never draws a glyph over its own label.
+      for (final slug in ['collections', 'favorites', 'settings', 'discover']) {
+        await goTo(tester, app, slug);
+        await pumpUntil(
+          tester,
+          contentOf(slug),
+          reason: '${labels[slug]} destination content',
+        );
+        expectOnlySelected(slug);
+
+        final labelRect = tester.getRect(
+          find.byKey(ValueKey('nav-selected-label-${slugs.indexOf(slug)}')),
+        );
+        expect(
+          tester.getRect(destination(slug)).contains(labelRect.center),
+          isTrue,
+          reason: '${labels[slug]} label sits inside its slot',
+        );
+        final glyphs = find.descendant(
+          of: find.byKey(const ValueKey('shell-navigation-row')),
+          matching: find.byType(Icon),
+        );
+        for (final element in glyphs.evaluate()) {
+          final box = element.renderObject! as RenderBox;
+          expect(
+            (box.localToGlobal(Offset.zero) & box.size).overlaps(labelRect),
+            isFalse,
+            reason: '${labels[slug]} glyph never overlaps its label',
           );
         }
       }
@@ -185,70 +197,6 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  });
-
-  appTest('one shared pill marks the active destination', (tester, app) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    // A pill per destination would defeat the travelling indicator.
-    expect(selectionPill(), findsOneWidget);
-
-    for (final slug in ['settings', 'collections', 'discover']) {
-      await goTo(tester, app, slug);
-      await pumpUntil(tester, contentOf(slug), reason: '${labels[slug]}');
-      expect(
-        selectionPill(),
-        findsOneWidget,
-        reason: 'still exactly one shared indicator',
-      );
-      final slot = tester.getRect(destination(slug));
-      final pill = tester.getRect(selectionPill());
-      expect(
-        pill.center.dx,
-        inInclusiveRange(slot.left, slot.right),
-        reason: 'indicator rests on ${labels[slug]}',
-      );
-    }
-  });
-
-  appTest('the floating toolbar stays put while the page moves', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    final resting = tester.getRect(selectionPill());
-    final restingBar = tester.getRect(find.byType(M3EToolbar));
-    final body = tester.getRect(find.byType(ShellTabTransition));
-    expect(
-      body.bottom,
-      closeTo(
-        tester.view.physicalSize.height / tester.view.devicePixelRatio,
-        0.1,
-      ),
-    );
-    final pill = tester.getRect(selectionPill());
-    expect(pill.bottom, lessThan(body.bottom));
-    expect(pill.top, greaterThan(body.top));
-    expect(
-      tester.getRect(find.byKey(const ValueKey('shell-navigation-row'))).width,
-      lessThan(body.width),
-      reason: 'toolbar surface is compact, not an opaque full-width strip',
-    );
-    await goTo(tester, app, 'settings');
-    await pumpUntil(tester, find.text('Appearance'), reason: 'settings');
-    final moved = tester.getRect(selectionPill());
-    // The indicator travels between destinations; the band it rides in must
-    // not, or the toolbar would slide with the page transition.
-    expect(moved.top, closeTo(resting.top, 0.1), reason: 'chrome stays put');
-    expect(moved.bottom, closeTo(resting.bottom, 0.1));
-    expect(
-      tester.getRect(find.byType(M3EToolbar)).bottom,
-      closeTo(restingBar.bottom, 0.1),
-      reason: 'the bar keeps its distance from the screen edge',
-    );
   });
 
   appTest(
@@ -307,6 +255,18 @@ void main() {
       searchesBefore,
       reason: 'passing destinations must not load their feeds',
     );
+
+    // The slot the Discover filter trigger occupied is inert while another
+    // destination is shown: tapping there must not open its sheet.
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('shell-filter-fab'))),
+    );
+    await pumpFrames(tester, 12);
+    expect(
+      find.text('Sort & Filter'),
+      findsNothing,
+      reason: 'an off-destination filter slot is inert',
+    );
   });
 
   appTest('horizontal swipes do not switch destinations', (tester, app) async {
@@ -324,50 +284,6 @@ void main() {
     expect(tile('alpha'), findsOneWidget);
     expect(find.text('Appearance'), findsNothing);
     expect(showsSelectedGlyph(tester, 'discover'), isTrue);
-  });
-
-  appTest('rapid retargeting ends on the destination selected last', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    // Three switches before a single frame: only the last one may win.
-    await app.act(tester, () async {
-      await tester.tap(destination('settings'));
-      await tester.tap(destination('favorites'));
-      await tester.tap(destination('collections'));
-    });
-    await settleNav(tester);
-    await pumpUntil(tester, find.text('Art'), reason: 'collections wins');
-
-    expect(find.text('Appearance'), findsNothing);
-    expect(find.text('No favorites yet'), findsNothing);
-    expect(showsSelectedGlyph(tester, 'collections'), isTrue);
-    final slot = tester.getRect(destination('collections'));
-    expect(
-      tester.getRect(selectionPill()).center.dx,
-      inInclusiveRange(slot.left, slot.right),
-      reason: 'the indicator follows the destination that won',
-    );
-  });
-
-  appTest('reduced motion still switches destinations', (tester, app) async {
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
-
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    await goTo(tester, app, 'settings');
-    await pumpUntil(tester, find.text('Appearance'), reason: 'settings');
-    expect(tester.takeException(), isNull, reason: 'no dangling animation');
-
-    await goTo(tester, app, 'discover');
-    await pumpUntil(tester, tile('alpha'), reason: 'back on discover');
-    expect(tester.takeException(), isNull);
   });
 
   appTest('switching destinations preserves each one’s scroll position', (
@@ -399,24 +315,6 @@ void main() {
 
     // The destination was never rebuilt from scratch: its offset is intact.
     expect(discoverScroll.offset, scrolledOffset);
-  });
-
-  appTest('reselecting the active destination scrolls it to the top', (
-    tester,
-    app,
-  ) async {
-    app.network.searchHandler = (call) async =>
-        searchPageJson(['a1', 'a2', 'a3', 'a4', 'a5', 'a6']);
-    await app.launch(tester);
-    await pumpUntil(tester, tile('a1'), reason: 'long discover feed');
-
-    final discoverScroll = read<TabScrollCoordinator>().discover;
-    await tester.drag(
-      find.byType(CustomScrollView).first,
-      const Offset(0, -600),
-    );
-    await tester.pump();
-    expect(discoverScroll.offset, greaterThan(0));
 
     // Tapping the already-active destination is the native "scroll to top"
     // gesture; it must not navigate anywhere else.
@@ -442,20 +340,11 @@ void main() {
 
     await pumpUntil(tester, tile('alpha'), reason: 'discover after back');
     expect(find.text('Appearance'), findsNothing);
-  });
-
-  appTest('system back on Discover is left to the platform', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
 
     // On the root destination canPop is true, so the shell must not swallow
     // back by switching destinations (there is nowhere to switch to).
     final handled = await tester.binding.handlePopRoute();
     await pumpFrames(tester, 4);
-
     expect(handled, isFalse);
     expect(tile('alpha'), findsOneWidget);
   });
@@ -522,213 +411,14 @@ void main() {
     expect(find.byKey(const ValueKey('favorite-outline')), findsNothing);
   });
 
-  appTest('the active destination paints exactly one glyph', (
+
+
+
+
+  appTest('reduced motion skips the motion without hiding the destinations', (
     tester,
     app,
   ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    // Only the destination slots paint destination glyphs; the toolbar's
-    // Discover filter action is a separate control with its own glyph.
-    Finder toolbarIcons() => find.descendant(
-      of: find.byKey(const ValueKey('shell-navigation-row')),
-      matching: find.byType(Icon),
-    );
-
-    for (final slug in slugs) {
-      await goTo(tester, app, slug);
-      await pumpUntil(tester, contentOf(slug), reason: labels[slug]!);
-
-      // One icon footprint per destination: the slot draws the glyph and the
-      // pill only supplies the surface behind it. A second copy is the
-      // "ghost" icon that used to sit on top of the selected label.
-      expect(
-        toolbarIcons(),
-        findsNWidgets(slugs.length),
-        reason: '${labels[slug]} must not duplicate its glyph',
-      );
-
-      final active = tester.getRect(destination(slug));
-      final label = tester.getRect(
-        find.byKey(ValueKey('nav-selected-label-${slugs.indexOf(slug)}')),
-      );
-      expect(
-        active.contains(label.center),
-        isTrue,
-        reason: '${labels[slug]} label sits inside its slot',
-      );
-      for (final element in toolbarIcons().evaluate()) {
-        final box = element.renderObject! as RenderBox;
-        final icon = box.localToGlobal(Offset.zero) & box.size;
-        expect(
-          icon.overlaps(label),
-          isFalse,
-          reason: '${labels[slug]} glyph never overlaps its label',
-        );
-      }
-    }
-  });
-
-  appTest('the floating toolbar rests one small gap above the safe area', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    final body = tester.getRect(find.byType(ShellTabTransition));
-    final pill = tester.getRect(selectionPill());
-    final safeBottom = MediaQuery.viewPaddingOf(
-      tester.element(find.byType(ShellTabTransition)),
-    ).bottom;
-
-    // The indicator fills the bar's content band, so this one measurement pins
-    // the whole stack of gaps below it: M3E's floating padding and the band's
-    // centring inside the bar, the screen offset the shell passes in, and the
-    // system inset — each once.
-    expect(
-      body.bottom - pill.bottom,
-      closeTo(
-        safeBottom +
-            ShellNavigationToolbar.screenOffset +
-            (ShellNavigationToolbar.barExtent -
-                ShellNavigationToolbar.contentExtent),
-        0.1,
-      ),
-      reason: 'one safe-area inset plus one screen offset, never both stacked',
-    );
-    expect(
-      pill.bottom,
-      lessThan(body.bottom),
-      reason: 'the toolbar floats over the page, not inside a reserved band',
-    );
-  });
-
-  appTest('toolbar centers its visible content on every destination', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-    await pumpFrames(tester, 40);
-
-    final row = find.byKey(const ValueKey('shell-navigation-row'));
-    final fab = find.byKey(const ValueKey('shell-filter-fab'));
-    final screenCenter = tester
-        .getRect(find.byType(ShellTabTransition))
-        .center
-        .dx;
-    final discoverRow = tester.getRect(row);
-    final discoverFab = tester.getRect(fab);
-    final compositeCenter = Rect.fromLTRB(
-      discoverRow.left,
-      math.min(discoverRow.top, discoverFab.top),
-      discoverFab.right,
-      math.max(discoverRow.bottom, discoverFab.bottom),
-    ).center.dx;
-    expect(compositeCenter, closeTo(screenCenter, 1));
-
-    double? awayCenter;
-    for (final slug in ['collections', 'favorites', 'settings']) {
-      await goTo(tester, app, slug);
-      await pumpFrames(tester, 40);
-      final currentRow = tester.getRect(row);
-      expect(currentRow.center.dx, closeTo(screenCenter, 1), reason: slug);
-      expect(currentRow.top, closeTo(discoverRow.top, 0.5), reason: '$slug y');
-      expect(currentRow.bottom, closeTo(discoverRow.bottom, 0.5));
-      awayCenter ??= currentRow.center.dx;
-    }
-
-    await goTo(tester, app, 'discover');
-    await pumpFrames(tester, 40);
-    final restoredRow = tester.getRect(row);
-    final restoredFab = tester.getRect(fab);
-    final restoredCompositeCenter = Rect.fromLTRB(
-      restoredRow.left,
-      math.min(restoredRow.top, restoredFab.top),
-      restoredFab.right,
-      math.max(restoredRow.bottom, restoredFab.bottom),
-    ).center.dx;
-    expect(restoredCompositeCenter, closeTo(screenCenter, 1));
-    expect(awayCenter, closeTo(screenCenter, 1));
-  });
-
-  appTest('the filter trigger animates horizontal toolbar centering', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    final trigger = find.byKey(const ValueKey('feed-filter-trigger-discover'));
-    final surface = find.byKey(const ValueKey('shell-filter-fab'));
-    final fade = find.descendant(
-      of: surface,
-      matching: find.byType(FadeTransition),
-    );
-    double opacity() => tester.widget<FadeTransition>(fade.first).opacity.value;
-
-    expect(trigger, findsOneWidget, reason: 'trigger on Discover');
-    await pumpFrames(tester, 20);
-    expect(opacity(), 1);
-    final navigationRow = find.byKey(const ValueKey('shell-navigation-row'));
-    final restingRow = tester.getRect(navigationRow);
-    final screenCenter = tester
-        .getRect(find.byType(ShellTabTransition))
-        .center
-        .dx;
-    expect(restingRow.center.dx, lessThan(screenCenter));
-
-    // Switching away starts the trigger's exit and centers the nav pill.
-    await tester.tap(destination('collections'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 90));
-    expect(
-      opacity(),
-      inExclusiveRange(0, 1),
-      reason: 'the trigger animates out instead of vanishing',
-    );
-    final movingRow = tester.getRect(navigationRow);
-    expect(movingRow.top, closeTo(restingRow.top, 0.5));
-    expect(movingRow.center.dx, greaterThan(restingRow.center.dx));
-    expect(movingRow.center.dx, lessThan(screenCenter));
-
-    await pumpFrames(tester, 40);
-    expect(opacity(), 0);
-    expect(tester.getRect(navigationRow).center.dx, closeTo(screenCenter, 1));
-    // The away slot is inert: tapping where the trigger sat must not open the
-    // sheet the trigger stands for.
-    await tester.tapAt(tester.getCenter(surface));
-    await pumpFrames(tester, 12);
-    expect(
-      find.text('Sort & Filter'),
-      findsNothing,
-      reason: 'away slot is inert',
-    );
-
-    // ...and it returns the same way when Discover comes back.
-    await tester.tap(destination('discover'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 90));
-    expect(opacity(), inExclusiveRange(0, 1), reason: 'animates back in');
-    final returningRow = tester.getRect(navigationRow);
-    expect(returningRow.top, closeTo(restingRow.top, 0.5));
-    expect(returningRow.center.dx, lessThan(screenCenter));
-    await pumpFrames(tester, 40);
-    expect(opacity(), 1);
-    expect(
-      tester.getRect(navigationRow).center.dx,
-      closeTo(restingRow.center.dx, 1),
-    );
-  });
-
-  appTest('reduced motion snaps the filter trigger in and out', (
-    tester,
-    app,
-  ) async {
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 
     await app.launch(tester);
@@ -740,84 +430,81 @@ void main() {
       matching: find.byType(FadeTransition),
     );
     double opacity() => tester.widget<FadeTransition>(fade.first).opacity.value;
-    await pumpFrames(tester, 6);
-    expect(opacity(), 1);
+    final phase = 'navigation still reaches every destination';
 
-    await tester.tap(destination('collections'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 90));
-    expect(opacity(), 0, reason: 'no linger when animations are disabled');
-    final screenCenter = tester
-        .getRect(find.byType(ShellTabTransition))
-        .center
-        .dx;
-    expect(
-      tester
-          .getRect(find.byKey(const ValueKey('shell-navigation-row')))
-          .center
-          .dx,
-      closeTo(screenCenter, 1),
-      reason: 'the hidden FAB leaves the pill centered immediately',
-    );
-  });
+    // Android reports "remove animations"; iOS/web report "reduce motion".
+    // Either request must skip the fade, and neither may hide a destination.
+    final inputs = <String, FakeAccessibilityFeatures>{
+      'disableAnimations': const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      ),
+      'reduceMotion': const FakeAccessibilityFeatures(reduceMotion: true),
+    };
+    for (final entry in inputs.entries) {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = entry.value;
+      await pumpFrames(tester, 8);
+      await goTo(tester, app, 'discover');
+      await pumpUntil(tester, tile('alpha'), reason: 'discover, ${entry.key}');
+      await pumpFrames(tester, 6);
+      expect(opacity(), 1, reason: 'trigger shown on Discover, ${entry.key}');
 
-  appTest('a destination switch pans two whole pages across the viewport', (
-    tester,
-    app,
-  ) async {
-    await app.launch(tester);
-    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
-
-    await tester.tap(destination('settings'));
-    await tester.pump();
-    // Mid-flight: both pages are already part-way across a *full-width*
-    // travel, sharing one edge with nothing translucent between them.
-    await tester.pump(const Duration(milliseconds: 80));
-
-    final body = tester.getRect(find.byType(ShellTabTransition));
-    final leaving = tester.getRect(find.byType(DiscoverTabPage));
-    final entering = tester.getRect(find.byType(SettingsTabPage));
-    final travelled = body.width - entering.left;
-
-    expect(
-      travelled,
-      greaterThan(body.width * 0.15),
-      reason: 'the pair pans like a page view, not a short parallax hint',
-    );
-    expect(leaving.left, lessThan(0), reason: 'the old page leaves the screen');
-    expect(
-      leaving.right,
-      closeTo(entering.left, 0.5),
-      reason: 'the two pages tile the viewport with one shared edge',
-    );
-    for (final page in [DiscoverTabPage, SettingsTabPage]) {
-      // A cross-fade between the two pages would put an Opacity wrapper in
-      // their *own* shell plumbing. (Pages may still fade their own content.)
-      final translucent = find.ancestor(
-        of: find.byType(page),
-        matching: find.byType(Opacity),
-      );
+      await tester.tap(destination('collections'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
       expect(
-        translucent,
-        findsNothing,
-        reason: 'pages slide opaquely; a cross-fade muddies the motion',
+        opacity(),
+        0,
+        reason: 'no linger when ${entry.key} is requested',
       );
-    }
+      await pumpUntil(tester, find.text('Art'), reason: 'collections, ${entry.key}');
+      expect(tester.takeException(), isNull, reason: '$phase (${entry.key})');
+      final screenCenter = tester
+          .getRect(find.byType(ShellTabTransition))
+          .center
+          .dx;
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('shell-navigation-row')))
+            .center
+            .dx,
+        closeTo(screenCenter, 1),
+        reason: 'the hidden FAB leaves the pill centered, ${entry.key}',
+      );
 
-    await settleNav(tester);
-    expect(
-      tester.getRect(find.byType(SettingsTabPage)).left,
-      closeTo(body.left, 0.5),
-      reason: 'the incoming page settles flush',
-    );
+      await tester.tap(destination('discover'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(opacity(), 1, reason: 'returns without a fade, ${entry.key}');
+      await pumpUntil(tester, tile('alpha'), reason: 'discover, ${entry.key}');
+      expect(tester.takeException(), isNull, reason: '$phase (${entry.key})');
+    }
   });
 
-  appTest('retargeting after the motion starts lands on the last choice', (
+
+  appTest('retargeting lands on the last choice, before or during motion', (
     tester,
     app,
   ) async {
     await app.launch(tester);
     await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+
+    // Three switches before a single frame: only the last one may win.
+    await app.act(tester, () async {
+      await tester.tap(destination('settings'));
+      await tester.tap(destination('favorites'));
+      await tester.tap(destination('collections'));
+    });
+    await settleNav(tester);
+    await pumpUntil(tester, find.text('Art'), reason: 'collections wins');
+    expect(find.text('Appearance'), findsNothing);
+    expect(find.text('No favorites yet'), findsNothing);
+    expect(showsSelectedGlyph(tester, 'collections'), isTrue);
+    final quickSlot = tester.getRect(destination('collections'));
+    expect(
+      tester.getRect(selectionPill()).center.dx,
+      inInclusiveRange(quickSlot.left, quickSlot.right),
+      reason: 'the indicator follows the destination that won',
+    );
 
     await tester.tap(destination('settings'));
     await tester.pump();

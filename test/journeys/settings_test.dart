@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,6 +10,7 @@ import 'package:vanne/core/downloads/download_destination.dart';
 import 'package:vanne/core/security/api_key_store.dart';
 import 'package:vanne/core/storage/settings_store.dart' show AppThemeMode;
 
+import '../support/fixtures.dart';
 import '../support/test_app.dart';
 
 /// Settings owns durable user choices (theme, content policy, API key,
@@ -20,6 +23,9 @@ void main() {
   Finder tabLabel(String slug) => shellDestination(slug);
 
   Finder backButton() => find.byIcon(PhosphorIconsBold.arrowLeft);
+
+  /// One wallpaper tile in the feed, by fixture id.
+  Finder tile(String id) => find.byKey(ValueKey('wallpaper-tile-$id'));
 
   /// Opens the Settings destination and waits for its first section.
   Future<void> openSettings(WidgetTester tester) async {
@@ -45,12 +51,133 @@ void main() {
     }
   }
 
-  appTest('appearance choices survive a restart', (tester, app) async {
+  /// Opens Blocked tags from Settings and waits for its editor.
+  Future<void> openBlockedTags(WidgetTester tester) async {
+    await reveal(tester, find.text('Blocked tags'));
+    await tester.tap(find.text('Blocked tags'));
+    await pumpUntil(
+      tester,
+      find.textContaining('Hide wallpapers containing these tags'),
+      reason: 'blocked tags screen',
+    );
+  }
+
+  appTest('theme selector is aligned, icon-only, and accessible', (
+    tester,
+    app,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 800);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     await app.launch(tester);
     await openSettings(tester);
 
+    expect(
+      find.text('Choose how Vanne follows your device appearance.'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('System theme'), findsOneWidget);
+    expect(find.byTooltip('Light theme'), findsOneWidget);
+    expect(find.byTooltip('Dark theme'), findsOneWidget);
+    expect(find.text('Auto'), findsNothing);
+    expect(find.text('Light'), findsNothing);
+    expect(find.text('Dark'), findsNothing);
+
+    final themeCard = find.ancestor(
+      of: find.text('Theme'),
+      matching: find.byType(M3ECard),
+    );
+    final themeSurface = tester.widget<M3ECard>(themeCard);
+    expect(themeSurface.color, Colors.transparent);
+    expect(themeSurface.elevation, 0);
+
+    final selector = find.byType(M3ESegmentedButton<AppThemeMode>);
+    expect(selector, findsOneWidget);
+    final selectorRect = tester.getRect(selector);
+    final leadingRect = tester.getRect(
+      find.byIcon(PhosphorIconsFill.sun).first,
+    );
+    expect(selectorRect.left, greaterThan(leadingRect.right));
+
+    TextStyle styleOf(String label) =>
+        tester.widget<Text>(find.text(label)).style!;
+    expect(
+      styleOf('Theme'),
+      styleOf('Use dynamic color'),
+      reason: 'Theme title must match an ordinary M3E list-row headline.',
+    );
+    expect(
+      styleOf('Choose how Vanne follows your device appearance.'),
+      styleOf('Match app colors to your wallpaper.'),
+      reason: 'Theme subtitle must match an ordinary M3E supporting line.',
+    );
+
+    Finder segmentIcon(IconData icon) =>
+        find.descendant(of: selector, matching: find.byIcon(icon));
+    expect(segmentIcon(PhosphorIconsFill.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.sun), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.moon), findsOneWidget);
+
+    await app.persistTap(tester, find.byTooltip('Light theme'));
+    expect(app.settings.themeMode.value, AppThemeMode.light);
+    expect(segmentIcon(PhosphorIconsFill.sun), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.moon), findsOneWidget);
+
+    await app.persistTap(tester, find.byTooltip('Dark theme'));
+    expect(app.settings.themeMode.value, AppThemeMode.dark);
+    expect(segmentIcon(PhosphorIconsFill.moon), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.sun), findsOneWidget);
+
+    await app.persistTap(tester, find.byTooltip('System theme'));
+    expect(app.settings.themeMode.value, AppThemeMode.system);
+    expect(segmentIcon(PhosphorIconsFill.deviceMobile), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.sun), findsOneWidget);
+    expect(segmentIcon(PhosphorIconsRegular.moon), findsOneWidget);
+
+    await reveal(tester, find.text('Downloads'));
+    expect(
+      styleOf('Downloads'),
+      styleOf('Use dynamic color'),
+      reason: 'Downloads title must match an ordinary M3E list-row headline.',
+    );
+    expect(
+      styleOf('Pictures/VanneWallpapers'),
+      styleOf('Match app colors to your wallpaper.'),
+      reason: 'Downloads detail must use M3E supporting-line typography.',
+    );
+    expect(
+      styleOf('Tap to change the downloads location'),
+      styleOf('Match app colors to your wallpaper.'),
+      reason: 'Downloads hint must use M3E supporting-line typography.',
+    );
+    final downloadsCard = find.ancestor(
+      of: find.text('Downloads'),
+      matching: find.byType(M3ECard),
+    );
+    final downloadsSurface = tester.widget<M3ECard>(downloadsCard);
+    expect(downloadsSurface.color, Colors.transparent);
+    expect(downloadsSurface.elevation, 0);
+
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('System theme'), findsOneWidget);
+    expect(find.bySemanticsLabel('Light theme'), findsOneWidget);
+    expect(find.bySemanticsLabel('Dark theme'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  appTest('appearance choices survive a restart', (tester, app) async {
+    await app.launch(tester);
+    await pumpUntil(tester, tile('alpha'), reason: 'discover feed');
+    // Theme choices cannot change what the API may return, so the retained
+    // feed must not spend a request on them.
+    final feedRequests = app.network.searches.length;
+
+    await openSettings(tester);
+
     // Each row's title toggles its switch, exactly like tapping the row.
-    await app.persistTap(tester, find.text('Dark'));
+    await app.persistTap(tester, find.byTooltip('Dark theme'));
     await reveal(tester, find.text('Pitch black mode'));
     await app.persistTap(tester, find.text('Pitch black mode'));
     await reveal(tester, find.text('Use dynamic color'));
@@ -63,6 +190,11 @@ void main() {
     expect(
       Theme.of(tester.element(find.text('Appearance'))).brightness,
       Brightness.dark,
+    );
+    expect(
+      app.network.searches,
+      hasLength(feedRequests),
+      reason: 'appearance does not change what the API may return',
     );
 
     await app.restart(tester);
@@ -149,62 +281,12 @@ void main() {
       () => app.network.searches.isNotEmpty,
       reason: 'discover request after restart',
     );
-    // Wallhaven omits `purity` only when every purity is allowed, so an
-    // empty value proves NSFW was not clamped back to SFW.
-    expect(app.network.searches.last.purity, isEmpty);
+    // Every purity is requested as the explicit `sfw|sketchy|nsfw` bitfield,
+    // so this proves NSFW survived the restart instead of being clamped back
+    // to SFW.
+    expect(app.network.searches.last.purity, '111');
   });
 
-  appTest(
-    'removing the API key disables NSFW access',
-    (tester, app) async {
-      await app.launch(tester);
-      expect(app.settings.hasApiKey.value, isTrue);
-      await openSettings(tester);
-
-      // NSFW is usable while the key exists.
-      await reveal(tester, find.text('Show NSFW wallpapers'));
-      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
-      expect(app.settings.nsfwEnabled.value, isTrue);
-
-      await reveal(tester, find.text('API key'));
-      await app.tap(tester, find.text('API key'));
-      await pumpUntil(
-        tester,
-        find.text('A key is configured on this device.'),
-        reason: 'configured key',
-      );
-
-      // Cancelling the confirmation keeps the key.
-      await app.persistTap(tester, find.text('Remove key'));
-      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
-      expect(
-        find.text(
-          'NSFW access will be disabled until another key is configured.',
-        ),
-        findsOneWidget,
-      );
-      await app.persistTap(tester, find.text('Cancel'));
-      await pumpFrames(tester, 6);
-      expect(app.settings.hasApiKey.value, isTrue);
-
-      // Confirming removal destroys the key and forces NSFW off.
-      await reveal(tester, find.text('Remove key'));
-      await app.persistTap(tester, find.text('Remove key'));
-      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
-      await app.persistTap(tester, find.text('Remove'));
-      await pumpFrames(tester, 8);
-
-      expect(app.settings.hasApiKey.value, isFalse);
-      expect(app.repository.isAuthenticated, isFalse);
-      // ...and NSFW is forced off so the app never requests it unauthenticated.
-      expect(app.settings.nsfwEnabled.value, isFalse);
-      expect(app.settingsStore.nsfwEnabled, isFalse);
-      expect(app.secureStorage, isEmpty);
-    },
-    // A key restored from secure storage at launch, like an installed user.
-    create: () =>
-        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
-  );
 
   appTest('blocked tags are normalized and sent as exclusions', (
     tester,
@@ -225,6 +307,20 @@ void main() {
     await app.persistTap(tester, find.text('Save'));
     await pumpFrames(tester, 8);
     expect(app.settings.blockedTags.value, {'anime', 'ai-generated'});
+
+    // The same set in a different spelling normalizes to the same policy, so
+    // saving it again must not spend a request on the retained feed.
+    final afterFirstSave = app.network.searches.length;
+    await openBlockedTags(tester);
+    await app.enterText(tester, find.byType(TextField), '  ANIME , AI-Generated ');
+    await app.persistTap(tester, find.text('Save'));
+    await app.settle(tester);
+    expect(app.settings.blockedTags.value, {'anime', 'ai-generated'});
+    expect(
+      app.network.searches.length,
+      afterFirstSave,
+      reason: 'an unchanged policy is not a change',
+    );
 
     // Exclusions apply to the next request, not only after a restart.
     await app.tap(tester, backButton());
@@ -319,4 +415,252 @@ void main() {
     );
     expect(app.destination.access.value, DestinationAccess.lost);
   });
+
+  // Purity, blocked tags and the API key are read fresh by every request, so a
+  // feed that is already on screen is stale as soon as one of them changes.
+  // Discover is retained across tab switches, which is exactly the situation
+  // where old-policy results used to stay visible.
+  appTest(
+    'content policy changes refresh the retained Discover feed',
+    (tester, app) async {
+      // Answers are chosen by the purity the app actually sent, so a page can
+      // never be attributed to the wrong policy: `100` is SFW only and `111`
+      // allows every purity. A tile that survives a change is a stale result.
+      app.network.searchHandler = (call) async => switch (call.purity) {
+        '111' => searchPageJson(const ['unlocked']),
+        _ => searchPageJson(const ['plain', 'beta']),
+      };
+
+      await app.launch(tester);
+      await pumpUntil(tester, tile('plain'), reason: 'discover feed');
+      expect(
+        app.network.searches.last.purity,
+        '100',
+        reason: 'a locked feed asks for SFW only',
+      );
+
+      await openSettings(tester);
+      await reveal(tester, find.text('Show NSFW wallpapers'));
+      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length >= 2,
+        reason: 'discover refetch after unlocking NSFW',
+      );
+      final unlocked = app.network.searches.last;
+      expect(unlocked.page, 1, reason: 'pagination restarts at page 1');
+      expect(
+        unlocked.purity,
+        '111',
+        reason: 'an unlocked, NSFW-enabled feed asks for every purity',
+      );
+
+      // The retained Discover tab shows the new page instead of the old one.
+      await app.tap(tester, tabLabel('discover'));
+      await pumpFrames(tester, 8);
+      await pumpUntil(tester, tile('unlocked'), reason: 'refetched feed');
+      expect(
+        tile('plain'),
+        findsNothing,
+        reason: 'old-policy results are dropped, not left in the grid',
+      );
+
+      // Disabling NSFW again must bring the feed back under SFW.
+      await app.tap(tester, tabLabel('settings'));
+      await pumpFrames(tester, 8);
+      await reveal(tester, find.text('Show NSFW wallpapers'));
+      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length >= 3,
+        reason: 'discover refetch after disabling NSFW',
+      );
+      expect(
+        app.network.searches.last.purity,
+        '100',
+        reason: 'a disabled preference goes back to SFW only',
+      );
+
+      await app.tap(tester, tabLabel('discover'));
+      await pumpFrames(tester, 8);
+      await pumpUntil(tester, tile('beta'), reason: 'feed back under SFW');
+      expect(tile('plain'), findsOneWidget);
+      expect(
+        tile('unlocked'),
+        findsNothing,
+        reason: 'the unlocked page cannot survive the change back to SFW',
+      );
+    },
+    // A configured key, like an installed user who already authenticated.
+    create: () =>
+        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
+  );
+
+  appTest(
+    'removing the API key refreshes the retained feed under SFW',
+    (tester, app) async {
+      app.network.searchHandler = (call) async => switch (call.purity) {
+        '111' => searchPageJson(const ['unlocked']),
+        _ => searchPageJson(const ['plain']),
+      };
+
+      await app.launch(tester);
+      await pumpUntil(tester, tile('plain'), reason: 'discover feed');
+      expect(app.network.searches.last.purity, '100', reason: 'SFW only');
+
+      await openSettings(tester);
+      await reveal(tester, find.text('Show NSFW wallpapers'));
+      await app.persistTap(tester, find.text('Show NSFW wallpapers'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length >= 2,
+        reason: 'unlocked feed',
+      );
+      expect(app.settings.nsfwEnabled.value, isTrue);
+
+      final beforeRemoval = app.network.searches.length;
+      await reveal(tester, find.text('API key'));
+      await app.tap(tester, find.text('API key'));
+      await pumpUntil(
+        tester,
+        find.text('A key is configured on this device.'),
+        reason: 'configured key',
+      );
+
+      // Cancelling the confirmation keeps the key, so the unlocked feed stays.
+      await app.persistTap(tester, find.text('Remove key'));
+      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
+      expect(
+        find.text(
+          'NSFW access will be disabled until another key is configured.',
+        ),
+        findsOneWidget,
+      );
+      await app.persistTap(tester, find.text('Cancel'));
+      await pumpFrames(tester, 6);
+      expect(app.settings.hasApiKey.value, isTrue);
+
+      await reveal(tester, find.text('Remove key'));
+      await app.persistTap(tester, find.text('Remove key'));
+      await pumpUntil(tester, find.text('Remove API key?'), reason: 'confirm');
+      await app.persistTap(tester, find.text('Remove'));
+      await app.settleUntil(
+        tester,
+        () => app.network.searches.length > beforeRemoval,
+        reason: 'discover refetch after removal',
+      );
+
+      // Removing the key disables NSFW in the same step, so the retained feed
+      // restarts once — already under SFW — instead of twice.
+      expect(app.settings.hasApiKey.value, isFalse);
+      expect(app.repository.isAuthenticated, isFalse);
+      expect(app.settings.nsfwEnabled.value, isFalse);
+      expect(app.settingsStore.nsfwEnabled, isFalse);
+      expect(app.secureStorage, isEmpty);
+      expect(
+        app.network.searches.last.purity,
+        '100',
+        reason: 'the refetch asks for SFW only, never the unlocked set',
+      );
+      expect(
+        app.network.searches.length,
+        beforeRemoval + 1,
+        reason: 'one policy event means one refetch',
+      );
+
+      // Removing a key keeps the user on the key screen; back to the shell.
+      await app.tap(tester, backButton());
+      await pumpFrames(tester, 8);
+      await app.tap(tester, tabLabel('discover'));
+      await pumpFrames(tester, 8);
+      await pumpUntil(tester, tile('plain'), reason: 'feed under SFW');
+      expect(
+        tile('unlocked'),
+        findsNothing,
+        reason: 'items loaded with the key are no longer shown',
+      );
+    },
+    create: () =>
+        TestApp(secureStorage: {SecureApiKeyStore.storageKey: 'stored-key'}),
+  );
+
+  appTest('saving a blocked tag restarts a partly scrolled Discover feed', (
+    tester,
+    app,
+  ) async {
+    // Page 2 is held open so the policy can change while it is in flight.
+    final stalePage = Completer<Map<String, dynamic>>();
+    app.network.searchHandler = (call) {
+      if (call.excludedTags.contains('anime')) {
+        return Future.value(
+          searchPageJson(const ['filtered'], currentPage: 1, lastPage: 1),
+        );
+      }
+      if (call.page == 2) return stalePage.future;
+      return Future.value(
+        searchPageJson(
+          const ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8'],
+          currentPage: 1,
+          lastPage: 2,
+        ),
+      );
+    };
+
+    await app.launch(tester);
+    await pumpUntil(tester, tile('a1'), reason: 'discover feed');
+
+    // A user who has already paged into the feed.
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -2000),
+    );
+    await pumpFrames(tester, 10, const Duration(milliseconds: 100));
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.any((call) => call.page == 2),
+      reason: 'second discover page',
+    );
+
+    await openSettings(tester);
+    await openBlockedTags(tester);
+    await app.enterText(tester, find.byType(TextField), 'anime');
+    await app.persistTap(tester, find.text('Save'));
+    await app.settleUntil(
+      tester,
+      () => app.network.searches.last.excludedTags.contains('anime'),
+      reason: 'discover refetch with the new exclusion',
+    );
+
+    final excluded = app.network.searches.last;
+    expect(excluded.page, 1, reason: 'exclusions restart pagination');
+    expect(excluded.query, '-anime', reason: 'the tag travels as a -tag token');
+
+    // The page fetched under the old policy arrives last and must be dropped.
+    await tester.runAsync(() async {
+      stalePage.complete(
+        searchPageJson(const ['stale'], currentPage: 2, lastPage: 2),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    await app.settle(tester);
+
+    // The editor is a pushed screen: the shell (and its destinations) is not
+    // reachable until it pops.
+    await app.tap(tester, backButton());
+    await pumpFrames(tester, 8);
+    await app.tap(tester, tabLabel('discover'));
+    await pumpFrames(tester, 8);
+    await pumpUntil(tester, tile('filtered'), reason: 'filtered feed');
+    expect(
+      tile('a1'),
+      findsNothing,
+      reason: 'results fetched before the exclusion are not shown',
+    );
+    expect(
+      tile('stale'),
+      findsNothing,
+      reason: 'a page fetched under the old policy never lands',
+    );
+  });
+
 }

@@ -6,6 +6,7 @@ import 'package:system_wallpaper/system_wallpaper.dart';
 ///
 /// These prove the Dart side forwards arguments and maps results correctly;
 /// they do not exercise MediaStore or the system folder picker on a device.
+/// Root widget journeys fake this platform object, so they cannot replace it.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -23,77 +24,68 @@ void main() {
   }
 
   group('saveDownload', () {
-    test('forwards the default destination without a tree URI', () async {
-      MethodCall? seen;
+    test('forwards the save command for both destinations', () async {
+      final calls = <MethodCall>[];
       stub((call) async {
-        seen = call;
+        calls.add(call);
         return <String, Object?>{'uri': 'content://media/1'};
       });
 
-      final result = await platform.saveDownload(
+      final defaultDestination = await platform.saveDownload(
         sourcePath: '/tmp/wall.jpg',
         folderName: 'WallpaperApp',
         mimeType: 'image/jpeg',
       );
-
-      expect(result, isA<DownloadSaveSuccess>());
-      expect((result as DownloadSaveSuccess).uri, 'content://media/1');
-      expect(seen!.method, 'downloads.save');
-      expect(seen!.arguments['path'], '/tmp/wall.jpg');
-      expect(seen!.arguments['folderName'], 'WallpaperApp');
-      expect(seen!.arguments['mimeType'], 'image/jpeg');
-      expect(seen!.arguments['treeUri'], isNull);
-    });
-
-    test('forwards a chosen tree URI', () async {
-      MethodCall? seen;
-      stub((call) async {
-        seen = call;
-        return <String, Object?>{'uri': 'content://tree/file'};
-      });
-
-      await platform.saveDownload(
+      final chosenDestination = await platform.saveDownload(
         sourcePath: '/tmp/wall.jpg',
         folderName: 'WallpaperApp',
         mimeType: 'image/png',
         treeUri: 'content://tree/parent',
       );
 
-      expect(seen!.arguments['treeUri'], 'content://tree/parent');
+      expect(defaultDestination, isA<DownloadSaveSuccess>());
+      expect(
+        (defaultDestination as DownloadSaveSuccess).uri,
+        'content://media/1',
+      );
+      expect(chosenDestination, isA<DownloadSaveSuccess>());
+
+      expect(calls, hasLength(2));
+      expect(calls[0].method, 'downloads.save');
+      expect(calls[0].arguments['path'], '/tmp/wall.jpg');
+      expect(calls[0].arguments['folderName'], 'WallpaperApp');
+      expect(calls[0].arguments['mimeType'], 'image/jpeg');
+      expect(calls[0].arguments['treeUri'], isNull);
+      expect(calls[1].arguments['mimeType'], 'image/png');
+      expect(calls[1].arguments['treeUri'], 'content://tree/parent');
     });
 
-    test('maps a revoked grant to noPermission', () async {
+    test('maps native save errors to distinct failure codes', () async {
       stub((call) async {
         throw PlatformException(code: 'noPermission', message: 'revoked');
       });
-
-      final result = await platform.saveDownload(
+      final revoked = await platform.saveDownload(
         sourcePath: '/tmp/wall.jpg',
         folderName: 'WallpaperApp',
         mimeType: 'image/jpeg',
         treeUri: 'content://tree/parent',
       );
-
       expect(
-        (result as DownloadSaveFailure).code,
+        (revoked as DownloadSaveFailure).code,
         DownloadSaveErrorCode.noPermission,
       );
-    });
 
-    test('maps a moved folder to destinationUnavailable', () async {
       stub((call) async {
         throw PlatformException(code: 'destinationUnavailable');
       });
-
-      final result = await platform.saveDownload(
+      final moved = await platform.saveDownload(
         sourcePath: '/tmp/wall.jpg',
         folderName: 'WallpaperApp',
         mimeType: 'image/jpeg',
         treeUri: 'content://tree/parent',
       );
-
       expect(
-        (result as DownloadSaveFailure).code,
+        (moved as DownloadSaveFailure).code,
         DownloadSaveErrorCode.destinationUnavailable,
       );
     });
@@ -141,59 +133,46 @@ void main() {
       expect(await platform.pickParent(), isA<ParentPickCanceled>());
     });
 
-    test('surfaces a busy picker instead of starting a second one', () async {
+    test('passes picker errors through with their codes', () async {
       stub((call) async {
         throw PlatformException(code: 'busy', message: 'already open');
       });
+      final busy = await platform.pickParent();
+      expect((busy as ParentPickFailure).code, 'busy');
 
-      final result = await platform.pickParent();
-
-      expect((result as ParentPickFailure).code, 'busy');
-    });
-
-    test('surfaces a read-only folder rejection', () async {
       stub((call) async {
         throw PlatformException(code: 'noWriteAccess');
       });
-
-      final result = await platform.pickParent();
-
-      expect((result as ParentPickFailure).code, 'noWriteAccess');
+      final readOnly = await platform.pickParent();
+      expect((readOnly as ParentPickFailure).code, 'noWriteAccess');
     });
   });
 
   group('checkParent', () {
-    test('reports the current label when the grant still works', () async {
+    test('distinguishes available, lost, and unknown grants', () async {
       stub(
         (call) async => <String, Object?>{
           'available': true,
           'label': 'Renamed family',
         },
       );
+      final available = await platform.checkParent('content://tree/family');
+      expect(available, isA<ParentAccessAvailable>());
+      expect((available as ParentAccessAvailable).label, 'Renamed family');
 
-      final result = await platform.checkParent('content://tree/family');
-
-      expect(result, isA<ParentAccessAvailable>());
-      expect((result as ParentAccessAvailable).label, 'Renamed family');
-    });
-
-    test('reports a lost grant', () async {
       stub((call) async => <String, Object?>{'available': false});
-
       expect(
         await platform.checkParent('content://tree/family'),
         isA<ParentAccessLost>(),
       );
-    });
 
-    test('keeps an unknown platform failure distinguishable', () async {
       stub((call) async {
         throw PlatformException(code: 'io');
       });
-
-      final result = await platform.checkParent('content://tree/family');
-
-      expect(result, isA<ParentAccessUnknown>());
+      expect(
+        await platform.checkParent('content://tree/family'),
+        isA<ParentAccessUnknown>(),
+      );
     });
   });
 

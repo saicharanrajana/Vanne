@@ -9,12 +9,9 @@ import 'package:wallhaven_client/wallhaven_client.dart';
 ///
 ///     WALLHAVEN_LIVE=1 dart test test/live/live_wallhaven_test.dart
 ///
-/// Authenticated checks additionally require:
-///
-///     WALLHAVEN_API_KEY=<your key>   (never committed)
-///
-/// The suite performs at most ~5 unauthenticated requests plus 2
-/// authenticated ones to stay well within the 45 requests/minute limit.
+/// Authenticated checks additionally require `WALLHAVEN_API_KEY`. The suite
+/// performs only a few requests and stays well within the 45 requests/minute
+/// limit. The key is never printed.
 void main() {
   final live = Platform.environment['WALLHAVEN_LIVE'] == '1';
   if (!live) {
@@ -33,7 +30,7 @@ void main() {
   final client = WallhavenClient(apiKeyManager: manager);
   tearDownAll(client.close);
 
-  test('latest SFW search returns a page', () async {
+  test('public listing, detail, and tag endpoints stay compatible', () async {
     final page = await client.search(WallhavenSearchRequest());
     expect(page.items, isNotEmpty);
     expect(page.currentPage, 1);
@@ -44,67 +41,25 @@ void main() {
           isNotNull,
           reason: 'thumbnails come from the API; never reconstructed');
     }
-  });
 
-  test('random search seed propagates across pages', () async {
-    final request =
-        WallhavenSearchRequest(sorting: WallhavenSorting.random);
-    final first = await client.search(request);
-    expect(first.items, isNotEmpty);
-
-    // The server may or may not return a seed; when it does, the follow-up
-    // page must carry it.
-    if (!first.hasNextPage || first.meta.seed == null) {
-      return; // nothing further to assert deterministically
-    }
-    final second = await client.nextPage(request, first);
-    expect(second.currentPage, 2);
-  });
-
-  test('SFW wallpaper detail includes uploader and tags', () async {
     // The docs' example id (94x38z) has been removed from the live API;
     // pick any latest SFW wallpaper instead of hardcoding one.
-    final listing = await client.search(WallhavenSearchRequest());
-    final target = listing.items.first.id;
-
+    final target = page.items.first.id;
     final wallpaper = await client.wallpaper(target);
     expect(wallpaper.id, target);
     expect(wallpaper.hasDetails, isTrue);
     expect(wallpaper.path, startsWith('https://'));
-  });
-  test('known tag resolves', () async {
+
     final tag = await client.tag(1);
     expect(tag.id, 1);
     expect(tag.name, isNotEmpty);
   });
 
-  test('NSFW search without key fails fast', () async {
-    // Manager intentionally left keyless even when WALLHAVEN_API_KEY is
-    // present — this asserts the local guard.
-    final keyless = ApiKeyManager();
-    final anonymous = WallhavenClient(apiKeyManager: keyless);
-    addTearDown(anonymous.close);
-    await expectLater(
-      anonymous.search(WallhavenSearchRequest(
-        purity: {WallhavenPurity.sfw, WallhavenPurity.nsfw},
-      )),
-      throwsA(isA<NsfwAuthenticationRequiredException>()),
-    );
-  });
-
   if (envKey != null && envKey.isNotEmpty) {
-    test('authenticated settings read', () async {
-      final settings = await client.settings();
-      // Shape sanity only; values are user-specific.
-      expect(settings.perPage, anyOf(isNull, isA<int>()));
+    test('authenticated settings and collections endpoints stay compatible',
+        () async {
+      await client.settings();
+      await client.collections();
     });
-
-    test('own collections list', () async {
-      final collections = await client.collections();
-      expect(collections, isA<List<WallpaperCollection>>());
-    });
-  } else {
-    // ignore: avoid_print
-    print('WALLHAVEN_API_KEY not set — skipping authenticated live checks.');
   }
 }

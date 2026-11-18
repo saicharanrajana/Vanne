@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:signals/signals.dart';
 import 'package:wallhaven_client/wallhaven_client.dart';
 
@@ -61,7 +63,10 @@ final class FeedState {
 /// - request guarding (never two pages in flight),
 /// - duplicate suppression across appended pages,
 /// - random-sort seed propagation between pages,
-/// - retry semantics that never discard loaded content.
+/// - retry semantics that never discard loaded content,
+/// - restarting when the content policy (purity, blocked tags, API key)
+///   changes, so a live feed can never keep serving items under the policy
+///   that was in force when it loaded.
 ///
 /// Subclasses describe *which* search to run via [buildSpec]; input
 /// changes call [reload] which restarts pagination cleanly.
@@ -87,29 +92,80 @@ abstract class FeedController {
   /// Set by [dispose]; guards signal writes from in-flight requests.
   bool _disposed = false;
 
-  FeedController(this._repository);
+  /// Last [WallpaperRepository.policyRevision] this feed has loaded under.
+  int _policyRevision = 0;
+
+  /// Watches policy changes for the lifetime of this controller.
+  late final EffectCleanup _policyWatch;
+
+  FeedController(this._repository) {
+    _policyRevision = _repository.policyRevision.value;
+    _policyWatch = effect(() {
+      final revision = _repository.policyRevision.value;
+      untracked(() {
+        if (revision == _policyRevision || _disposed) return;
+        _policyRevision = revision;
+        onPolicyChanged();
+      });
+    });
+  }
 
   /// Describes the next request from current controller inputs.
   SearchRequestSpec buildSpec();
+
+  /// Reacts to a content-policy change.
+  ///
+  /// The default restarts the feed, which is what a visible feed needs: the
+  /// old page was fetched under the old policy. Controllers whose surface can
+  /// sit empty (Search) override this to drop results without spending a
+  /// request on a query the user is not running.
+  void onPolicyChanged() {
+    unawaited(reload());
+  }
 
   /// Releases reactive resources; safe to call more than once.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _policyWatch();
     state.dispose();
   }
 
   /// Starts (or restarts) the feed from page 1.
   Future<void> reload() async {
     if (_disposed) return;
-    // Invalidate any in-flight page load (pagination or first load).
+    final generation = _beginGeneration();
+    state.set(const FeedState.initialLoading());
+    await _loadPage(append: false, generation: generation);
+  }
+
+  /// Drops every loaded page and any response still in flight, without
+  /// fetching anything.
+  ///
+  /// Used when the inputs no longer describe a request at all — a pristine
+  /// search, for instance: keeping the old pages would leave tiles no current
+  /// input justifies, and a response that lands later could repopulate them.
+  ///
+  /// The state is marked exhausted so a scroll notification can never turn the
+  /// emptiness into an implicit page-1 fetch; [reload] starts a real feed
+  /// again. Bumping the generation is what makes this different from merely
+  /// clearing [state]: a superseded response can no longer publish items, an
+  /// error, or a loading flag.
+  void reset() {
+    if (_disposed) return;
+    _beginGeneration();
+    state.set(const FeedState(hasMore: false));
+  }
+
+  /// Invalidates in-flight work (first load or pagination), rewinds pagination
+  /// and returns the new generation. Only requests started afterwards may
+  /// publish state.
+  int _beginGeneration() {
     _generation++;
-    final generation = _generation;
     _inFlight = false;
     _seed = null;
     _pagesRequested = 0;
-    state.set(const FeedState.initialLoading());
-    await _loadPage(append: false, generation: generation);
+    return _generation;
   }
 
   /// Loads the next page when available; no-op while busy or exhausted.
@@ -170,18 +226,12 @@ abstract class FeedController {
         ),
       );
     } on WallhavenUserException catch (error) {
-      if (!isCurrent()) return; // superseded — do not surface stale errors
-      if (append) {
-        // Keep everything already on screen; surface a retry footer.
-        state.set(
-          state.peek().copyWith(
-            loadingMore: false,
-            paginationError: error.message,
-          ),
-        );
-      } else {
-        state.set(FeedState(error: error.message));
-      }
+      _fail(error.message, append: append, isCurrent: isCurrent);
+    } catch (_) {
+      // Untyped failures are bugs (a decode or platform surprise), but the
+      // user must still get an actionable retry instead of a skeleton that
+      // never resolves: this catch owns leaving [loadingFirst]/[loadingMore].
+      _fail(_unexpectedMessage, append: append, isCurrent: isCurrent);
     } finally {
       // Only the live generation owns the guard. A superseded request that
       // finishes late must not free it, or a second page could start while
@@ -195,6 +245,29 @@ abstract class FeedController {
     if (_disposed) return;
     if (_inFlight || !state.value.hasMore) return;
     await _loadPage(append: true, generation: _generation);
+  }
+
+  static const _unexpectedMessage =
+      'Something went wrong loading wallpapers. Please try again.';
+
+  /// Publishes a failure without discarding content that is already usable.
+  void _fail(
+    String message, {
+    required bool append,
+    required bool Function() isCurrent,
+  }) {
+    if (!isCurrent()) return; // superseded — do not surface stale errors
+    if (append) {
+      // Keep everything already on screen; surface a retry footer.
+      state.set(
+        state.peek().copyWith(
+          loadingMore: false,
+          paginationError: message,
+        ),
+      );
+    } else {
+      state.set(FeedState(error: message));
+    }
   }
 }
 

@@ -81,65 +81,6 @@ void main() {
     expect(tester.takeException(), isNull, reason: 'no layout overflow');
   });
 
-  appTest('every toolbar destination is reachable and labelled', (
-    tester,
-    app,
-  ) async {
-    // The semantics tree must be released before the test ends.
-    final semantics = tester.ensureSemantics();
-    try {
-      await app.launch(tester);
-      await pumpUntil(
-        tester,
-        find.byKey(const ValueKey('wallpaper-tile-alpha')),
-        reason: 'discover feed',
-      );
-
-      const destinations = {
-        'discover': 'Discover',
-        'collections': 'Collections',
-        'favorites': 'Favorites',
-        'settings': 'Settings',
-      };
-      var selectedIndex = 0;
-      for (final entry in destinations.entries) {
-        // Each slot announces its own name and its selection state.
-        final slot = find.descendant(
-          of: find.byType(M3EToolbar),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Semantics && widget.properties.label == entry.value,
-          ),
-        );
-        expect(slot, findsOneWidget, reason: '${entry.value} slot exists');
-        expect(
-          find.bySemanticsLabel(entry.value),
-          findsWidgets,
-          reason: '${entry.value} is named for assistive tech',
-        );
-        await app.tap(tester, slot);
-        await pumpFrames(tester, 24);
-        expect(
-          find.byKey(ValueKey('nav-selected-label-$selectedIndex')),
-          findsOneWidget,
-          reason: 'visible label for ${entry.value}',
-        );
-        for (var index = 0; index < destinations.length; index++) {
-          if (index != selectedIndex) {
-            expect(
-              find.byKey(ValueKey('nav-selected-label-$index')),
-              findsNothing,
-            );
-          }
-        }
-        selectedIndex++;
-        expect(tester.takeException(), isNull);
-      }
-    } finally {
-      semantics.dispose();
-    }
-  });
-
   appTest('the floating toolbar keeps touch targets on a narrow phone', (
     tester,
     app,

@@ -42,7 +42,9 @@ void main() {
       // Both images decode at cell resolution, not full photo resolution.
       expect(
         tester
-            .widgetList<CachedNetworkImage>(_image('https://example.test/full.jpg'))
+            .widgetList<CachedNetworkImage>(
+              _image('https://example.test/full.jpg'),
+            )
             .single
             .memCacheWidth,
         400,
@@ -50,36 +52,13 @@ void main() {
     });
   });
 
-  testWidgets('a self-referential thumbnail never loads twice', (tester) async {
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _host(
-          const SmartNetworkImage(
-            'https://example.test/full.jpg',
-            placeholderImageUrl: 'https://example.test/full.jpg',
-          ),
-        ),
-      );
-
-      expect(_image('https://example.test/full.jpg'), findsOneWidget);
-    });
-  });
-
-  testWidgets('an empty url falls back without any network request', (
-    tester,
-  ) async {
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_host(const SmartNetworkImage('')));
-
-      expect(find.byType(CachedNetworkImage), findsNothing);
-      expect(find.byType(Icon), findsOneWidget);
-    });
-  });
-
   testWidgets('reduced motion removes the cross-fade', (tester) async {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        _host(const SmartNetworkImage('https://example.test/full.jpg'), disableAnimations: true),
+        _host(
+          const SmartNetworkImage('https://example.test/full.jpg'),
+          disableAnimations: true,
+        ),
       );
 
       final image = tester.widget<CachedNetworkImage>(

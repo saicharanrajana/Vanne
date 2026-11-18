@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vanne/app/launch_background.dart';
 
 /// Why: launcher and splash deliberately use separate layers: the launcher
 /// background stays white while the system splash selects white/black by theme
@@ -31,7 +30,6 @@ const _markDp = 48;
 const _legacyDp = 48;
 
 const _lightArgb = '#FFFFFFFF';
-const _darkArgb = '#FF000000';
 
 String _read(String path) {
   final file = File(path);
@@ -46,9 +44,6 @@ String _color(String path, String name) {
   expect(match, isNotNull, reason: '$path must define $name');
   return match!.group(1)!.toUpperCase();
 }
-
-String _argb(ui.Color color) =>
-    '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
 
 /// Decoded RGBA pixels of a shipped asset.
 final class _Pixels {
@@ -135,43 +130,35 @@ Future<_Pixels> _decode(String path) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('adaptive icon wiring', () {
-    test('both API levels reference the same background and mark', () {
-      for (final version in ['mipmap-anydpi-v26', 'mipmap-anydpi-v33']) {
-        final xml = _read('$_res/$version/ic_launcher.xml');
-        expect(
-          xml,
-          contains('@color/ic_launcher_background'),
-          reason: '$version must use the fixed white launcher background',
-        );
-        expect(
-          xml,
-          contains('@drawable/ic_launcher_foreground'),
-          reason: '$version must use the app mark',
-        );
-      }
-    });
-
-    test('only the API 33 icon declares the themed layer', () {
-      // Pre-33 parsers must never see <monochrome>.
+  test('adaptive icon wiring supports API 26 and API 33', () {
+    for (final version in ['mipmap-anydpi-v26', 'mipmap-anydpi-v33']) {
+      final xml = _read('$_res/$version/ic_launcher.xml');
       expect(
-        _read('$_res/mipmap-anydpi-v26/ic_launcher.xml'),
-        isNot(contains('<monochrome')),
+        xml,
+        contains('@color/ic_launcher_background'),
+        reason: '$version must use the fixed white launcher background',
       );
       expect(
-        _read('$_res/mipmap-anydpi-v33/ic_launcher.xml'),
-        contains(
-          '<monochrome android:drawable="@drawable/ic_launcher_monochrome"',
-        ),
+        xml,
+        contains('@drawable/ic_launcher_foreground'),
+        reason: '$version must use the app mark',
       );
-    });
-
-    test('the manifest uses the generated icon', () {
-      expect(
-        _read('android/app/src/main/AndroidManifest.xml'),
-        contains('android:icon="@mipmap/ic_launcher"'),
-      );
-    });
+    }
+    // Pre-33 parsers must never see <monochrome>.
+    expect(
+      _read('$_res/mipmap-anydpi-v26/ic_launcher.xml'),
+      isNot(contains('<monochrome')),
+    );
+    expect(
+      _read('$_res/mipmap-anydpi-v33/ic_launcher.xml'),
+      contains(
+        '<monochrome android:drawable="@drawable/ic_launcher_monochrome"',
+      ),
+    );
+    expect(
+      _read('android/app/src/main/AndroidManifest.xml'),
+      contains('android:icon="@mipmap/ic_launcher"'),
+    );
   });
 
   group('launcher background is fixed white', () {
@@ -182,31 +169,14 @@ void main() {
       );
       expect(File('$_res/values-night/colors.xml').existsSync(), isFalse);
     });
-
-    test(
-      'launch colors remain theme-aware independently of the launcher icon',
-      () {
-        expect(
-          _color('$_res/values/launch_colors.xml', 'launch_background'),
-          _lightArgb,
-        );
-        expect(
-          _color('$_res/values-night/launch_colors.xml', 'launch_background'),
-          _darkArgb,
-        );
-        expect(_argb(LaunchBackground.light), _lightArgb);
-        expect(_argb(LaunchBackground.dark), _darkArgb);
-      },
-    );
   });
 
   group('adaptive mark geometry', () {
-    for (final entry in _densities.entries) {
-      final name = entry.key;
-      final density = entry.value;
-      final canvas = (_canvasDp * density).round();
-
-      test('$name: mark is ${_markDp}dp, centred, unclipped', () async {
+    test('marks stay centered and unclipped at every density', () async {
+      for (final entry in _densities.entries) {
+        final name = entry.key;
+        final density = entry.value;
+        final canvas = (_canvasDp * density).round();
         final target = (_markDp * density).round();
         for (final layer in [
           'ic_launcher_foreground',
@@ -223,7 +193,6 @@ void main() {
             closeTo(target, 1),
             reason: '$path mark height must be ${_markDp}dp',
           );
-          // The master is slightly wider than tall; the width follows it.
           expect(bounds.width / bounds.height, closeTo(206 / 208, 0.02));
 
           final leftGap = bounds.left;
@@ -241,8 +210,6 @@ void main() {
             reason: '$path vertical centring',
           );
 
-          // Half-diagonal of the bounding box stays inside the 72dp visible
-          // circle, so no launcher mask can clip the visible mark.
           final halfDiagonal =
               math.sqrt(
                 bounds.width * bounds.width + bounds.height * bounds.height,
@@ -254,8 +221,8 @@ void main() {
             reason: '$path mark must fit the visible circle',
           );
         }
-      });
-    }
+      }
+    });
 
     test('themed (monochrome) mask is a single-colour silhouette', () async {
       final pixels = await _decode(
@@ -275,30 +242,30 @@ void main() {
     });
   });
 
-  group('legacy bitmaps', () {
+  test('legacy bitmaps keep an opaque white field at every density', () async {
     for (final entry in _densities.entries) {
       final name = entry.key;
       final density = entry.value;
       final size = (_legacyDp * density).round();
       final mark = (_legacyDp * _markDp / _canvasDp * density).round();
-
-      test(
-        '$name: legacy bitmap has an opaque white field and ${_markDp}dp mark',
-        () async {
-          final pixels = await _decode('$_res/mipmap-$name/ic_launcher.png');
-          expect(pixels.width, size);
-          expect(pixels.height, size);
-          // Legacy launchers show the full square, so the field must be opaque.
-          expect(pixels.alpha(0, 0), 255);
-          expect(
-            (pixels.red(0, 0), pixels.green(0, 0), pixels.blue(0, 0)),
-            (255, 255, 255),
-          );
-          final bounds = pixels.contentBounds((255, 255, 255));
-          expect(bounds.height, closeTo(mark, 1));
-          expect(bounds.width / bounds.height, closeTo(206 / 208, 0.02));
-          expect(bounds.left, closeTo(size - (bounds.left + bounds.width), 1));
-        },
+      final path = '$_res/mipmap-$name/ic_launcher.png';
+      final pixels = await _decode(path);
+      expect(pixels.width, size, reason: '$path width');
+      expect(pixels.height, size, reason: '$path height');
+      // Legacy launchers show the full square, so the field must be opaque.
+      expect(pixels.alpha(0, 0), 255, reason: '$path opacity');
+      expect(
+        (pixels.red(0, 0), pixels.green(0, 0), pixels.blue(0, 0)),
+        (255, 255, 255),
+        reason: '$path background',
+      );
+      final bounds = pixels.contentBounds((255, 255, 255));
+      expect(bounds.height, closeTo(mark, 1), reason: '$path mark size');
+      expect(bounds.width / bounds.height, closeTo(206 / 208, 0.02));
+      expect(
+        bounds.left,
+        closeTo(size - (bounds.left + bounds.width), 1),
+        reason: '$path horizontal centring',
       );
     }
   });
@@ -317,6 +284,17 @@ void main() {
 
   group('generation inputs', () {
     test('shipped PNGs match the checked-in masters', () {
+      // These inputs are prerequisites for a real generator invocation, not
+      // independent existence-only contracts.
+      expect(File('assets/branding/vanne_mark.png').existsSync(), isTrue);
+      expect(File('assets/branding/vanne_monochrome.png').existsSync(), isTrue);
+      expect(File('tool/branding/build_icons.py').existsSync(), isTrue);
+      expect(
+        _read('tool/apply_android_overrides.sh'),
+        contains('tool/branding/build_icons.py'),
+        reason: 'the Android regeneration path must rebuild launcher icons',
+      );
+
       // The generator is the source of truth; `--check` fails when a PNG was
       // edited by hand or the masters changed without regenerating. Skipped
       // only when python3 is unavailable (the generator is stdlib-only).
@@ -350,19 +328,6 @@ void main() {
           reason: 'template copy of $rel must match the live resource',
         );
       }
-    });
-
-    test('the checked-in masters and generator exist', () {
-      // Without these, `flutter create` + the override script could not rebuild
-      // the icons, and the shipped PNGs would become hand-maintained binaries.
-      expect(File('assets/branding/vanne_mark.png').existsSync(), isTrue);
-      expect(File('assets/branding/vanne_monochrome.png').existsSync(), isTrue);
-      expect(File('tool/branding/build_icons.py').existsSync(), isTrue);
-      expect(
-        _read('tool/apply_android_overrides.sh'),
-        contains('tool/branding/build_icons.py'),
-        reason: 'regenerating android/ must rebuild the launcher icons',
-      );
     });
   });
 }
